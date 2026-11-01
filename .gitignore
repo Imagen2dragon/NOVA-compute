@@ -11,6 +11,11 @@ models/
 weights/
 checkpoints/
 
+# Portable runtimes and archives
+runtime/
+*.zip
+*.tar.gz
+
 # Python artifacts
 __pycache__/
 *.py[cod]

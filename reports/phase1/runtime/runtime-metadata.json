@@ -1,0 +1,122 @@
+{
+  "project": "NOVA Compute",
+  "phase": 1,
+  "date_utc": "2026-11-01T12:21:55Z",
+  "hardware": {
+    "host_os": "Microsoft Windows 11 Home (10.0.26200)",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-13700H (14 cores / 20 threads)",
+    "ram_installed_gb": 16.0,
+    "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU (6140 MiB VRAM)",
+    "driver_version": "592.82",
+    "cuda_driver_api": "13.1",
+    "pcie_link": "PCIe Gen4 x8"
+  },
+  "runtime": {
+    "name": "llama.cpp",
+    "version": "0.8.0-dev",
+    "build_number": 12032,
+    "build_commit": "dde879bc4",
+    "backend": "CUDA 12.4 (ggml-cuda.dll, cudart64_12.dll, cublas64_12.dll)",
+    "cpu_fallback_backend": "ggml-cpu-alderlake.dll",
+    "execution_mode": "native-windows-portable"
+  },
+  "model": {
+    "repository": "Qwen/Qwen3-1.7B-GGUF",
+    "file": "Qwen3-1.7B-Q8_0.gguf",
+    "size_bytes": 1834426016,
+    "sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+    "architecture": "qwen3",
+    "quantization": "Q8_0",
+    "n_params": 1720574976,
+    "block_count": 28,
+    "context_length": 40960
+  },
+  "benchmarks": {
+    "cpu_json_report": "reports/phase1/runtime/cpu-benchmark.json",
+    "cuda_json_report": "reports/phase1/runtime/cuda-benchmark.json"
+  },
+  "real_inference_runs": [
+    {
+      "title": "Coding Question",
+      "prompt": "Write a Python function to compute the moving average of a numeric list with window size k, and explain its time complexity.",
+      "exit_code": 0,
+      "total_wall_time_s": 3.564,
+      "stdout": "\n\nLoading model... \n\n\u00e2\u2013\u201e\u00e2\u2013\u201e \u00e2\u2013\u201e\u00e2\u2013\u201e\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6  \u00e2\u2013\u20ac\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e  \u00e2\u2013\u20ac\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e    \u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u02c6    \u00e2\u2013\u02c6\u00e2\u2013\u02c6    \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u20ac \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u20ac\n                                    \u00e2\u2013\u02c6\u00e2\u2013\u02c6    \u00e2\u2013\u02c6\u00e2\u2013\u02c6\n                                    \u00e2\u2013\u20ac\u00e2\u2013\u20ac    \u00e2\u2013\u20ac\u00e2\u2013\u20ac\n\nbuild      : b12032-dde879bc4\nmodel      : C:\\Users\\abdal\\OneDrive\\Desktop\\nova_compute_antigravity_starter\\models\\qwen3-1.7b\\Qwen3-1.7B-Q8_0.gguf\nftype      : Q8_0\nmodalities : text\n\navailable commands:\n  /exit or Ctrl+C     stop or exit\n  /regen              regenerate the last response\n  /clear              clear the chat history\n  /read <file>        add a text file\n  /glob <pattern>     add text files using globbing pattern\n\n\n\n> Write a Python function to compute the moving average of a numeric list with window size k, and explain its time complexity.\n\n[Start thinking]\n\nOkay, I need to write a Python function to compute the moving average of a numeric list with a window size k. Let me think about how to approach this.\n\nFirst, the moving average. For example, if the input list is [1,2,3,4,5] and k is 2, the moving averages would be (1+2)/2, (2+3)/2, (3+4)/2, (4+5)/2. So the output would be [1.5, 2.5, 3.5, 4.5]. \n\nNow, how\n\n[ Prompt: 618.0 t/s | Generation: 87.6 t/s ]\n\n\nExiting...\n",
+      "stderr": "",
+      "telemetry": {
+        "ram_before_mb": {
+          "total": 16024,
+          "used": 12375,
+          "avail": 3649
+        },
+        "ram_peak_mb": 14449,
+        "ram_after_mb": {
+          "total": 16024,
+          "used": 12241,
+          "avail": 3783
+        },
+        "gpu_before": {
+          "vram_used_mb": 249.0,
+          "vram_free_mb": 5672.0,
+          "gpu_util_percent": 0.0,
+          "power_draw_w": 4.43,
+          "temperature_c": 49.0
+        },
+        "gpu_peak": {
+          "vram_used_mb": 2372.0,
+          "gpu_util_percent": 96.0,
+          "power_draw_w": 67.32,
+          "temperature_c": 60.0
+        },
+        "gpu_after": {
+          "vram_used_mb": 249.0,
+          "vram_free_mb": 5672.0,
+          "gpu_util_percent": 0.0,
+          "power_draw_w": 52.23,
+          "temperature_c": 55.0
+        }
+      }
+    },
+    {
+      "title": "Reasoning Question",
+      "prompt": "A box contains 3 red balls and 5 blue balls. If you draw two balls at random without replacement, what is the probability that both are blue? Show your step-by-step reasoning.",
+      "exit_code": 0,
+      "total_wall_time_s": 3.027,
+      "stdout": "\n\nLoading model... \n\n\u00e2\u2013\u201e\u00e2\u2013\u201e \u00e2\u2013\u201e\u00e2\u2013\u201e\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6  \u00e2\u2013\u20ac\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e  \u00e2\u2013\u20ac\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e    \u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u201e\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u02c6    \u00e2\u2013\u02c6\u00e2\u2013\u02c6    \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\n\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u201e\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u20ac\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6 \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u20ac \u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u02c6\u00e2\u2013\u20ac\n                                    \u00e2\u2013\u02c6\u00e2\u2013\u02c6    \u00e2\u2013\u02c6\u00e2\u2013\u02c6\n                                    \u00e2\u2013\u20ac\u00e2\u2013\u20ac    \u00e2\u2013\u20ac\u00e2\u2013\u20ac\n\nbuild      : b12032-dde879bc4\nmodel      : C:\\Users\\abdal\\OneDrive\\Desktop\\nova_compute_antigravity_starter\\models\\qwen3-1.7b\\Qwen3-1.7B-Q8_0.gguf\nftype      : Q8_0\nmodalities : text\n\navailable commands:\n  /exit or Ctrl+C     stop or exit\n  /regen              regenerate the last response\n  /clear              clear the chat history\n  /read <file>        add a text file\n  /glob <pattern>     add text files using globbing pattern\n\n\n\n> A box contains 3 red balls and 5 blue balls. If you draw two balls at random without replacement, what is the probability that both are blue? Show your step-by-step reasoning.\n\n[Start thinking]\n\nOkay, so I need to figure out the probability that if I draw two balls at random from a box containing 3 red balls and 5 blue balls, both of them are blue. Let me think about how to approach this.\n\nFirst, probability problems often involve figuring out the number of favorable outcomes divided by the total number of possible outcomes. In this case, the favorable outcomes are the number of ways to draw two blue balls, and the total outcomes are the number of ways to draw any two balls from the box.\n\nLet me start by recalling that when dealing with probabilities without replacement, the order of drawing doesn't matter,\n\n[ Prompt: 2023.6 t/s | Generation: 87.7 t/s ]\n\n\nExiting...\n",
+      "stderr": "",
+      "telemetry": {
+        "ram_before_mb": {
+          "total": 16024,
+          "used": 12231,
+          "avail": 3793
+        },
+        "ram_peak_mb": 14386,
+        "ram_after_mb": {
+          "total": 16024,
+          "used": 12236,
+          "avail": 3788
+        },
+        "gpu_before": {
+          "vram_used_mb": 249.0,
+          "vram_free_mb": 5672.0,
+          "gpu_util_percent": 0.0,
+          "power_draw_w": 23.31,
+          "temperature_c": 54.0
+        },
+        "gpu_peak": {
+          "vram_used_mb": 2372.0,
+          "gpu_util_percent": 95.0,
+          "power_draw_w": 67.48,
+          "temperature_c": 62.0
+        },
+        "gpu_after": {
+          "vram_used_mb": 249.0,
+          "vram_free_mb": 5672.0,
+          "gpu_util_percent": 0.0,
+          "power_draw_w": 54.9,
+          "temperature_c": 58.0
+        }
+      }
+    }
+  ]
+}
