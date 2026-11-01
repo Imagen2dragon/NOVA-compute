@@ -1,0 +1,58 @@
+=== NOVA Compute / Windows hardware report ===
+Collected: 2026-11-01T14:15:52.7015548+03:00
+OS: Microsoft Windows 11 Home
+OS version: 10.0.26200
+CPU: 13th Gen Intel(R) Core(TM) i7-13700H
+Logical processors: 20
+Installed RAM (GB): 15.65
+\n--- Memory modules ---
+
+Manufacturer        Capacity Speed ConfiguredClockSpeed PartNumber          
+------------        -------- ----- -------------------- ----------          
+Micron Technology 8589934592  3200                 3200 4ATF1G64HZ-3G2F1    
+Micron Technology 8589934592  3200                 3200 4ATF1G64HZ-3G2F1    
+
+
+\n--- Physical disks ---
+
+FriendlyName                  MediaType BusType          Size HealthStatus
+------------                  --------- -------          ---- ------------
+WD PC SN810 SDCPNRY-1T00-1006 SSD       NVMe    1024209543168 Healthy     
+
+
+\n--- Volumes ---
+
+DriveLetter FileSystemLabel FileSystem SizeRemaining          Size
+----------- --------------- ---------- -------------          ----
+          C Windows         NTFS        187420327936 1022810386432
+
+
+\n--- NVIDIA ---
+Sun Nov  1 14:15:55 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 592.82                 Driver Version: 592.82         CUDA Version: 13.1     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                  Driver-Model | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4050 ...  WDDM  |   00000000:01:00.0  On |                  N/A |
+| N/A   50C    P8              4W /   69W |     208MiB /   6141MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            9948    C+G   ...ui\LightStudio-background.exe      N/A      |
+|    0   N/A  N/A           16756    C+G   ...enCommandCenterBackground.exe      N/A      |
++-----------------------------------------------------------------------------------------+
+\n--- WSL ---
+Default Distribution: Ubuntu
+Default Version: 2
+  NAME              STATE           VERSION
+* Ubuntu            Stopped         2
+  docker-desktop    Stopped         2
+\nReport complete. Review before sharing; it contains hardware/software inventory, not personal documents.

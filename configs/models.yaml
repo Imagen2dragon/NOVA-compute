@@ -1,0 +1,34 @@
+project: NOVA Compute
+status: research-prototype
+hardware_target:
+  gpu: NVIDIA RTX 4050 Laptop
+  vram_gb: 6
+  system_ram_gb: 16
+performance:
+  decode_target_tokens_per_second: 18
+  target_type: stretch
+  note: Must be measured; not a guarantee.
+models:
+  primary_generalist:
+    repository: Qwen/Qwen3-30B-A3B
+    architecture: MoE
+    total_parameters_approx_b: 30.5
+    active_parameters_approx_b: 3.3
+    candidate_quants:
+      - Q3_K_M
+      - Q4_K_M
+    roles:
+      - coding
+      - reasoning
+      - mathematics
+      - engineering
+  specialist_base:
+    repository: Qwen/Qwen3-1.7B
+    architecture: dense
+    license: Apache-2.0
+    adaptation:
+      first: RAG
+      later: LoRA-or-QLoRA
+    adapters:
+      - engineering
+      - marketing
