@@ -1,6 +1,6 @@
 # NOVA Compute — Antigravity-ready Starter Pack
 
-**Status:** research prototype / Phase 0 hardware qualification
+**Status:** Phase 0 (Hardware Qualification) & Phase 1 (Small-Model Runtime Baseline) Complete | Phase 2A (MoE Architecture Audit) In Review
 
 NOVA Compute is a resource-aware local inference platform for MoE LLMs and small domain-specialist models. The first reported target machine is an NVIDIA RTX 4050 Laptop GPU (6 GB VRAM) with 16 GB system RAM. Verify all specifications before selecting runtimes or models.
 

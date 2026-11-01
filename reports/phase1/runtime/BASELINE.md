@@ -116,6 +116,9 @@ Live telemetry was sampled at 150ms intervals throughout inference execution via
 | **Available System RAM**| 3,649 MB | **1,575 MB** | 3,783 MB | Safe (>1.5 GB minimum headroom) |
 | **Model Load Time** | — | **~1.4 seconds** | — | High-speed load from WD PC SN810 NVMe |
 
+> [!NOTE]
+> **System-Wide RAM Attribution Note:** The 14,449 MB peak reflects total system-wide committed RAM across Windows and concurrent background processes (browsers, IDEs, background services). The actual net physical working-set delta attributable to `llama.cpp` loading Qwen3-1.7B was **~2,074 MB**. Telemetry polling occurred at 150ms intervals.
+
 ---
 
 ## 6. Categorization of Evidence
