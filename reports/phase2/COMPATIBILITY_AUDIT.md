@@ -40,8 +40,12 @@ All flags were audited directly from the help output of the installed binaries i
 | `--gpu-layers` | `-ngl N` | `LLAMA_ARG_N_GPU_LAYERS` | `auto` (`-1`) | `max. number of layers to store in VRAM, either an exact number, 'auto', or 'all'` | **Verified** |
 
 > [!IMPORTANT]
-> **Key Tool Discrepancy:**
-> While `llama-cli.exe` and `llama-server.exe` support `--moe-cache-mib`, `llama-bench.exe` does **not** expose the `--moe-cache-mib` option. Benchmarking GPU expert cache hit rates must therefore be conducted via `llama-cli` execution with `--perf` or custom harness instrumentation rather than `llama-bench`.
+> **Key Tool Discrepancy & Mechanics of GPU Expert Caching:**
+> 1. **Tool Availability:** While `llama-cli.exe` and `llama-server.exe` support `--moe-cache-mib`, `llama-bench.exe` does **not** expose the `--moe-cache-mib` option. Benchmarking GPU expert cache hit rates must therefore be conducted via `llama-cli` execution with `--perf` or custom harness instrumentation rather than `llama-bench`.
+> 2. **Operational Mechanics:** `--moe-cache-mib N` dynamically reserves $N$ MiB of GPU VRAM as a Least-Recently-Used (LRU) buffer for MoE expert weights pinned to CPU RAM. When a token router selects an expert:
+>    - **Cache Hit:** The expert's weights already reside in VRAM; computation proceeds immediately on the 2,048 CUDA cores at peak GDDR6 memory bandwidth (~192 GB/s) with zero PCIe transfer overhead.
+>    - **Cache Miss:** The expert's weights are faulted in from CPU system RAM over PCIe Gen4 x8 (~15.75 GB/s) and inserted into the GPU cache, evicting the least-recently-used expert.
+>    - **Performance Implication:** For repetitive domain tasks (e.g. repetitive code generation or focused reasoning), expert routing exhibits high locality, yielding elevated cache hit rates and substantially higher decode speeds than pure CPU streaming.
 
 ---
 

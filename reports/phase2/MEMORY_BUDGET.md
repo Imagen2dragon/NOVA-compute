@@ -15,6 +15,18 @@ To avoid catastrophic system freezing, memory exhaustion, and sustained pagefile
 - **RAM (16,024 MiB DDR4):** Moderate bandwidth (~35–42 GB/s sustained dual-channel), large working capacity (~11,800 MB usable when clean), but shared with the operating system and background tasks.
 - **NVMe SSD (WD PC SN810):** High capacity (171 GB free), high sequential burst (~6.6 GB/s), but slow random 4K–64K page-in bandwidth (~100–400 MB/s). Useful for mmap backing, but disastrous for active per-token random page faults.
 
+### 1.1 Architectural Distinction: Memory-Mapped Files (mmap) vs. System Pagefile
+A critical distinction in resource-aware inference is the operational difference between `mmap` backing and pagefile swapping:
+1. **File-Backed `mmap` Pages (Clean Memory):**
+   - Model weights mapped into virtual memory are clean, read-only pages backed by the GGUF file on the NVMe SSD.
+   - Under memory pressure, the Windows Memory Manager can instantly discard clean mmap pages without writing any data to disk.
+   - When discarded expert weights are subsequently accessed, the OS issues page-fault reads directly from the GGUF file. While this introduces read latency (~20–100 μs on NVMe), it incurs **zero disk write overhead**.
+2. **System Pagefile (`pagefile.sys` / Anonymous Memory):**
+   - Covers modified, anonymous memory (process heap, activation buffers, KV cache, dynamic scratchpads).
+   - Because dirty pages cannot be recreated from disk, when physical RAM is exhausted the OS **must write dirty pages to `pagefile.sys`** before reusing the memory frames.
+   - This creates synchronous write queues, I/O bus saturation, and sustained pagefile thrashing that can freeze the entire desktop environment.
+   - **Engine Principle:** Keep anonymous memory (KV cache + compute scratch) 100% resident in physical RAM/VRAM, and allow only read-only weight tensors to interact with the mmap file cache.
+
 ---
 
 ## 2. Parameter Decomposition of Qwen3-30B-A3B
@@ -68,6 +80,15 @@ $$\mathbf{Total\ Parameters} = 0.906\text{B} + 0.013\text{B} + 0.622\text{B} + 2
 | Layer Experts (128 experts) | 603.98 M | ~211 MB | ~266 MB | ~339 MB |
 | **Total MoE Weights (48 Layers)** | **28.991 B** | **~9.85 GB** | **~12.45 GB** | **~15.85 GB** |
 | **Complete Model Footprint** | **30.532 B** | **~10.69 GB** | **~13.39 GB** | **~16.92 GB** |
+
+### 3.1 Discrepancy Between Theoretical Weight Math and Actual GGUF Sizes
+Theoretical math calculates raw quantized weight payloads (e.g. $30.532\text{B} \times 3.5\text{ bpw} / 8 \approx 13.36\text{ GB}$). However, the actual downloaded `Qwen3-30B-A3B-Q3_K_M.gguf` file is **14,076,803,744 bytes (~14.08 GB / 13.11 GiB)**. 
+
+The ~690 MB difference arises from specific architectural and format components:
+1. **Quantization Block Headers:** In `ggml` k-quants, weights are stored in super-blocks of 256 weights. Each block contains 16-bit float scale factors and 8-bit minimum values to dequantize weights dynamically during GEMM operations, adding ~3–5% overhead above the raw bit-rate.
+2. **Mixed-Precision Quantization Policy:** The `Q3_K_M` quant does not uniformly quantize every tensor to 3 bits. To prevent severe perplexity degradation, sensitive tensors (token embeddings, attention `wo` projections, normalization weights, and router logits) are quantized at `Q4_K`, `Q6_K`, or FP16.
+3. **Vocabulary & Embedded Metadata:** The model vocabulary of 151,936 tokens (token strings, scores, and merge rules) consumes ~35 MB, accompanied by GGUF key-value metadata tables and Jinja chat templates.
+4. **Tensor Alignment:** GGUF enforces strict memory alignment (default 32 bytes) between all 310+ tensor chunks to enable direct page-aligned memory-mapping (`mmap`) into system virtual memory.
 
 ---
 

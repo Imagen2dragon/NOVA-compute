@@ -74,8 +74,8 @@ Below are four viable candidate configurations designed to maximize stability, r
 
 ---
 
-### Configuration C: Hybrid Layer Split (12 Layers Full GPU + 36 Layers CPU MoE)
-- **Core Concept:** Instead of an un-pinned dynamic cache, permanently offload the first 12 layers (dense + all 128 experts) entirely into GPU VRAM. Pin only the remaining 36 layers of experts to CPU RAM (`-ncmoe 36`).
+### Configuration C: Hybrid Layer Split (First 36 Layers CPU MoE + Last 12 Layers GPU MoE)
+- **Core Concept:** Offload all 48 layers of dense attention, embeddings, and output head to GPU VRAM (`-ngl 48`). Pin the MoE expert weights of the **first 36 layers (layers 0 to 35)** to CPU host RAM via `-ncmoe 36`. The MoE expert weights of the **remaining 12 layers (layers 36 to 47)** remain offloaded to GPU VRAM.
 - **Exact Command Syntax:**
   ```powershell
   .\runtime\windows\llama-cpp\llama-cli.exe `
@@ -90,10 +90,10 @@ Below are four viable candidate configurations designed to maximize stability, r
     -st --simple-io --perf
   ```
 - **Resource Footprint:**
-  - **VRAM Required:** **~4.65 GB** (Dense weights: ~939 MB, 12 layers of all 128 experts: $12 \times 266\text{ MB} = 3.19\text{ GB}$, KV cache: 192 MB, Buffers: ~350 MB).
-  - **System RAM Required:** **~9.58 GB** (36 layers of experts: $36 \times 266\text{ MB}$) + **~3.80 GB** (Clean OS) = **~13.38 GB**.
+  - **VRAM Required:** **~4.65 GB** (Dense weights: ~939 MB, 12 layers of GPU experts [layers 36–47]: $12 \times 266\text{ MB} = 3.19\text{ GB}$, KV cache: 192 MB, Buffers: ~350 MB).
+  - **System RAM Required:** **~9.58 GB** (36 layers of CPU experts [layers 0–35]: $36 \times 266\text{ MB}$) + **~3.80 GB** (Clean OS) = **~13.38 GB**.
 - **SSD Access Characteristics:** **Zero SSD paging.** The 9.58 GB expert requirement fits 100% inside the 11.8 GB clean system RAM with ~2.2 GB of headroom!
-- **Primary Bottlenecks:** Two-phase execution pipeline: GPU executes layers 0–11 at ~80 tok/s; then CPU executes layers 12–47 at ~5–8 tok/s.
+- **Primary Bottlenecks:** Execution pipeline structure: for layers 0–35, attention runs on GPU while MoE runs on CPU; for layers 36–47, both attention and MoE run directly on GPU.
 - **Potential Throughput:** **~5.5 to 10.0 tokens/second** *(unmeasured estimate)*.
 - **Failure Risks:** Very low. Guarantees that neither VRAM nor RAM overflows physical boundaries.
 
