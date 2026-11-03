@@ -1,0 +1,14 @@
+{
+  "artifact": "Qwen_Qwen3-30B-A3B-Q4_K_M.gguf",
+  "status": "completed",
+  "downloaded_bytes": 18632184480,
+  "total_bytes": 18632184480,
+  "downloaded_gib": 17.35,
+  "total_gib": 17.35,
+  "pct": 100.0,
+  "speed_mbs": 0,
+  "eta_seconds": 0,
+  "avail_ram_mb": 440.9,
+  "free_ssd_gb": 130.18,
+  "timestamp": 1793740857.871788
+}

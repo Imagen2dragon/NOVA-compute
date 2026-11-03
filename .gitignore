@@ -1,5 +1,6 @@
 # Large Model Weights and Checkpoints (Critical to minimize repo size)
 *.gguf
+*.part
 *.bin
 *.safetensors
 *.pt

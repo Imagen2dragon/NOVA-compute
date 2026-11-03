@@ -1,5 +1,6 @@
 project: NOVA Compute
 status: research-prototype
+phase: 2B-model-acquisition
 hardware_target:
   gpu: NVIDIA RTX 4050 Laptop
   vram_gb: 6
@@ -10,13 +11,27 @@ performance:
   note: Must be measured; not a guarantee.
 models:
   primary_generalist:
-    repository: Qwen/Qwen3-30B-A3B
-    architecture: MoE
+    name: Qwen3-30B-A3B-Q4_K_M
+    architecture: Qwen3MoE
     total_parameters_approx_b: 30.5
     active_parameters_approx_b: 3.3
-    candidate_quants:
-      - Q3_K_M
-      - Q4_K_M
+    selected_quantization: Q4_K_M
+    artifact_filename: Qwen_Qwen3-30B-A3B-Q4_K_M.gguf
+    artifact_size_bytes: 18632184480
+    artifact_size_gib: 17.35
+    repository: bartowski/Qwen_Qwen3-30B-A3B-GGUF
+    pinned_revision: fb6ccf61e476d3077e10333e98e794f960ceea2a
+    expected_sha256: a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32
+    expected_xet_hash: c1d94f7c5a14a24f6c637499fbff9ccf5102d312ff68d73a86a8e3f2761918ba
+    local_artifact_path: models/qwen3-30b/Qwen_Qwen3-30B-A3B-Q4_K_M.gguf
+    download_status: completed-verified
+    sha256_verified: a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32
+    gguf_tensors: 579
+    gguf_total_parameters: 30532122624
+    initialization_status: uninitialized-awaiting-phase2c-approval
+    superseded_candidates:
+      - quant: Q3_K_M
+        reason: Superseded by Lead Architect decision (ChatGPT) in Phase 2B authorization in favor of Q4_K_M.
     roles:
       - coding
       - reasoning
@@ -24,8 +39,11 @@ models:
       - engineering
   specialist_base:
     repository: Qwen/Qwen3-1.7B
+    artifact_filename: Qwen3-1.7B-Q8_0.gguf
     architecture: dense
     license: Apache-2.0
+    status: verified-phase1
+    local_artifact_path: models/qwen3-1.7b/Qwen3-1.7B-Q8_0.gguf
     adaptation:
       first: RAG
       later: LoRA-or-QLoRA

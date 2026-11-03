@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-02  
 **Target Model:** `Qwen/Qwen3-30B-A3B`  
-**Selected Artifact:** `Qwen_Qwen3-30B-A3B-Q3_K_M.gguf`  
+**Authorized Primary Artifact:** `Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` *(supersedes Q3_K_M)*  
 **Host Machine:** HP Victus Laptop (RTX 4050 6GB GDDR6, 16GB DDR4-3200 RAM, WD SN810 NVMe)  
 **Role:** Implementation Engineer (Antigravity)  
 **Reviewer:** Lead Architect & Technical Reviewer (ChatGPT)  
@@ -10,57 +10,73 @@
 
 ---
 
-## 1. Hardware Preflight Audit
+## 1. Governance & Model Selection Evolution
 
-Preflight checks were executed via direct read-only operating system and GPU queries (`GlobalMemoryStatusEx` and `nvidia-smi`):
+- **Original Candidate (Phase 2A Audit):** `Qwen_Qwen3-30B-A3B-Q3_K_M.gguf` (~14.08 GB).
+- **Authorized Decision (Phase 2B):** The Lead Architect (ChatGPT) and Project Owner approved advancing to **`Q4_K_M`** (18.63 GB) as the primary generalist artifact to ensure higher reasoning fidelity and code generation accuracy.
+- **Supersession Notice:** `Q3_K_M` is marked as superseded in [`configs/models.yaml`](../../configs/models.yaml). No download of `Q3_K_M` or any other quantization has been performed.
+- **Scope Limit:** Phase 2B is strictly bounded to **model acquisition and cryptographic integrity verification**. No model initialization, execution, or inference will take place until Phase 2B verification is reviewed and ChatGPT issues the Phase 2C inference directive.
 
-| Resource / Parameter | Measured Current Value | Requirement for Phase 2B | Preflight Status |
+---
+
+## 2. Remote Metadata & Cryptographic Integrity Target
+
+Queried and verified against the Hugging Face repository API and Git LFS pointers:
+
+| Metadata Attribute | Specification | Verification Source |
+|---|---|---|
+| **Hugging Face Repository** | [`bartowski/Qwen_Qwen3-30B-A3B-GGUF`](https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-GGUF) | Official Bartowski GGUF quant repository |
+| **Pinned Revision (Commit ID)** | `fb6ccf61e476d3077e10333e98e794f960ceea2a` | Pinned commit hash |
+| **Exact Artifact Filename** | `Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` | Exact binary name |
+| **Destination Path** | `models/qwen3-30b/Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` | Local target directory |
+| **Exact File Size (Bytes)** | **`18,632,184,480` bytes** (~18.63 GB / 17.35 GiB) | HTTP `Content-Length` & `Content-Range` |
+| **Official Git LFS SHA256 (OID)** | `a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32` | Git LFS pointer OID |
+| **Hugging Face Xet Hash** | `c1d94f7c5a14a24f6c637499fbff9ccf5102d312ff68d73a86a8e3f2761918ba` | Remote ETag header |
+| **HTTP Range Resumption** | Verified (`Accept-Ranges: bytes`, Status `206`) | HTTP preflight range request |
+| **GGUF Magic Header** | `b'GGUF'` (`0x46554747`) | First 4 bytes of stream verified |
+
+---
+
+## 3. Hardware Preflight Audit (Download Readiness)
+
+Operating system memory, GPU, and NVMe storage were audited prior to initiating the streaming acquisition:
+
+| Resource / Parameter | Measured Preflight Value | Requirement for Download | Status |
 |---|---|---|---|
-| **Available Physical RAM** | **1.37 GB** (1,471,099,904 bytes) | $\ge \mathbf{11.5\text{ GB}}$ | ❌ **FAIL (Deficit: ~10.13 GB)** |
-| **Available Dedicated VRAM** | **5.78 GB** (5,918 MB free / 6,140 MB total) | $\ge \mathbf{5.2\text{ GB}}$ | ✅ **PASS** |
-| **Active GPU Compute Apps** | **None** (`nvidia-smi` reports 0 active compute apps) | Zero competing compute | ✅ **PASS** |
-| **GPU Temperature** | **53.0°C** | Normal idle operating range | ✅ **PASS** |
-| **SSD Free Storage (C:)** | **159.59 GB** free out of 952.57 GB | $\ge \mathbf{25.0\text{ GB}}$ | ✅ **PASS** |
-| **Windows Commit Limit** | 40.65 GB total (17.08 GB committed, 23.57 GB available) | Stable system commit pool | ✅ **PASS** |
-
-### Top Background Process Memory Consumers
-Active desktop applications are currently holding ~10 GB of physical RAM:
-1. **Claude Desktop (`claude.exe`):** Multiple instances consuming ~1,830 MB RAM.
-2. **Microsoft Edge (`msedge.exe`):** Multiple tabs/instances consuming ~1,980 MB RAM.
-3. **Mozilla Firefox (`firefox.exe`):** Consuming ~575 MB RAM.
-4. **Microsoft SQL Server (`sqlservr.exe`):** Consuming ~380 MB RAM (532 MB private commit).
-5. **HP OMEN Services (`OmenCommandCenterBackground`, `OMENOverlay`):** Consuming ~650 MB RAM.
-6. **Windows Explorer, Language Server, Antigravity IDE, OS background:** Consuming ~4,500 MB RAM.
-
-> [!CAUTION]
-> **Preflight Condition Unmet:**
-> Available RAM is currently **1.37 GB**. Loading a 14 GB model under this condition would trigger catastrophic OS thrashing and Out-Of-Memory termination. Per strict Phase 2B rules: *"If requirements are not satisfied, stop."*
-> Non-essential memory consumers (Edge, Firefox, Claude desktop, SQL Server) must be closed by the user to free $\ge 11.5\text{ GB}$ of physical RAM before proceeding.
+| **Available Physical RAM** | **3.29 GB** (3,451,576,320 bytes) | $\ge \mathbf{1.0\text{ GB}}$ ($\ge 750\text{ MB}$ abort gate) | ✅ **PASS** |
+| **Dedicated VRAM** | **5.78 GB** free (5,918 MB free / 6,140 MB total) | Unutilized by downloader (0 MB VRAM) | ✅ **PASS** |
+| **GPU Temperature** | **48.0°C – 53.0°C** | Normal idle thermal operating range | ✅ **PASS** |
+| **SSD Free Storage (C:)** | **157.90 GB** free out of 952.57 GB | $\ge \mathbf{25.0\text{ GB}}$ ($\ge 10\text{ GB}$ abort gate) | ✅ **PASS** |
+| **Windows Commit Limit** | 40.65 GB total (17.1 GB committed, 23.5 GB available) | Stable system commit pool | ✅ **PASS** |
 
 ---
 
-## 2. Target Model Artifact Integrity Specifications
+## 4. Streaming Downloader Architecture & Safeguards
 
-Metadata queried directly from Hugging Face API:
+The download is implemented via [`scripts/download_model.py`](../../scripts/download_model.py) adhering to strict engineering constraints:
 
-- **Repository:** [`bartowski/Qwen_Qwen3-30B-A3B-GGUF`](https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-GGUF)
-- **Repository Commit Revision:** `46f17e079cba70b04390bef39b57d2783e9fd015`
-- **Artifact File Name:** `Qwen_Qwen3-30B-A3B-Q3_K_M.gguf`
-- **Destination Path:** `models/qwen3-30b/Qwen_Qwen3-30B-A3B-Q3_K_M.gguf`
-- **Exact File Size:** **14,076,803,744 bytes** (~14.08 GB / 13.11 GiB)
-- **Official Git LFS SHA256 (OID):** `1f3792eec1bb8559bf6fb49fec159cd85bff97ec262c21b8b59a43e9e2b29859`
-- **Hugging Face xetHash:** `3e4c9d67952fc75d39b772a911f66cd9d535517f38cff9445ea200b9271991dc`
-- **Download Source URL:** `https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-GGUF/resolve/main/Qwen_Qwen3-30B-A3B-Q3_K_M.gguf`
+1. **Bounded Memory Footprint:** Streams in fixed 8 MiB buffers with unbuffered direct file writes (`buffering=0`), maintaining Python memory consumption below 25 MB throughout the entire transfer.
+2. **Resumption via HTTP Range:** Downloads to a temporary `.part` file (`Qwen_Qwen3-30B-A3B-Q4_K_M.gguf.part`). In the event of network interruption, it automatically requests `Range: bytes={current_size}-` without losing progress.
+3. **Resilience & Exponential Backoff:** Re-establishes dropped connections with up to 10 retries and progressive backoff, avoiding failure from transient DNS (`Errno 11001`) or remote CDN timeouts.
+4. **Dynamic OS Memory Safety Gate:** Polling `GlobalMemoryStatusEx` on every chunk:
+   - If available RAM falls below 1,000 MB, stream throttles for 5 seconds.
+   - If available RAM falls below 750 MB, the process safely pauses and aborts to preserve system stability.
+5. **SSD Exhaustion Gate:** Polling `GetDiskFreeSpaceExW` periodically; aborts if free space on `C:\` drops below 10.0 GB.
+6. **Promotion & Validation Sequence:**
+   - Byte count verification (`18,632,184,480` bytes).
+   - Magic bytes verification (`b'GGUF'`).
+   - Cryptographic SHA256 checksum verification across all 18.63 GB using streaming 16 MiB blocks.
+   - Atomic rename from `.part` to `.gguf` only upon 100% cryptographic match.
 
 ---
 
-## 3. Verified First Inference Configuration (Task 4)
+## 5. Upcoming Phase 2C Execution Candidate
 
-CLI syntax verified against installed `llama.cpp` binary (`b12032`):
+*Note: For architectural planning only. No execution authorized in Phase 2B.*
 
 ```powershell
 .\runtime\windows\llama-cpp\llama-cli.exe `
-  -m .\models\qwen3-30b\Qwen_Qwen3-30B-A3B-Q3_K_M.gguf `
+  -m .\models\qwen3-30b\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf `
   -ngl 48 `
   -ncmoe 36 `
   -c 1024 `
@@ -72,25 +88,5 @@ CLI syntax verified against installed `llama.cpp` binary (`b12032`):
   --simple-io `
   --perf `
   -n 32 `
-  -p "Your prompt here"
+  -p "Building NOVA Compute local inference engine"
 ```
-
-### Parameter Breakdown & Architectural Semantics:
-- `-ngl 48`: Offloads all 48 dense attention layers, token embeddings, and output head to GPU VRAM.
-- `-ncmoe 36`: Pin the MoE expert weights of the **first 36 layers (layers 0–35)** to CPU host RAM. The expert weights of the **last 12 layers (layers 36–47)** reside on GPU VRAM.
-- `-c 1024`: Initial conservative context window (KV cache = 48 MB in Q8_0).
-- `-b 128`: Logical batch size.
-- `-ctk q8_0 -ctv q8_0`: Quantizes Key/Value cache to 8-bit, reducing VRAM footprint by 50%.
-- `-fa on`: FlashAttention enabled for reduced VRAM activation spikes.
-- GPU Expert Cache: Disabled (omitted `--moe-cache-mib`).
-
----
-
-## 4. Current Status & Governance Action
-
-- **Task 1 (Phase 2A Corrections):** Completed.
-- **Task 2 (Hardware Preflight):** Completed. Available RAM is currently **1.37 GB** (Requirements not yet satisfied).
-- **Task 3 (Download Preparation):** Metadata recorded. No download performed.
-- **Action Required:**
-  1. The user must close background applications (Claude desktop, Edge, Firefox, SQL Server) to bring available RAM $\ge 11.5\text{ GB}$.
-  2. The user must provide explicit approval to begin the download of `Qwen_Qwen3-30B-A3B-Q3_K_M.gguf` (14.08 GB).

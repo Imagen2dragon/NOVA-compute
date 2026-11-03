@@ -1,8 +1,12 @@
 # NOVA Compute — Antigravity-ready Starter Pack
 
-**Status:** Phase 0 (Hardware Qualification) & Phase 1 (Small-Model Runtime Baseline) Complete | Phase 2A (MoE Architecture Audit) In Review
+**Status:** Phase 0 (Hardware Qualification) & Phase 1 (Small-Model Runtime Baseline) Complete | Phase 2B (Q4_K_M Primary Model Acquisition) Authorized
 
-NOVA Compute is a resource-aware local inference platform for MoE LLMs and small domain-specialist models. The first reported target machine is an NVIDIA RTX 4050 Laptop GPU (6 GB VRAM) with 16 GB system RAM. Verify all specifications before selecting runtimes or models.
+NOVA Compute is a resource-aware local inference platform for MoE LLMs and small domain-specialist models. The first reported target machine is an NVIDIA RTX 4050 Laptop GPU (6 GB VRAM) with 16 GB system RAM.
+
+### Active Model Selection (Phase 2B)
+- **Primary Generalist:** `Qwen3-30B-A3B` in **`Q4_K_M`** quantization (18.63 GB, repository: `bartowski/Qwen_Qwen3-30B-A3B-GGUF`, pinned revision: `fb6ccf61e476d3077e10333e98e794f960ceea2a`). Supersedes prior Q3_K_M candidate per Phase 2B authorization. *(Status: Acquisition authorized; uninitialized)*.
+- **Specialist Base:** `Qwen3-1.7B` in `Q8_0` quantization (1.83 GB, verified in Phase 1 at 83.6 t/s on CUDA).
 
 ## Team workflow
 
