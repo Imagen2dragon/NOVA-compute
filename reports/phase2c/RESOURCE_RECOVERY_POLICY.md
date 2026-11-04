@@ -4,7 +4,7 @@
 **Date:** 2026-11-04  
 **Author:** Antigravity (Implementation Engineer)  
 **Governance:** Implementation submitted; **Awaiting Lead Architect (ChatGPT) & Project Owner Review**  
-**Status:** ACTIVE POLICY (REVISED)  
+**Status:** ACTIVE POLICY (FINAL STABILIZATION)  
 
 ---
 
@@ -16,8 +16,9 @@ The governing principles are:
 1. **Zero Impact on User Applications:** Never kill, suspend, or alter the priority of applications belonging to the user or system.
 2. **Explicit Child Ownership:** Cleanup actions apply strictly to processes spawned directly by NOVA.
 3. **Accurate Windows Teardown:** Differentiate console control shutdown from forced termination. Do not claim that `TerminateProcess` or `proc.kill()` is graceful.
-4. **Clean Exit Guarantees:** Ensure GPU contexts, file handles, pipe descriptors, and reader threads are systematically reclaimed upon completion or abort.
-5. **Trustworthy Verification:** If post-run telemetry or residual process checks cannot be completed successfully, recovery must be marked as `UNKNOWN` or `FAILED`, never reported as success.
+4. **Clean Exit Guarantees:** Ensure GPU contexts, file handles, pipe descriptors, reader threads, and sampler threads are systematically reclaimed upon completion or abort.
+5. **Truthful Verification:** If post-run telemetry, thread shutdown, or residual process checks cannot be completed successfully, recovery must be marked as `UNKNOWN` or `FAILED`, never reported as success.
+6. **No Speculative Reclaim Promises:** Observed process working set (such as Microsoft Edge holding ~1.50–2.00 GiB) is an indicator of memory footprint, not a guarantee that closing the process will immediately release an identical amount of free physical RAM, due to Windows standby caching.
 
 ---
 
@@ -41,52 +42,55 @@ The governing principles are:
 - **Bounded Child Process Management:**
   - Spawning `llama-cli` with `CREATE_NEW_PROCESS_GROUP | BELOW_NORMAL_PRIORITY_CLASS` (`0x00004200`) on Windows to ensure UI fluidity and isolate console control signals.
   - Capturing and storing the child process PID.
-  - Attempting console control shutdown via `CTRL_BREAK_EVENT` with a 5.0-second grace period.
+  - Attempting console control shutdown via `proc.send_signal(signal.CTRL_BREAK_EVENT)` with a 5.0-second grace period.
   - Escalating to `proc.kill()` (`TerminateProcess`) if the child process fails to terminate within 5.0 seconds.
 - **Resource Recovery Verification:**
-  - Closing all standard I/O pipes (`stdin`, `stdout`, `stderr`) and joining reader threads.
+  - Closing all standard I/O pipes (`stdin`, `stdout`, `stderr`) after child exit and joining output reader and sampler threads.
   - Inspecting post-run GPU telemetry. If the GPU query fails, report `gpu_verification_status = "FAILED"`, `residual_vram_leak_mib = None`, and `recovery_successful = False`.
-  - Checking residual processes via `tasklist`. If the check fails, report `process_verification_status = "UNKNOWN"` and `recovery_successful = False`.
+  - Checking residual processes via exact PID matching in `tasklist`. If the check fails, report `process_verification_status = "UNKNOWN"` and `recovery_successful = False`.
+  - Enforcing VRAM recovery tolerance ($\le 100\text{ MiB}$). If residual VRAM exceeds $100\text{ MiB}$, fail recovery.
 - **User-Centric Memory Advising:**
   - Inspecting resident memory of user-mode processes in read-only mode via `tasklist` and `GetProcessMemoryInfo`.
   - Computing the RAM deficit against the $\ge 10.0\text{ GiB}$ gate.
-  - Listing candidate applications and observed working sets in terminal output, advising the user to save work and close them manually.
+  - Listing candidate applications, observed working sets, and measurement coverage (`instances_measured / instances_total`).
   - Explicitly documenting that observed working set is an indicator and does not guarantee an equivalent release of physical RAM.
 
 ---
 
-## 3. Post-Run Verification Protocol
-
-Following any inference run (whether successful, failed, or aborted), the `SafeReclamationManager` executes the following sequence:
+## 3. Explicit 8-Stage Teardown Lifecycle
 
 ```mermaid
 sequenceDiagram
-    participant H as Harness
+    participant H as Supervisor / Harness
     participant C as Child Process (llama-cli)
     participant M as SafeReclamationManager
     participant G as GPU (nvidia-smi)
 
-    H->>M: cleanup() triggered
-    M->>C: Check if process is running
-    alt Process is running
-        M->>C: Send CTRL_BREAK_EVENT (Windows process group)
+    Note over H,C: Inference Finished or Abort Triggered
+    alt Abort Triggered
+        H->>M: 1. Terminate Child Process
+        M->>C: send_signal(CTRL_BREAK_EVENT)
         M->>C: wait(timeout=5.0s)
         opt Timeout Exceeded
             M->>C: proc.kill() (TerminateProcess)
         end
     end
-    M->>C: Close pipe handles (stdout, stderr, stdin)
+    H->>H: 2. Join Output Reader Thread (Drain EOF)
+    H->>H: 3. Stop & Join Telemetry Sampler Thread
+    H->>C: 4. Close stdio Pipes (stdout, stderr, stdin)
+    H->>M: 5. Execute Post-Inference Recovery Verification
+    M->>C: Check residual child PID via tasklist
     M->>G: Query dedicated VRAM
-    alt GPU Query Fails
-        G-->>M: Query failed
-        M->>H: gpu_verification_status="FAILED", recovery_successful=False
-    else GPU Query Succeeds
-        G-->>M: Return post-run free VRAM
-        M->>H: Generate RecoveryReport (reclaimed=True)
-    end
+    M->>H: 6. Return Truthful RecoveryReport
+    H->>H: 7. Verify Inference Outcome (verify_inference_success)
+    H->>H: 8. Write Execution Log, Load Results & Telemetry JSON
 ```
 
-1. **Child State Verification:** Confirms `poll()` returns an integer returncode.
-2. **Handle Cleanup:** Explicitly closes pipe handles to prevent handle leaks.
-3. **GPU Memory Verification:** Queries `nvidia-smi` to confirm VRAM usage has returned to the pre-run baseline ($\pm 100\text{ MiB}$). If lingering VRAM is detected, a warning is emitted. If the query fails, verification is marked `FAILED`.
-4. **Audit Trail:** Appends recovery status, returncode, shutdown method, and VRAM delta to the execution telemetry log.
+1. **Child Teardown Stage:** If an abort is triggered, child termination is initiated through `SafeReclamationManager` before any pipe closure or thread termination.
+2. **Reader Thread Stage:** The reader thread continues draining until EOF and is joined with a timeout.
+3. **Sampler Thread Stage:** The live telemetry sampler thread is stopped and joined.
+4. **Handle Cleanup Stage:** All child stdio pipe handles are verified closed.
+5. **Recovery Verification Stage:** Exact residual PIDs are verified using `tasklist`, and dedicated VRAM is queried via `nvidia-smi`.
+6. **Report Generation Stage:** The `RecoveryReport` documents thread status, pipe status, shutdown method, and leak status.
+7. **Outcome Verification Stage:** `verify_inference_success` evaluates exit code, generation markers, telemetry validity, and recovery status.
+8. **Audit Trail Stage:** Logs and telemetry records are committed to `reports/phase2c/first_inference/`.

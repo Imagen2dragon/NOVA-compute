@@ -1,12 +1,13 @@
 """
 NOVA Compute — Resource Steward Package
 Provides resource-aware system diagnostics, memory budget policies,
-fail-closed preflight gating, and safe reclamation managers.
+fail-closed preflight gating, supervisor engines, and safe reclamation managers.
 """
 
 from .models import (
     TelemetryStatus,
     ExecutionMode,
+    InferenceOutcome,
     SystemMemorySnapshot,
     ProcessResourceSnapshot,
     GPUSnapshot,
@@ -15,7 +16,8 @@ from .models import (
     GateResult,
     MemoryRecommendation,
     PreflightReport,
-    RecoveryReport
+    RecoveryReport,
+    SupervisorResult
 )
 
 from .policy import (
@@ -41,6 +43,10 @@ from .recovery import (
     SafeReclamationManager
 )
 
+from .supervisor import (
+    supervise_child_process
+)
+
 class ResourceSteward:
     """Unified coordinator for resource diagnostics, preflight auditing, and safe reclamation."""
 
@@ -58,36 +64,17 @@ class ResourceSteward:
         disk = self.monitor.get_disk_space("C:\\")
         top_procs = self.monitor.list_top_processes(limit=15)
         
-        deficit = max(0.0, self.policy.minimum_inference_ram_gib - ram.avail_phys_gib)
-        recs = self.advisor.analyze_processes(top_procs, ram_deficit_gib=deficit)
+        all_passed, gates = self.budget_mgr.evaluate_gates(ram, gpu, disk)
         
-        return self.budget_mgr.generate_preflight_report(
+        deficit = round(self.policy.minimum_inference_ram_gib - ram.avail_phys_gib, 3) if not gates["avail_ram"].passed else 0.0
+        recommendations = self.advisor.analyze_processes(top_procs, ram_deficit_gib=max(0.0, deficit))
+        
+        return PreflightReport(
+            passed=all_passed,
+            gates=gates,
             system_ram=ram,
             gpu=gpu,
             disk=disk,
             top_processes=top_procs,
-            recommendations=recs
+            recommendations=recommendations
         )
-
-__all__ = [
-    "ResourceSteward",
-    "ResourcePolicy",
-    "DEFAULT_POLICY",
-    "ExecutionMode",
-    "TelemetryStatus",
-    "SystemMemorySnapshot",
-    "ProcessResourceSnapshot",
-    "GPUSnapshot",
-    "GPUProcessInfo",
-    "DiskSnapshot",
-    "GateResult",
-    "MemoryRecommendation",
-    "PreflightReport",
-    "RecoveryReport",
-    "ResourceMonitor",
-    "LiveTelemetrySampler",
-    "WindowsPDHCollector",
-    "MemoryBudgetManager",
-    "MemoryAdvisor",
-    "SafeReclamationManager",
-]

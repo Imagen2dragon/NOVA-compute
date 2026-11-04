@@ -1,7 +1,7 @@
 """
 NOVA Compute — Phase 2C-B: Controlled Inference Runner & Resource Steward CLI
 Enforces strict fail-closed safety gates, mutually exclusive command-line modes,
-asynchronous process output supervision, timestamp-based live telemetry aborts,
+ordered telemetry sample queues, decoupled supervisor integration, truthful recovery verification,
 workspace preservation, and safe reclamation.
 
 EXECUTION MODES:
@@ -20,7 +20,7 @@ import subprocess
 import json
 import queue
 import threading
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 # Ensure project root is in sys.path and anchor all paths to PROJECT_ROOT
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -34,8 +34,12 @@ from nova.resource_steward import (
     ExecutionMode,
     TelemetryStatus,
     PreflightReport,
+    RecoveryReport,
+    SupervisorResult,
+    InferenceOutcome,
     LiveTelemetrySampler,
-    SafeReclamationManager
+    SafeReclamationManager,
+    supervise_child_process
 )
 
 LLAMA_CLI = os.path.join(PROJECT_ROOT, "runtime", "windows", "llama-cpp", "llama-cli.exe")
@@ -126,6 +130,9 @@ def save_preflight_json(report: PreflightReport, path: str = PREFLIGHT_LATEST_JS
                 "pids": p.pids,
                 "working_set_mb": p.working_set_mb,
                 "private_commit_mb": p.private_commit_mb,
+                "instances_total": p.instances_total,
+                "instances_measured": p.instances_measured,
+                "is_partial_private_commit": p.is_partial_private_commit,
                 "is_user_app": p.is_user_application,
                 "status": p.status.value
             }
@@ -137,6 +144,9 @@ def save_preflight_json(report: PreflightReport, path: str = PREFLIGHT_LATEST_JS
                 "pids": r.pids,
                 "observed_working_set_mb": r.observed_working_set_mb,
                 "total_private_commit_mb": r.total_private_commit_mb,
+                "instances_total": r.instances_total,
+                "instances_measured": r.instances_measured,
+                "is_partial": r.is_partial,
                 "is_user_facing": r.is_user_facing,
                 "unverified_heuristic_reclaim_mb": r.unverified_heuristic_reclaim_mb,
                 "recommendation_text": r.recommendation_text
@@ -200,8 +210,9 @@ def run_memory_report(steward: ResourceSteward) -> int:
     print("\n--- Detailed Process Working Set Inventory ---")
     for p in report.top_processes:
         cat = "User Application" if p.is_user_application else "System/Background"
-        priv_str = f"{p.private_commit_mb:>7.1f} MB" if p.private_commit_mb is not None else "    N/A  "
-        print(f"  {p.name:<30} WS: {p.working_set_mb:>7.1f} MB  Priv: {priv_str}  [{cat}] (PIDs: {len(p.pids)})")
+        part_str = " (partial)" if p.is_partial_private_commit else ""
+        priv_str = f"{p.private_commit_mb:>7.1f} MB{part_str}" if p.private_commit_mb is not None else "    N/A          "
+        print(f"  {p.name:<30} WS: {p.working_set_mb:>7.1f} MB  Priv: {priv_str:<17}  [{cat}] (Instances: {p.instances_measured}/{p.instances_total})")
     return 0 if report.passed else 1
 
 def start_output_reader(pipe, out_queue: queue.Queue, stop_event: threading.Event) -> threading.Thread:
@@ -214,15 +225,47 @@ def start_output_reader(pipe, out_queue: queue.Queue, stop_event: threading.Even
                 out_queue.put(line)
         except Exception:
             pass
-        finally:
-            try:
-                pipe.close()
-            except Exception:
-                pass
 
     t = threading.Thread(target=_reader, daemon=True)
     t.start()
     return t
+
+def verify_inference_success(
+    supervisor_res: SupervisorResult,
+    recovery_report: RecoveryReport
+) -> Tuple[InferenceOutcome, str]:
+    """
+    Strictly verifies inference smoke test outcome against:
+      - Exit code zero
+      - No safety abort
+      - Confirmed generated-token/evaluation evidence
+      - Valid execution telemetry
+      - Successful required recovery verification
+    """
+    raw_output = "".join(supervisor_res.output_lines)
+
+    if supervisor_res.abort_triggered:
+        return InferenceOutcome.ABORTED, supervisor_res.abort_reason
+
+    if supervisor_res.exit_code != 0:
+        return InferenceOutcome.FAILED, f"Child process exited with non-zero code {supervisor_res.exit_code}"
+
+    # Verify generated token / evaluation evidence in output
+    has_token_gen = any(
+        marker in raw_output
+        for marker in ["eval time =", "prompt eval time =", "sample time =", "tokens generated"]
+    ) and ("print_timings" in raw_output or "load time =" in raw_output)
+
+    if not has_token_gen:
+        return InferenceOutcome.UNVERIFIED, "Inference output lacks verified token generation / evaluation timing markers."
+
+    if supervisor_res.processed_samples_count == 0:
+        return InferenceOutcome.UNVERIFIED, "Execution telemetry lacks valid processed samples."
+
+    if not recovery_report.recovery_successful:
+        return InferenceOutcome.UNVERIFIED, "Full resource recovery could not be verified (residual resources, telemetry failure, or unverified thread shutdown)."
+
+    return InferenceOutcome.SUCCESS, "Inference smoke test succeeded: token generated, telemetry valid, and clean recovery verified."
 
 def execute_inference(steward: ResourceSteward):
     """Executes inference ONLY after a fresh live preflight confirms all safety gates pass."""
@@ -301,134 +344,48 @@ def execute_inference(steward: ResourceSteward):
     sampler = LiveTelemetrySampler(target_pid=pid, interval_ms=steward.policy.sampling_interval_ms)
     sampler.start()
 
-    abort_triggered = False
-    abort_reason = ""
-    workspace_reserve_warned = False
-    output_lines = []
+    # Supervise child execution using production supervisor engine
+    supervisor_res = supervise_child_process(
+        proc=proc,
+        sample_queue=sampler.sample_queue,
+        output_queue=out_queue,
+        policy=steward.policy,
+        clock=time.monotonic,
+        abort_callback=lambda reason: print(f"\n[ABORT] {reason}"),
+        on_output_line=lambda line: (sys.stdout.write(line), sys.stdout.flush()),
+        stale_timeout_sec=3.0
+    )
 
-    # Timestamp-based tracking
-    critical_ram_start_monotonic: Optional[float] = None
-    last_processed_sample_id = -1
-    last_sample_monotonic = time.monotonic()
-    STALE_TELEMETRY_TIMEOUT_SEC = 3.0
-
-    try:
-        while proc.poll() is None:
-            now_mono = time.monotonic()
-
-            # Drain stdout lines non-blocking
-            while True:
-                try:
-                    line = out_queue.get_nowait()
-                    output_lines.append(line)
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
-                    if "CUDA error" in line or "out of memory" in line.lower():
-                        abort_triggered = True
-                        abort_reason = f"CUDA OOM / Error detected: {line.strip()}"
-                        print(f"\n[ABORT] {abort_reason}")
-                        break
-                except queue.Empty:
-                    break
-
-            if abort_triggered:
-                break
-
-            # Process fresh telemetry sample
-            if sampler.samples:
-                latest = sampler.samples[-1]
-                sample_id = latest.get("sample_id", 0)
-
-                if sample_id > last_processed_sample_id:
-                    last_processed_sample_id = sample_id
-                    last_sample_monotonic = now_mono
-
-                    s_ram = latest["system_ram"]
-                    s_gpu = latest["gpu"]
-
-                    # Fail-Closed Telemetry Health Checks
-                    if s_ram.get("status") != TelemetryStatus.SUCCESS.value:
-                        abort_triggered = True
-                        abort_reason = f"CRITICAL ABORT: Required system RAM telemetry failed ({s_ram.get('error') or 'Unknown'}). Fail-closed."
-                        print(f"\n[ABORT] {abort_reason}")
-                        break
-
-                    if s_gpu.get("status") != TelemetryStatus.SUCCESS.value:
-                        abort_triggered = True
-                        abort_reason = f"CRITICAL ABORT: Required GPU telemetry failed ({s_gpu.get('error') or 'Unknown'}). Fail-closed."
-                        print(f"\n[ABORT] {abort_reason}")
-                        break
-
-                    cur_ram = s_ram["avail_phys_gib"]
-                    cur_vram_free = s_gpu["vram_free_mib"]
-                    cur_vram_used = s_gpu["vram_used_mib"]
-                    commit_pct = s_ram["commit_pct"]
-
-                    if cur_ram < peak_ram_gib:
-                        peak_ram_gib = cur_ram
-                    if cur_vram_used > peak_vram_mib:
-                        peak_vram_mib = cur_vram_used
-
-                    # Workspace Reserve Warning (< 4.0 GiB)
-                    if cur_ram < steward.policy.workspace_reserve_gib and not workspace_reserve_warned:
-                        print(f"\n[STEWARD WARNING] Available RAM dropped below workspace reserve ({cur_ram:.2f} GiB < {steward.policy.workspace_reserve_gib:.1f} GiB).")
-                        workspace_reserve_warned = True
-
-                    # Abort Condition 1: RAM < 2.0 GiB sustained for >= 5.0 seconds (Monotonic Timestamp)
-                    if cur_ram < steward.policy.critical_ram_gib:
-                        if critical_ram_start_monotonic is None:
-                            critical_ram_start_monotonic = now_mono
-                        elapsed_critical = now_mono - critical_ram_start_monotonic
-                        if elapsed_critical >= steward.policy.low_ram_abort_duration_seconds:
-                            abort_triggered = True
-                            abort_reason = (
-                                f"CRITICAL ABORT: Available RAM sustained < {steward.policy.critical_ram_gib} GiB "
-                                f"for {elapsed_critical:.2f}s (Threshold: {steward.policy.low_ram_abort_duration_seconds}s)."
-                            )
-                            print(f"\n[ABORT] {abort_reason}")
-                            break
-                    else:
-                        critical_ram_start_monotonic = None
-
-                    # Abort Condition 2: System commit >= 90%
-                    if commit_pct >= steward.policy.critical_commit_pct:
-                        abort_triggered = True
-                        abort_reason = f"CRITICAL ABORT: System commit reached {commit_pct}% of limit (>= {steward.policy.critical_commit_pct}%)."
-                        print(f"\n[ABORT] {abort_reason}")
-                        break
-
-                    # Abort Condition 3: Free VRAM < 512 MiB
-                    if cur_vram_free < steward.policy.critical_vram_free_mib:
-                        abort_triggered = True
-                        abort_reason = f"CRITICAL ABORT: Free VRAM dropped to {cur_vram_free:.1f} MiB (< {steward.policy.critical_vram_free_mib} MiB)."
-                        print(f"\n[ABORT] {abort_reason}")
-                        break
-
-            # Check for stale telemetry (sampler stopped or thread hung)
-            if now_mono - last_sample_monotonic > STALE_TELEMETRY_TIMEOUT_SEC:
-                abort_triggered = True
-                abort_reason = f"CRITICAL ABORT: Live telemetry sampler is unresponsive or stale (> {STALE_TELEMETRY_TIMEOUT_SEC}s without fresh sample). Fail-closed."
-                print(f"\n[ABORT] {abort_reason}")
-                break
-
-            time.sleep(0.05)
-
-    finally:
-        # Stop reader thread and sampler
-        reader_stop.set()
-        sampler.stop(timeout_sec=2.0)
-        SafeReclamationManager.close_process_pipes(proc)
-        reader_thread.join(timeout=1.0)
-
-        # Trigger safe reclamation for the child process
-        recovery_report = steward.reclamation.perform_post_inference_recovery(
-            pre_ram=pre_ram,
-            pre_gpu=pre_gpu,
-            peak_ram_gib=peak_ram_gib,
-            peak_vram_mib=peak_vram_mib,
-            child_proc=proc,
-            grace_period_sec=steward.policy.child_termination_grace_period_seconds
+    # REFACTORED LIFECYCLE ORDER (Requirement 3):
+    # Stage 1 & 2: If abort was triggered, initiate child teardown FIRST
+    if supervisor_res.abort_triggered:
+        print(f"[RECOVERY] Abort triggered: {supervisor_res.abort_reason}. Initiating child teardown...")
+        SafeReclamationManager.terminate_child_process(
+            proc, grace_period_sec=steward.policy.child_termination_grace_period_seconds
         )
+
+    # Stage 3 & 4: Join reader thread (allow remaining EOF drain)
+    reader_stop.set()
+    reader_thread.join(timeout=2.0)
+    reader_stopped = not reader_thread.is_alive()
+
+    # Stage 5: Stop and join telemetry sampler
+    sampler_stopped = sampler.stop(timeout_sec=2.0)
+
+    # Stage 6: Close remaining stdio pipes and handles
+    pipes_closed = SafeReclamationManager.close_process_pipes(proc)
+
+    # Stage 7 & 8: Verify resource release and produce recovery report
+    recovery_report = steward.reclamation.perform_post_inference_recovery(
+        pre_ram=pre_ram,
+        pre_gpu=pre_gpu,
+        peak_ram_gib=supervisor_res.peak_ram_gib,
+        peak_vram_mib=supervisor_res.peak_vram_mib,
+        child_proc=proc,
+        grace_period_sec=steward.policy.child_termination_grace_period_seconds,
+        reader_thread_stopped=reader_stopped,
+        sampler_thread_stopped=sampler_stopped
+    )
 
     t_end = time.time()
     total_dur = round(t_end - t_start, 2)
@@ -436,9 +393,9 @@ def execute_inference(steward: ResourceSteward):
 
     # Record EXECUTION_LOG.txt
     with open(EXECUTION_LOG, "w", encoding="utf-8") as f:
-        f.writelines(output_lines)
-        if abort_triggered:
-            f.write(f"\n[STEWARD_ABORT] {abort_reason}\n")
+        f.writelines(supervisor_res.output_lines)
+        if supervisor_res.abort_triggered:
+            f.write(f"\n[STEWARD_ABORT] {supervisor_res.abort_reason}\n")
         f.write(f"\nProcess exited with code {exit_code} after {total_dur} seconds.\n")
 
     # Record RESOURCE_TELEMETRY.json
@@ -447,8 +404,8 @@ def execute_inference(steward: ResourceSteward):
         "command": cmd,
         "exit_code": exit_code,
         "duration_seconds": total_dur,
-        "abort_triggered": abort_triggered,
-        "abort_reason": abort_reason,
+        "abort_triggered": supervisor_res.abort_triggered,
+        "abort_reason": supervisor_res.abort_reason,
         "preflight": {
             "all_gates_passed": report.passed,
             "pre_ram_gib": pre_ram.avail_phys_gib,
@@ -457,12 +414,16 @@ def execute_inference(steward: ResourceSteward):
         "recovery": {
             "post_ram_gib": recovery_report.post_avail_ram_gib,
             "post_vram_used_mib": recovery_report.post_vram_used_mib,
+            "residual_vram_leak_mib": recovery_report.residual_vram_leak_mib,
+            "child_terminated_successfully": recovery_report.child_terminated_successfully,
+            "reader_thread_stopped": recovery_report.reader_thread_stopped,
+            "sampler_thread_stopped": recovery_report.sampler_thread_stopped,
+            "pipes_closed": recovery_report.pipes_closed,
+            "gpu_verification_status": recovery_report.gpu_verification_status,
+            "process_verification_status": recovery_report.process_verification_status,
             "recovery_successful": recovery_report.recovery_successful,
             "termination_status": recovery_report.termination_status,
             "shutdown_method": recovery_report.shutdown_method,
-            "gpu_verification_status": recovery_report.gpu_verification_status,
-            "process_verification_status": recovery_report.process_verification_status,
-            "pipes_closed": recovery_report.pipes_closed,
             "notes": recovery_report.notes
         },
         "samples_count": len(sampler.samples),
@@ -471,30 +432,31 @@ def execute_inference(steward: ResourceSteward):
     with open(TELEMETRY_JSON, "w", encoding="utf-8") as f:
         json.dump(telemetry_data, f, indent=2)
 
-    # Record LOAD_RESULTS.md and FAILURE_ANALYSIS.md
-    raw_output = "".join(output_lines)
-    is_success = (exit_code == 0) and not abort_triggered and ("load time =" in raw_output or "print_timings" in raw_output)
+    # Evaluate inference outcome with truthfulness
+    outcome, outcome_reason = verify_inference_success(supervisor_res, recovery_report)
 
     with open(LOAD_RESULTS, "w", encoding="utf-8") as f:
         f.write("# NOVA Compute — Phase 2C-B: Load Results\n\n")
-        f.write(f"**Status:** {'SUCCESS' if is_success else 'FAILED / ABORTED'}  \n")
+        f.write(f"**Outcome:** `{outcome.value}`  \n")
+        f.write(f"**Reason:** {outcome_reason}  \n")
         f.write(f"**Exit Code:** {exit_code}  \n")
         f.write(f"**Duration:** {total_dur}s  \n\n")
         f.write("## Command Line\n```powershell\n" + " ".join(cmd) + "\n```\n\n")
         f.write("## Recovery Summary\n")
         f.write(f"- Shutdown Method: `{recovery_report.shutdown_method}`\n")
-        f.write(f"- Recovery Verified: `{recovery_report.recovery_successful}`\n")
+        f.write(f"- Child Terminated: `{recovery_report.child_terminated_successfully}`\n")
+        f.write(f"- Pipes Closed: `{recovery_report.pipes_closed}`\n")
+        f.write(f"- Threads Stopped: Reader={recovery_report.reader_thread_stopped}, Sampler={recovery_report.sampler_thread_stopped}\n")
+        f.write(f"- VRAM Leak (MiB): `{recovery_report.residual_vram_leak_mib}`\n")
+        f.write(f"- Full Recovery Verified: `{recovery_report.recovery_successful}`\n")
         for n in recovery_report.notes:
             f.write(f"- {n}\n")
 
     with open(FAILURE_ANALYSIS, "w", encoding="utf-8") as f:
         f.write("# NOVA Compute — Phase 2C-B: Analysis Report\n\n")
-        if is_success:
-            f.write("Inference smoke test succeeded. One token generated without OOM or abort.\n")
-        else:
-            f.write(f"Inference failed or aborted. Reason: {abort_reason or f'Exit code {exit_code}'}\n")
+        f.write(f"**Outcome:** `{outcome.value}`: {outcome_reason}\n")
 
-    print("\nExecution finished. Telemetry and reports saved to:", OUTPUT_DIR)
+    print(f"\nExecution finished. Outcome: {outcome.value}. Telemetry and reports saved to: {OUTPUT_DIR}")
 
 def main():
     parser = argparse.ArgumentParser(

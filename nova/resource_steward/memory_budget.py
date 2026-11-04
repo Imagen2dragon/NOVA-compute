@@ -4,6 +4,7 @@ Evaluates hardware state snapshots against configurable resource policies.
 Enforces strict fail-closed gating for memory, GPU, storage, commit, and telemetry health.
 """
 
+import math
 from typing import Dict, Tuple, List, Optional
 from .models import (
     TelemetryStatus,
@@ -31,7 +32,7 @@ class MemoryBudgetManager:
     ) -> Tuple[bool, Dict[str, GateResult]]:
         """
         Evaluates preflight gates with strict fail-closed semantics.
-        If any telemetry metric is unverified or failed, the gate fails.
+        If any telemetry metric is unverified, malformed, or failed, the gate fails.
         """
         gates: Dict[str, GateResult] = {}
 
@@ -71,24 +72,41 @@ class MemoryBudgetManager:
             failure_reason=f"Available RAM deficit: {ram_deficit:.3f} GiB below required {self.policy.minimum_inference_ram_gib:.1f} GiB" if not ram_passed else None
         )
 
-        # 3. System Commit Gate (Fail-Closed)
-        commit_valid = (
-            system_ram.status == TelemetryStatus.SUCCESS and
-            system_ram.commit_pct is not None
-        )
-        commit_passed = (
-            commit_valid and
-            system_ram.commit_pct < self.policy.critical_commit_pct
-        )
-        if not commit_valid:
-            commit_measured = "UNAVAILABLE"
-            commit_failure = "System commit telemetry missing or invalid. Fail-closed: cannot verify commit pressure."
-        elif not commit_passed:
-            commit_measured = f"{system_ram.commit_pct:.1f}%"
-            commit_failure = f"System commit {system_ram.commit_pct:.1f}% exceeds critical threshold (< {self.policy.critical_commit_pct:.1f}%)."
+        # 3. Hardened System Commit Gate (Fail-Closed)
+        commit_valid = False
+        commit_invalid_reason = None
+
+        if system_ram.status != TelemetryStatus.SUCCESS:
+            commit_invalid_reason = "System memory telemetry status is not SUCCESS."
+        elif system_ram.commit_total_bytes <= 0:
+            commit_invalid_reason = f"Invalid commit limit: {system_ram.commit_total_bytes} bytes (must be > 0)."
+        elif system_ram.commit_avail_bytes < 0:
+            commit_invalid_reason = f"Invalid negative available commit: {system_ram.commit_avail_bytes} bytes."
+        elif system_ram.committed_bytes < 0:
+            commit_invalid_reason = f"Invalid negative committed bytes: {system_ram.committed_bytes} bytes."
+        elif system_ram.committed_bytes > system_ram.commit_total_bytes:
+            commit_invalid_reason = (
+                f"Contradictory commit metrics: committed bytes ({system_ram.committed_bytes}) "
+                f"exceed commit limit ({system_ram.commit_total_bytes})."
+            )
+        elif system_ram.commit_pct is None or math.isnan(system_ram.commit_pct) or math.isinf(system_ram.commit_pct):
+            commit_invalid_reason = f"Invalid commit percentage: {system_ram.commit_pct}."
+        elif not (0.0 <= system_ram.commit_pct <= 100.0):
+            commit_invalid_reason = f"Commit percentage out of range [0, 100]: {system_ram.commit_pct}%."
         else:
+            commit_valid = True
+
+        if not commit_valid:
+            commit_passed = False
+            commit_measured = "INVALID / UNAVAILABLE"
+            commit_failure = f"Fail-closed: commit validation failed ({commit_invalid_reason})."
+        else:
+            commit_passed = (system_ram.commit_pct < self.policy.critical_commit_pct)
             commit_measured = f"{system_ram.commit_pct:.1f}%"
-            commit_failure = None
+            commit_failure = (
+                f"System commit {system_ram.commit_pct:.1f}% exceeds critical threshold (< {self.policy.critical_commit_pct:.1f}%)."
+                if not commit_passed else None
+            )
 
         gates["system_commit"] = GateResult(
             gate_name="system_commit",

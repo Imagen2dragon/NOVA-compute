@@ -4,20 +4,22 @@
 **Date:** 2026-11-04  
 **Author:** Antigravity (Implementation Engineer)  
 **Governance:** Implementation submitted; **Awaiting Lead Architect (ChatGPT) & Project Owner Review**  
-**Status:** ALL 18 TESTS PASSING (18/18)  
+**Status:** ALL 19 TESTS PASSING (19/19)  
 
 ---
 
 ## 1. Test Suite Overview
 
-An expanded, automated test suite was implemented in [`tests/test_resource_steward.py`](file:///c:/Users/abdal/OneDrive/Desktop/nova_compute_antigravity_starter/tests/test_resource_steward.py) to validate the second follow-up remediation.
+An expanded, automated test suite was implemented in [`tests/test_resource_steward.py`](file:///c:/Users/abdal/OneDrive/Desktop/nova_compute_antigravity_starter/tests/test_resource_steward.py) to validate the final stabilization of the Resource Steward.
 
 The test suite validates:
-1. **CLI Execution & Mutual Exclusivity:** Verifies that default invocation and `--dry-run` never spawn child processes, conflicting flags are rejected, and preflight gate failures immediately block `Popen`.
-2. **Preflight Safety Gates:** Tests RAM, VRAM, Disk, GPU process query, and System Commit (90% threshold and fail-closed handling on missing telemetry).
-3. **Supervisor Telemetry Integrity:** Tests fail-closed handling of RAM and GPU telemetry dropouts, stale sample timeouts, deduplicated sample IDs, and monotonic timer elapsed bounds.
-4. **Child Process Lifecycle & Windows Teardown:** Tests asynchronous output draining, CUDA OOM queue interception, real Windows process group creation (`CREATE_NEW_PROCESS_GROUP`), console control break, timeout escalation, and pipe handle closure.
-5. **Recovery Verification:** Verifies that failed post-run GPU queries or failed residual process queries cannot produce a successful recovery report.
+1. **CLI Execution & Mutual Exclusivity (Section A):** Verifies that default invocation and `--dry-run` never spawn child processes, conflicting flags are rejected, and preflight gate failures immediately block `Popen`.
+2. **Hardened Preflight Commit Gate (Section B):** Tests 90% commit threshold and fail-closed handling on missing telemetry, zero limit, NaN, infinity, negative counters, and contradictory metrics.
+3. **Integrated Supervisor Tests (Section C):** Exercises the real production `supervise_child_process` engine with deterministic fake clocks and queues, testing RAM/GPU failures, stale timeouts, duplicate/missing sample IDs, timer resets on recovered RAM, sustained 5s low-RAM aborts, quiet stdout, and CUDA OOM interception.
+4. **Recovery Verification & Real Windows Fixtures (Section D):** Tests strict recovery verification (VRAM leaks > 100 MiB and thread timeouts fail recovery), along with two real, owned Windows subprocess fixtures:
+   - **Fixture A (`graceful_child.py`):** Spawns in `CREATE_NEW_PROCESS_GROUP`, registers `SIGBREAK` handler, writes acknowledgement marker file upon receiving `CTRL_BREAK_EVENT`, and exits cleanly.
+   - **Fixture B (`stubborn_child.py`):** Spawns in `CREATE_NEW_PROCESS_GROUP`, ignores `SIGBREAK`, times out grace period, and forcefully escalates to `proc.kill()`.
+5. **Inference Outcome Verification (Section E):** Tests the `verify_inference_success` validator across `SUCCESS`, `UNVERIFIED`, `FAILED`, and `ABORTED` outcomes.
 
 ---
 
@@ -30,7 +32,7 @@ python -m unittest discover -s tests -p "test_*.py"
 ### Execution Log
 
 ```
-Ran 18 tests in 4.602s
+Ran 19 tests in 4.950s
 
 OK
 [MODE] EXECUTE AUTHORIZED INFERENCE
@@ -38,7 +40,7 @@ OK
 Running fresh preflight check immediately prior to launch...
 ========================================================================
 NOVA Compute — Preflight Hardware Qualification Audit
-Timestamp (UTC): 2026-11-04T09:32:17.272349+00:00
+Timestamp (UTC): 2026-11-04T09:57:16.541698+00:00
 ========================================================================
   [PASS] telemetry_integrity   : Healthy (Req: All sensors SUCCESS)
   [FAIL] avail_ram             : 8.500 GiB (Req: >= 10.0 GiB)
@@ -55,44 +57,43 @@ PREFLIGHT STATUS: GATE CONDITIONS UNMET — INFERENCE GATED
 EXECUTION ABORTED: Preflight safety gates failed. Halting launch.
 Per strict safety governance: Inference cannot start when hardware gates fail.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-[RECOVERY] Sending CTRL_BREAK_EVENT to NOVA child PID 5748 (grace: 2.0s)...
-[RECOVERY] NOVA child PID 5748 exited with code 3221225794 via CTRL_BREAK.
-[RECOVERY] Sending CTRL_BREAK_EVENT to NOVA child PID 99991 (grace: 0.2s)...
-[RECOVERY] CTRL_BREAK_EVENT failed: [WinError 87] The parameter is incorrect. Falling back to terminate().
-[RECOVERY] Invoking proc.terminate() on child PID 99991 (grace: 0.2s)...
-[RECOVERY] Child PID 99991 did not exit within 0.2s. Escalating to forced termination (kill)...
-[RECOVERY] NOVA child PID 99991 forcefully terminated.
+[RECOVERY] Sending CTRL_BREAK_EVENT to NOVA child PID 23756 (grace: 3.0s)...
+[RECOVERY] NOVA child PID 23756 exited with code 0 via CTRL_BREAK.
+[RECOVERY] Sending CTRL_BREAK_EVENT to NOVA child PID 23548 (grace: 0.3s)...
+[RECOVERY] Child PID 23548 did not exit within 0.3s. Escalating to forced termination (kill)...
+[RECOVERY] NOVA child PID 23548 forcefully terminated.
 ```
 
 ---
 
-## 3. Detailed Test Matrix (18 Scenarios)
+## 3. Detailed Test Matrix (19 Scenarios)
 
-| Test ID | Scenario | Input State / Fixture | Expected Behavior | Result |
+| Test ID | Method Name | Focus Area | Expected Behavior | Result |
 | :--- | :--- | :--- | :--- | :--- |
-| **01** | `test_01_default_invocation_never_starts_child` | CLI invocation with zero arguments | Executes preflight only; never launches child process | **PASS** |
-| **02** | `test_02_dry_run_never_starts_child` | CLI invocation with `--dry-run` | Validates configuration and files; returns exit code 0 without launch | **PASS** |
-| **03** | `test_03_failed_preflight_blocks_execution` | Preflight report with RAM deficit (8.5 GiB) | Halts launch immediately; `Popen` is not invoked; exits code 1 | **PASS** |
-| **04** | `test_04_conflicting_cli_modes_rejected` | Mutually exclusive flags (`--execute --dry-run`) | `argparse` rejects invocation with error exit code | **PASS** |
-| **05** | `test_05_commit_usage_at_90_fails_gate` | Commit load at 90.5% | `system_commit` gate evaluates to `False`; halts preflight | **PASS** |
-| **06** | `test_06_missing_commit_telemetry_fails_closed` | Commit telemetry status `FAILED` | `system_commit` gate evaluates to `False` (`UNAVAILABLE`) | **PASS** |
-| **07** | `test_07_ram_telemetry_failure_during_execution_aborts` | Live sampler reports `s_ram["status"] = FAILED` | Live supervisor triggers immediate fail-closed abort | **PASS** |
-| **08** | `test_08_gpu_telemetry_failure_during_execution_aborts` | Live sampler reports `s_gpu["status"] = FAILED` | Live supervisor triggers immediate fail-closed abort | **PASS** |
-| **09** | `test_09_stale_telemetry_causes_safe_abort` | No fresh sample received for $> 3.0\text{s}$ | Live supervisor detects hung sampler and triggers fail-closed abort | **PASS** |
-| **10** | `test_10_repeated_sample_does_not_advance_timer` | Sample with duplicate `sample_id` | Supervisor drops duplicate sample without advancing timer | **PASS** |
-| **11** | `test_11_low_ram_sustained_triggers_abort` | Monotonic timer exceeds 5.0s with RAM < 2.0 GiB | Supervisor triggers critical low RAM abort | **PASS** |
-| **12** | `test_12_silent_child_output_does_not_block` | Child stdout is silent (empty queue) | Supervisor continues sampling telemetry without blocking | **PASS** |
-| **13** | `test_13_cuda_oom_detected_from_queue` | `CUDA error: out of memory` in output queue | Drained immediately; triggers supervisor abort | **PASS** |
-| **14** | `test_14_failed_post_gpu_telemetry_fails_recovery` | Post-run GPU query returns `status = FAILED` | `recovery_successful = False`, `gpu_verification_status = "FAILED"` | **PASS** |
-| **15** | `test_15_failed_residual_process_check_fails_recovery` | `tasklist` check returns non-zero error code | `recovery_successful = False`, `process_verification_status = "UNKNOWN"` | **PASS** |
-| **16** | `test_16_process_pipes_closed_after_termination` | Process handle with open stdio pipes | `close_process_pipes()` closes stdout and stderr | **PASS** |
-| **17** | `test_17_malformed_gpu_process_rows_fail_closed` | `nvidia-smi` emits malformed CSV row | Sets `status = FAILED`, `compute_processes = None` | **PASS** |
-| **18** | `test_18_safe_child_fixture_termination` | Real owned Python subprocess fixture | Tests console `CTRL_BREAK_EVENT` and timeout escalation to `kill()` | **PASS** |
+| **01** | `test_01_default_invocation_never_starts_child` | CLI Default | Runs preflight only; never invokes child process | **PASS** |
+| **02** | `test_02_dry_run_never_starts_child` | CLI `--dry-run` | Validates configuration and files; returns exit code 0 | **PASS** |
+| **03** | `test_03_failed_preflight_blocks_execution` | CLI `--execute` | Halts before `Popen`; exits code 1 | **PASS** |
+| **04** | `test_04_conflicting_cli_modes_rejected` | CLI Validation | Rejects `--execute --dry-run` with argument error | **PASS** |
+| **05** | `test_05_commit_usage_at_90_fails_gate` | Commit Gate | Commit load at 90.5% evaluates to `False` | **PASS** |
+| **06** | `test_06_missing_or_failed_commit_telemetry_fails_closed` | Commit Gate | Telemetry `FAILED` evaluates to `False` (`INVALID / UNAVAILABLE`) | **PASS** |
+| **07** | `test_07_invalid_commit_counters_fail_closed` | Commit Gate | Fails closed on zero limit, contradictory bytes, NaN, inf, or >100% | **PASS** |
+| **08** | `test_08_supervisor_ram_telemetry_failure_aborts` | Supervisor | Live RAM failure triggers immediate abort | **PASS** |
+| **09** | `test_09_supervisor_gpu_telemetry_failure_aborts` | Supervisor | Live GPU failure triggers immediate abort | **PASS** |
+| **10** | `test_10_supervisor_stale_telemetry_aborts` | Supervisor | Stale sample (> 3.0s) triggers fail-closed abort | **PASS** |
+| **11** | `test_11_supervisor_sample_ordering_and_gap_detection` | Supervisor | Out-of-order sample or gap fails closed | **PASS** |
+| **12** | `test_12_supervisor_low_ram_recovered_resets_timer` | Supervisor | Recovered RAM sample resets monotonic low-RAM timer | **PASS** |
+| **13** | `test_13_supervisor_low_ram_sustained_5s_aborts` | Supervisor | RAM < 2.0 GiB sustained for $\ge 5.0\text{s}$ triggers abort | **PASS** |
+| **14** | `test_14_supervisor_silent_stdout_does_not_block_telemetry` | Supervisor | Empty output queue does not block supervisor loop | **PASS** |
+| **15** | `test_15_supervisor_cuda_oom_detected_from_queue` | Supervisor | `CUDA error: out of memory` in output queue triggers abort | **PASS** |
+| **16** | `test_16_recovery_verification_strictness` | Recovery | Leaked VRAM > 100 MiB or unstopped thread fails recovery | **PASS** |
+| **17** | `test_17_real_windows_fixture_a_graceful_acknowledgement` | Windows Teardown | `CTRL_BREAK_EVENT` delivered; handler writes marker file; exits 0 | **PASS** |
+| **18** | `test_18_real_windows_fixture_b_forced_escalation` | Windows Teardown | Uncooperative child ignores `SIGBREAK`; escalates to `proc.kill()` | **PASS** |
+| **19** | `test_19_inference_verifier_scenarios` | Verification | Validates `SUCCESS`, `UNVERIFIED`, `FAILED`, and `ABORTED` | **PASS** |
 
 ---
 
 ## 4. Verification Evidence
 
-- **Real Subprocess Teardown Tested:** Test 18 spawned benign Python subprocesses in dedicated process groups to verify that `CTRL_BREAK_EVENT` cleanly breaks Windows processes and that uncooperative processes escalate to `kill()` without orphan processes remaining.
-- **Fail-Closed Verification:** Evaluated cases where telemetry returns empty lists or exceptions. Malformed CSV rows and unparseable fields consistently produce `TelemetryStatus.FAILED` and halt execution.
-- **Mutual Exclusivity:** Verified that conflicting arguments cannot bypass preflight or execute in dry-run mode.
+- **Integrated Supervisor Tested:** Tests 08–15 exercise the actual production `supervise_child_process` function, not isolated boolean mocks.
+- **Genuine Windows Control Event Validated:** Fixture A confirmed delivery of `CTRL_BREAK_EVENT` to a child in `CREATE_NEW_PROCESS_GROUP`, asserting that the Python `SIGBREAK` handler wrote the acknowledgement file and exited with code 0.
+- **Forced Escalation Validated:** Fixture B confirmed that when a child ignores `SIGBREAK`, the recovery manager waits for the grace period and escalates to `kill()`, recording `shutdown_method = "FORCED_TERMINATION"`.

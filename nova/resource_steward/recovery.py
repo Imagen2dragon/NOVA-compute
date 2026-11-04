@@ -13,6 +13,8 @@ import sys
 import time
 import signal
 import subprocess
+import csv
+import io
 from typing import Optional, List, Dict, Any, Tuple
 from .models import (
     RecoveryReport,
@@ -27,15 +29,21 @@ class SafeReclamationManager:
     """Safely manages lifecycle and teardown of NOVA-owned inference child processes."""
 
     @staticmethod
-    def close_process_pipes(proc: Optional[subprocess.Popen]):
-        """Explicitly closes process stdio pipes to prevent handle leaks."""
-        if proc:
-            for pipe in (proc.stdout, proc.stderr, proc.stdin):
-                if pipe and not pipe.closed:
+    def close_process_pipes(proc: Optional[subprocess.Popen]) -> bool:
+        """Explicitly closes process stdio pipes to prevent handle leaks. Returns True if all closed."""
+        if not proc:
+            return True
+        all_closed = True
+        for pipe in (proc.stdout, proc.stderr, proc.stdin):
+            if pipe:
+                if not pipe.closed:
                     try:
                         pipe.close()
                     except Exception:
                         pass
+                if not pipe.closed:
+                    all_closed = False
+        return all_closed
 
     @staticmethod
     def terminate_child_process(
@@ -44,13 +52,10 @@ class SafeReclamationManager:
     ) -> Tuple[str, str, bool]:
         """
         Terminates a NOVA-owned subprocess.
-        Sequence:
-          1. Check if already exited.
-          2. Attempt console control break / graceful shutdown.
-          3. Wait for grace_period_sec.
-          4. If still alive, escalate to hard termination (kill).
-          5. Close pipes and verify termination.
-        Returns: (term_status_str, shutdown_method, success_bool)
+        Prefers proc.send_signal(signal.CTRL_BREAK_EVENT) for Windows console processes
+        spawned with CREATE_NEW_PROCESS_GROUP.
+        Wait for grace_period_sec. If still alive, escalates to hard kill() (TerminateProcess).
+        Returns: (term_status_str, shutdown_method, child_terminated_successfully)
         """
         if proc is None:
             return "NO_CHILD_PROCESS", "NO_CHILD", True
@@ -61,23 +66,32 @@ class SafeReclamationManager:
             return f"ALREADY_EXITED_CODE_{proc.returncode}", "NATURAL_EXIT", True
 
         shutdown_method = "NATURAL_EXIT"
-        graceful_attempted = False
+        event_delivered = False
 
-        # Attempt graceful break signal on Windows (requires CREATE_NEW_PROCESS_GROUP)
-        if sys.platform == "win32" and hasattr(signal, "CTRL_BREAK_EVENT") and hasattr(os, "kill"):
+        # On Windows, send CTRL_BREAK_EVENT to the child process group.
+        # Note: CTRL_BREAK_EVENT delivery requires that the child process shares or attaches to
+        # the caller's console group created via CREATE_NEW_PROCESS_GROUP.
+        if sys.platform == "win32" and hasattr(signal, "CTRL_BREAK_EVENT"):
             try:
                 print(f"[RECOVERY] Sending CTRL_BREAK_EVENT to NOVA child PID {pid} (grace: {grace_period_sec}s)...")
-                os.kill(pid, signal.CTRL_BREAK_EVENT)
-                graceful_attempted = True
+                proc.send_signal(signal.CTRL_BREAK_EVENT)
+                event_delivered = True
                 shutdown_method = "CTRL_BREAK"
             except Exception as e:
-                print(f"[RECOVERY] CTRL_BREAK_EVENT failed: {e}. Falling back to terminate().")
+                print(f"[RECOVERY] proc.send_signal(CTRL_BREAK_EVENT) failed: {e}. Falling back to os.kill.")
+                try:
+                    os.kill(pid, signal.CTRL_BREAK_EVENT)
+                    event_delivered = True
+                    shutdown_method = "CTRL_BREAK"
+                except Exception as e2:
+                    print(f"[RECOVERY] os.kill failed: {e2}. Escalating immediately to forced termination.")
 
-        if not graceful_attempted:
+        if not event_delivered:
+            # When console break cannot be delivered on Windows, terminate() is TerminateProcess (forced)
             try:
-                print(f"[RECOVERY] Invoking proc.terminate() on child PID {pid} (grace: {grace_period_sec}s)...")
+                print(f"[RECOVERY] Invoking proc.terminate() on child PID {pid}...")
                 proc.terminate()
-                shutdown_method = "TERMINATE_SIGNAL"
+                shutdown_method = "FORCED_TERMINATION"
             except Exception as e:
                 print(f"[RECOVERY] proc.terminate() exception: {e}")
 
@@ -87,7 +101,7 @@ class SafeReclamationManager:
             if proc.poll() is not None:
                 print(f"[RECOVERY] NOVA child PID {pid} exited with code {proc.returncode} via {shutdown_method}.")
                 SafeReclamationManager.close_process_pipes(proc)
-                return f"GRACEFUL_EXIT_CODE_{proc.returncode}_{shutdown_method}", shutdown_method, True
+                return f"EXITED_CODE_{proc.returncode}_{shutdown_method}", shutdown_method, True
             time.sleep(0.1)
 
         # Escalation: Hard kill ONLY the NOVA-owned child process
@@ -113,7 +127,9 @@ class SafeReclamationManager:
         peak_ram_gib: float,
         peak_vram_mib: float,
         child_proc: Optional[subprocess.Popen],
-        grace_period_sec: float = 5.0
+        grace_period_sec: float = 5.0,
+        reader_thread_stopped: bool = True,
+        sampler_thread_stopped: bool = True
     ) -> RecoveryReport:
         """
         Reclaims NOVA-owned child process, measures post-run resources,
@@ -124,11 +140,10 @@ class SafeReclamationManager:
         child_pid = child_proc.pid if child_proc else None
 
         # 1. Terminate child if still running
-        term_status, shutdown_method, term_ok = SafeReclamationManager.terminate_child_process(child_proc, grace_period_sec)
+        term_status, shutdown_method, child_terminated = SafeReclamationManager.terminate_child_process(child_proc, grace_period_sec)
 
         # Ensure pipes are closed
-        if child_proc:
-            SafeReclamationManager.close_process_pipes(child_proc)
+        pipes_closed = SafeReclamationManager.close_process_pipes(child_proc)
 
         # Brief pause for OS and NVIDIA driver teardown
         time.sleep(1.0)
@@ -156,7 +171,7 @@ class SafeReclamationManager:
             else:
                 notes.append("VRAM returned to idle baseline (no leak detected).")
 
-        # 4. Residual Process Verification
+        # 4. Residual Process Verification (Exact PID matching)
         residual_pids = []
         process_verification_status = "VERIFIED"
         if child_pid:
@@ -168,15 +183,30 @@ class SafeReclamationManager:
                 if res.returncode != 0:
                     process_verification_status = "UNKNOWN"
                     notes.append(f"Warning: Residual process check failed (tasklist returned code {res.returncode}).")
-                elif str(child_pid) in res.stdout:
-                    residual_pids.append(child_pid)
-                    process_verification_status = "FAILED"
-                    notes.append(f"ERROR: Child PID {child_pid} still detected in OS process table.")
+                else:
+                    reader = csv.reader(io.StringIO(res.stdout.strip()))
+                    for row in reader:
+                        if len(row) >= 2:
+                            try:
+                                r_pid = int(row[1])
+                                if r_pid == child_pid:
+                                    residual_pids.append(r_pid)
+                            except ValueError:
+                                pass
+                    if residual_pids:
+                        process_verification_status = "FAILED"
+                        notes.append(f"ERROR: Child PID {child_pid} still detected in OS process table.")
             except Exception as e:
                 process_verification_status = "UNKNOWN"
                 notes.append(f"Warning: Residual process check encountered exception: {e}.")
 
-        # 5. RAM State Evaluation
+        # 5. Thread Teardown Verification
+        if not reader_thread_stopped:
+            notes.append("Warning: Output reader thread failed to stop cleanly within timeout.")
+        if not sampler_thread_stopped:
+            notes.append("Warning: Telemetry sampler thread failed to stop cleanly within timeout.")
+
+        # 6. RAM State Evaluation
         if post_ram.status == TelemetryStatus.SUCCESS:
             if post_ram.avail_phys_gib < pre_ram.avail_phys_gib - 0.5:
                 delta = round(pre_ram.avail_phys_gib - post_ram.avail_phys_gib, 2)
@@ -188,13 +218,24 @@ class SafeReclamationManager:
 
         notes.append("Governance preserved: No unrelated user applications or Windows services were terminated.")
 
-        # Strict recovery success criteria
+        # Strict full resource-recovery success criteria:
+        # 1. Child terminated cleanly
+        # 2. No residual processes detected and process verification succeeded
+        # 3. GPU verification succeeded and post-run VRAM returned within tolerance (<= 100 MiB leak)
+        # 4. Post-run RAM telemetry succeeded
+        # 5. Owned pipes closed
+        # 6. Both reader and sampler threads confirmed stopped
+        vram_leak_acceptable = (vram_leak is not None and vram_leak <= 100.0)
         recovery_successful = (
-            term_ok and
+            child_terminated and
             len(residual_pids) == 0 and
             process_verification_status == "VERIFIED" and
             gpu_verification_status == "VERIFIED" and
-            post_ram.status == TelemetryStatus.SUCCESS
+            vram_leak_acceptable and
+            post_ram.status == TelemetryStatus.SUCCESS and
+            pipes_closed and
+            reader_thread_stopped and
+            sampler_thread_stopped
         )
 
         return RecoveryReport(
@@ -212,9 +253,12 @@ class SafeReclamationManager:
             recovery_duration_seconds=recovery_dur,
             residual_processes_detected=residual_pids,
             residual_vram_leak_mib=vram_leak,
-            recovery_successful=recovery_successful,
+            child_terminated_successfully=child_terminated,
+            reader_thread_stopped=reader_thread_stopped,
+            sampler_thread_stopped=sampler_thread_stopped,
+            pipes_closed=pipes_closed,
             gpu_verification_status=gpu_verification_status,
             process_verification_status=process_verification_status,
-            pipes_closed=True,
+            recovery_successful=recovery_successful,
             notes=notes
         )

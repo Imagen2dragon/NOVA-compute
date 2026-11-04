@@ -103,11 +103,15 @@ class MemoryAdvisor:
             total_ws_bytes = sum(proc.working_set_bytes for proc in proc_list)
             total_ws_mb = round(total_ws_bytes / (1024**2), 1)
 
-            # Collect private commit where actually measured
+            # Aggregate instances count and measurement coverage
+            instances_total = sum(proc.instances_total for proc in proc_list)
+            instances_measured = sum(proc.instances_measured for proc in proc_list)
+            is_partial = any(proc.is_partial_private_commit for proc in proc_list) or (0 < instances_measured < instances_total)
+
             known_priv_bytes = [proc.private_commit_bytes for proc in proc_list if proc.private_commit_bytes is not None]
             total_priv_mb: Optional[float] = round(sum(known_priv_bytes) / (1024**2), 1) if known_priv_bytes else None
 
-            # Collect all PIDs
+            # Collect all unique PIDs
             all_pids: List[int] = []
             for proc in proc_list:
                 if proc.pids:
@@ -124,24 +128,23 @@ class MemoryAdvisor:
             is_user_facing = profile is not None
 
             # Unverified heuristic: not a promise of exact reclaimable RAM
-            # Clean file-backed pages may transition to OS standby cache rather than free RAM immediately
             heuristic_reclaim_mb: Optional[float] = None
             if total_priv_mb is not None:
                 heuristic_reclaim_mb = round(total_priv_mb + (total_ws_mb - total_priv_mb) * 0.5, 1)
 
-            priv_str = f", ~{total_priv_mb:.0f} MB private commit" if total_priv_mb is not None else ""
-            inst_count = len(all_pids) if all_pids else len(proc_list)
+            coverage_str = f" ({instances_measured}/{instances_total} measured)" if is_partial else ""
+            priv_str = f", ~{total_priv_mb:.0f} MB private commit{coverage_str}" if total_priv_mb is not None else ""
 
             if is_user_facing:
                 rec_text = (
                     f"[{profile['category']}] {profile['label']} observed resident working set: ~{total_ws_mb:.0f} MB "
-                    f"across {inst_count} process instance(s){priv_str}. "
+                    f"across {instances_total} process instance(s){priv_str}. "
                     f"Action: {profile['action']} "
                     f"(Note: Observed working set is an indicator; actual RAM released depends on OS standby caching)."
                 )
             else:
                 rec_text = (
-                    f"Background process '{name}' observed resident working set: ~{total_ws_mb:.0f} MB across {inst_count} instance(s){priv_str}. "
+                    f"Background process '{name}' observed resident working set: ~{total_ws_mb:.0f} MB across {instances_total} instance(s){priv_str}. "
                     f"If this is an active tool, consider closing it through its normal interface."
                 )
 
@@ -151,6 +154,9 @@ class MemoryAdvisor:
                 observed_working_set_mb=total_ws_mb,
                 total_private_commit_mb=total_priv_mb,
                 is_user_facing=is_user_facing,
+                instances_total=instances_total,
+                instances_measured=instances_measured,
+                is_partial=is_partial,
                 unverified_heuristic_reclaim_mb=heuristic_reclaim_mb,
                 recommendation_text=rec_text
             ))

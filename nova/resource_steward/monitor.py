@@ -12,6 +12,7 @@ import ctypes
 from ctypes import wintypes
 import subprocess
 import csv
+import queue
 import threading
 from typing import List, Dict, Optional, Tuple, Callable
 from .models import (
@@ -386,8 +387,8 @@ class ResourceMonitor:
     def list_top_processes(limit: int = 15) -> List[ProcessResourceSnapshot]:
         """
         Collects running processes and groups them by executable name.
-        Uses tasklist for observed working set and attempts Win32 GetProcessMemoryInfo
-        for exact private commit. Does NOT conflate working set with private commit.
+        Queries private commit across all accessible PIDs in each group.
+        Tracks queried vs measured instances, explicitly marking partial results.
         """
         try:
             cmd = ["tasklist", "/FO", "CSV", "/NH"]
@@ -420,17 +421,19 @@ class ResourceMonitor:
                 total_ws_bytes = data["total_ws_kb"] * 1024
                 is_user = name.lower() in KNOWN_USER_PROCESSES
 
-                # Attempt to query actual private commit for accessible PIDs
-                total_priv_commit: Optional[int] = None
+                total_instances = len(pids)
+                measured_instances = 0
                 priv_sum = 0
-                queried_any = False
-                for pid in pids[:10]: # Check up to 10 instances
+
+                # Query all PIDs in group to get complete private commit where accessible
+                for pid in pids:
                     p_info = ResourceMonitor.get_process_memory(pid)
                     if p_info and p_info.status == TelemetryStatus.SUCCESS and p_info.private_commit_bytes is not None:
                         priv_sum += p_info.private_commit_bytes
-                        queried_any = True
-                if queried_any:
-                    total_priv_commit = priv_sum
+                        measured_instances += 1
+
+                is_partial = (0 < measured_instances < total_instances)
+                total_priv_commit: Optional[int] = priv_sum if measured_instances > 0 else None
 
                 snapshots.append(ProcessResourceSnapshot(
                     pid=pids[0] if pids else 0,
@@ -438,9 +441,12 @@ class ResourceMonitor:
                     working_set_bytes=total_ws_bytes,
                     peak_working_set_bytes=None,
                     private_commit_bytes=total_priv_commit,
-                    process_commit_charge_bytes=None, # Not measured across grouped tasklist
+                    process_commit_charge_bytes=None,
                     page_fault_count=None,
                     pids=pids,
+                    instances_total=total_instances,
+                    instances_measured=measured_instances,
+                    is_partial_private_commit=is_partial,
                     is_user_application=is_user,
                     status=TelemetryStatus.SUCCESS
                 ))
@@ -449,11 +455,12 @@ class ResourceMonitor:
             return []
 
 class LiveTelemetrySampler:
-    """Background sampling thread recording telemetry every interval_ms with unique sample IDs and monotonic timestamps."""
+    """Background sampling thread delivering ordered telemetry samples to an internal thread-safe queue."""
     def __init__(self, target_pid: Optional[int], interval_ms: int = 500, on_sample: Optional[Callable[[Dict], None]] = None):
         self.target_pid = target_pid
         self.interval_sec = max(0.1, interval_ms / 1000.0)
         self.on_sample = on_sample
+        self.sample_queue: queue.Queue = queue.Queue()
         self.samples = []
         self._sample_id = 0
         self._stop_event = threading.Event()
@@ -466,10 +473,12 @@ class LiveTelemetrySampler:
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
-    def stop(self, timeout_sec: float = 2.0):
+    def stop(self, timeout_sec: float = 2.0) -> bool:
         self._stop_event.set()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=timeout_sec)
+            return not self._thread.is_alive()
+        return True
 
     def _loop(self):
         while not self._stop_event.is_set():
@@ -513,6 +522,7 @@ class LiveTelemetrySampler:
                 } if proc else None
             }
             self.samples.append(sample)
+            self.sample_queue.put(sample)
             if self.on_sample:
                 try:
                     self.on_sample(sample)
