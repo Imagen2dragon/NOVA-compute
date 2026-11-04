@@ -87,6 +87,8 @@ class ResourceSteward:
         gpu = self.monitor.get_gpu_telemetry()
         disk = self.monitor.get_disk_space("C:\\")
         top_procs = self.monitor.list_top_processes(limit=15)
+        for p in top_procs:
+            p.category = self.advisor.classify_process(p.name)
         
         all_passed, gates = self.budget_mgr.evaluate_gates(ram, gpu, disk)
         
@@ -109,7 +111,21 @@ class ResourceSteward:
 
     def remeasure_memory(
         self,
-        baseline_ram: Optional[SystemMemorySnapshot] = None
+        baseline_ram: Optional[SystemMemorySnapshot] = None,
+        gpu_snapshot: Optional[GPUSnapshot] = None,
+        disk_snapshot: Optional[DiskSnapshot] = None
     ) -> Tuple[SystemMemorySnapshot, Dict[str, Any]]:
-        """Re-measures system memory telemetry and compares it against baseline."""
-        return self.advisor.remeasure_memory(self.monitor, baseline_ram=baseline_ram)
+        """
+        Re-measures system memory telemetry and evaluates full admission gates.
+        Queries fresh RAM, GPU, and disk telemetry to ensure admission eligibility
+        requires passing all system gates (RAM, commit, VRAM, competing GPU apps, disk).
+        """
+        gpu = gpu_snapshot if gpu_snapshot is not None else self.monitor.get_gpu_telemetry()
+        disk = disk_snapshot if disk_snapshot is not None else self.monitor.get_disk_space("C:\\")
+        return self.advisor.remeasure_memory(
+            self.monitor,
+            baseline_ram=baseline_ram,
+            budget_manager=self.budget_mgr,
+            gpu_snapshot=gpu,
+            disk_snapshot=disk
+        )

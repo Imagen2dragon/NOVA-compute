@@ -2086,6 +2086,8 @@ class TestResourceSteward(unittest.TestCase):
         """
         steward = ResourceSteward()
         mock_monitor = MagicMock()
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu()
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
 
         baseline_ram = self._make_healthy_ram(avail_gib=8.5, commit_pct=45.0)
 
@@ -2099,6 +2101,7 @@ class TestResourceSteward(unittest.TestCase):
         self.assertEqual(summary_a["ram_delta_gib"], 2.0)
         self.assertEqual(summary_a["commit_delta_pct"], 10.0)
         self.assertTrue(summary_a["admission_gate_passed"]) # >= 10.0 GiB
+        self.assertTrue(summary_a["ram_gate_passed"])
 
         # Scenario B: User closes apps, but RAM only increases to 9.5 GiB (fails threshold)
         fresh_b = self._make_healthy_ram(avail_gib=9.5, commit_pct=40.0)
@@ -2111,6 +2114,228 @@ class TestResourceSteward(unittest.TestCase):
         self.assertEqual(summary_b["commit_delta_pct"], 5.0)
         # Advisor strictly preserves the 10.0 GiB admission threshold: 9.5 GiB fails closed
         self.assertFalse(summary_b["admission_gate_passed"])
+        self.assertFalse(summary_b["ram_gate_passed"])
+
+    def test_61_protected_process_classification_consistency_and_exclusion(self):
+        """
+        Regression test proving:
+        1. Protected processes (svchost.exe, MsMpEng.exe, nvcontainer.exe, dwm.exe, explorer.exe)
+           are classified consistently as ProcessCategory.PROTECTED_SYSTEM regardless of casing.
+        2. Top process inventory populates p.category and maps to 'Protected System' display label.
+        3. Protected processes are strictly excluded from closure recommendations even with heavy memory.
+        4. Protected processes are never eligible for automatic manipulation (AMR strictly binds to os.getpid()).
+        """
+        protected_targets = ["svchost.exe", "MsMpEng.exe", "nvcontainer.exe", "dwm.exe", "explorer.exe"]
+
+        # 1. Classification consistency
+        for proc_name in protected_targets:
+            category = MemoryAdvisor.classify_process(proc_name)
+            self.assertEqual(
+                category,
+                ProcessCategory.PROTECTED_SYSTEM,
+                f"Process {proc_name} failed consistent classification as PROTECTED_SYSTEM."
+            )
+            # Case variations
+            self.assertEqual(MemoryAdvisor.classify_process(proc_name.upper()), ProcessCategory.PROTECTED_SYSTEM)
+            self.assertEqual(MemoryAdvisor.classify_process(proc_name.lower()), ProcessCategory.PROTECTED_SYSTEM)
+
+        # 2. Preflight top processes category population and display label
+        steward = ResourceSteward()
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=11.0)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu()
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
+        mock_monitor.list_top_processes.return_value = [
+            ProcessResourceSnapshot(pid=1001, name="svchost.exe", working_set_bytes=1000 * 1024 * 1024,
+                                    private_commit_bytes=800 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=1002, name="MsMpEng.exe", working_set_bytes=1200 * 1024 * 1024,
+                                    private_commit_bytes=900 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=1003, name="nvcontainer.exe", working_set_bytes=400 * 1024 * 1024,
+                                    private_commit_bytes=300 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=1004, name="dwm.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=1005, name="explorer.exe", working_set_bytes=600 * 1024 * 1024,
+                                    private_commit_bytes=500 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=2001, name="msedge.exe", working_set_bytes=1500 * 1024 * 1024,
+                                    private_commit_bytes=1200 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+        steward.monitor = mock_monitor
+        report = steward.run_preflight(run_auto_reclaim=False)
+
+        for p in report.top_processes:
+            self.assertIsNotNone(p.category)
+            if p.name.lower() in [t.lower() for t in protected_targets]:
+                self.assertEqual(p.category, ProcessCategory.PROTECTED_SYSTEM)
+            elif p.name == "msedge.exe":
+                self.assertEqual(p.category, ProcessCategory.USER_APPLICATION)
+
+        # 3. Recommendations exclusion: even with multi-gigabyte memory, protected procs never appear
+        recs = steward.advisor.analyze_processes(report.top_processes)
+        rec_names = [r.process_name.lower() for r in recs]
+        for protected_name in protected_targets:
+            self.assertNotIn(
+                protected_name.lower(),
+                rec_names,
+                f"Protected process {protected_name} must NEVER appear in closure recommendations."
+            )
+        self.assertIn("msedge.exe", rec_names)
+
+        # 4. Automatic manipulation immunity: AMR operates exclusively on os.getpid()
+        from nova.resource_steward.adaptive_memory import AdaptiveMemoryController
+        amr = AdaptiveMemoryController(self.policy, mock_monitor, reports_dir=".")
+        # AMR evaluation has no external PID parameters and queries os.getpid()
+        self.assertFalse(hasattr(amr, "target_pid"))
+
+    def test_62_transparent_memory_ranking_heuristic_score(self):
+        """
+        Proves the transparent memory ranking methodology:
+        1. compute_ranking_score calculates ws_mb + 0.25 * (priv_mb or 0.0) without claiming to be physical RAM.
+        2. User applications take tier priority over background/unknown apps regardless of raw score.
+        3. Within tier, candidates are sorted by ranking_score descending, then ws_mb descending.
+        4. Private commit is never conflated with physical RAM.
+        """
+        # Score calculation tests
+        score_complete = MemoryAdvisor.compute_ranking_score(ws_mb=1000.0, priv_mb=800.0)
+        self.assertEqual(score_complete, 1200.0) # 1000 + 0.25 * 800
+
+        score_no_priv = MemoryAdvisor.compute_ranking_score(ws_mb=1000.0, priv_mb=None)
+        self.assertEqual(score_no_priv, 1000.0) # 1000 + 0.0
+
+        # Candidate prioritization test
+        # Process 1: User App (msedge.exe): ws=500 MB, priv=400 MB -> score = 600.0
+        # Process 2: Background App (onedrive.exe): ws=1200 MB, priv=1000 MB -> score = 1450.0
+        # Process 3: User App (code.exe): ws=800 MB, priv=800 MB -> score = 1000.0
+        procs = [
+            ProcessResourceSnapshot(pid=3001, name="msedge.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=3002, name="onedrive.exe", working_set_bytes=1200 * 1024 * 1024,
+                                    private_commit_bytes=1000 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=3003, name="code.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=800 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+        recs = MemoryAdvisor.analyze_processes(procs)
+        self.assertEqual(len(recs), 3)
+
+        # Expected order:
+        # 1. code.exe (User App, score=1000.0)
+        # 2. msedge.exe (User App, score=600.0)
+        # 3. onedrive.exe (Background App, score=1450.0 - user apps take tier priority)
+        self.assertEqual(recs[0].process_name, "code.exe")
+        self.assertEqual(recs[0].ranking_score, 1000.0)
+        self.assertEqual(recs[1].process_name, "msedge.exe")
+        self.assertEqual(recs[1].ranking_score, 600.0)
+        self.assertEqual(recs[2].process_name, "onedrive.exe")
+        self.assertEqual(recs[2].ranking_score, 1450.0)
+
+        # Verified unverified_heuristic_reclaim_mb is None (no false reclaim promise)
+        for r in recs:
+            self.assertIsNone(r.unverified_heuristic_reclaim_mb)
+
+    def test_63_remeasure_memory_full_admission_gate_preservation(self):
+        """
+        Proves that steward.remeasure_memory strictly reuses the full MemoryBudgetManager gate suite:
+        - Passing RAM threshold alone CANNOT produce a passed preflight if another gate fails.
+        - Tested failure modes: VRAM deficit, competing GPU processes, commit >= 90%, disk space deficit.
+        """
+        steward = ResourceSteward()
+        mock_monitor = MagicMock()
+        steward.monitor = mock_monitor
+
+        baseline = self._make_healthy_ram(avail_gib=8.0)
+        healthy_ram = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0) # Meets RAM gate
+        mock_monitor.get_system_memory.return_value = healthy_ram
+
+        # 1. Failure Mode: Insufficient VRAM (4000 MiB < 5500 MiB)
+        bad_vram_gpu = self._make_healthy_gpu(free_mib=4000.0)
+        snap, summary = steward.remeasure_memory(
+            baseline_ram=baseline,
+            gpu_snapshot=bad_vram_gpu,
+            disk_snapshot=self._make_healthy_disk()
+        )
+        self.assertTrue(summary["ram_gate_passed"]) # RAM gate passed
+        self.assertFalse(summary["admission_gate_passed"]) # But admission fails closed!
+        self.assertIn("avail_vram", summary["failed_gates"])
+
+        # 2. Failure Mode: Competing GPU compute workloads (1 active app)
+        comp_gpu = self._make_healthy_gpu(free_mib=5800.0)
+        comp_gpu.compute_processes = [GPUProcessInfo(pid=999, process_name="other_ai.exe", used_memory_mib=1000.0)]
+        snap, summary = steward.remeasure_memory(
+            baseline_ram=baseline,
+            gpu_snapshot=comp_gpu,
+            disk_snapshot=self._make_healthy_disk()
+        )
+        self.assertTrue(summary["ram_gate_passed"])
+        self.assertFalse(summary["admission_gate_passed"])
+        self.assertIn("no_competing_gpu", summary["failed_gates"])
+
+        # 3. Failure Mode: Excessive system commit (92% >= 90%)
+        high_commit_ram = self._make_healthy_ram(avail_gib=12.0, commit_pct=92.0)
+        mock_monitor.get_system_memory.return_value = high_commit_ram
+        snap, summary = steward.remeasure_memory(
+            baseline_ram=baseline,
+            gpu_snapshot=self._make_healthy_gpu(),
+            disk_snapshot=self._make_healthy_disk()
+        )
+        self.assertTrue(summary["ram_gate_passed"])
+        self.assertFalse(summary["admission_gate_passed"])
+        self.assertIn("system_commit", summary["failed_gates"])
+
+        # 4. Failure Mode: Insufficient free disk (15 GB < 25 GB)
+        mock_monitor.get_system_memory.return_value = healthy_ram
+        low_disk = self._make_healthy_disk(free_gb=15.0)
+        snap, summary = steward.remeasure_memory(
+            baseline_ram=baseline,
+            gpu_snapshot=self._make_healthy_gpu(),
+            disk_snapshot=low_disk
+        )
+        self.assertTrue(summary["ram_gate_passed"])
+        self.assertFalse(summary["admission_gate_passed"])
+        self.assertIn("disk_free", summary["failed_gates"])
+
+        # 5. Success Mode: All gates pass
+        snap, summary = steward.remeasure_memory(
+            baseline_ram=baseline,
+            gpu_snapshot=self._make_healthy_gpu(),
+            disk_snapshot=self._make_healthy_disk()
+        )
+        self.assertTrue(summary["ram_gate_passed"])
+        self.assertTrue(summary["admission_gate_passed"])
+        self.assertEqual(len(summary["failed_gates"]), 0)
+
+    def test_64_private_commit_semantics_and_partial_measurement_fidelity(self):
+        """
+        Proves that:
+        1. Recommendations explicitly distinguish working set residency from private commit virtual charge.
+        2. Recommendation text never asserts private commit is guaranteed physical RAM.
+        3. Partial measurements explicitly warn about partial instance coverage.
+        """
+        procs = [
+            ProcessResourceSnapshot(
+                pid=4001,
+                name="msedge.exe",
+                working_set_bytes=800 * 1024 * 1024,
+                private_commit_bytes=600 * 1024 * 1024,
+                pids=[4001, 4002, 4003],
+                instances_total=5,
+                instances_measured=2,
+                is_partial_private_commit=True,
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs = MemoryAdvisor.analyze_processes(procs)
+        self.assertEqual(len(recs), 1)
+        r = recs[0]
+
+        # Verify partial coverage notice
+        self.assertTrue(r.is_partial)
+        self.assertIn("2/5 measured", r.recommendation_text)
+        self.assertIn("2/5 instances measured", r.private_commit_interpretation)
+
+        # Verify semantics
+        self.assertIn("Working set reflects physical residency", r.recommendation_text)
+        self.assertIn("private commit reflects virtual commit charge", r.recommendation_text)
+        self.assertIn("does NOT guarantee immediate physical RAM recovery", r.private_commit_interpretation)
+        self.assertIn("Actual physical RAM freed must be verified via re-measurement telemetry", r.recommendation_text)
 
 if __name__ == "__main__":
     unittest.main()

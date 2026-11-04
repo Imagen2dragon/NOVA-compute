@@ -90,6 +90,7 @@ class ProcessResourceSnapshot:
     cpu_percent: Optional[float] = None
     gpu_vram_used_bytes: Optional[int] = None
     is_user_application: bool = False
+    category: Optional[ProcessCategory] = None
     status: TelemetryStatus = TelemetryStatus.SUCCESS
     error_message: Optional[str] = None
 
@@ -160,6 +161,7 @@ class MemoryRecommendation:
     action_guidance: str = ""
     working_set_interpretation: str = ""
     private_commit_interpretation: str = ""
+    ranking_score: float = 0.0
 
 @dataclass
 class MemoryAdvisorReport:

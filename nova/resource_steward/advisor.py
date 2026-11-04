@@ -14,6 +14,8 @@ from .models import (
     MemoryRecommendation,
     ProcessCategory,
     SystemMemorySnapshot,
+    GPUSnapshot,
+    DiskSnapshot,
     MemoryAdvisorReport,
     TelemetryStatus,
     current_iso_utc
@@ -224,6 +226,34 @@ class MemoryAdvisor:
         return ProcessCategory.UNKNOWN
 
     @classmethod
+    def compute_ranking_score(cls, ws_mb: float, priv_mb: Optional[float]) -> float:
+        """
+        Computes a transparent advisory prioritization index for ordering candidate processes.
+
+        CRITICAL ARCHITECTURAL DISTINCTION:
+        This score is an advisory ranking heuristic only. It does NOT represent recoverable
+        physical RAM, nor does it sum physical memory.
+
+        Physical working set (ws_mb) represents resident pages mapped into physical RAM.
+        Private commit (priv_mb) represents dedicated process virtual address space committed
+        against the system commit limit (backed by RAM or the paging file).
+        Because resident private pages reside simultaneously in both Working Set and Private Commit,
+        summing them directly as physical memory is mathematically invalid and produces double-counting.
+
+        Ranking Algorithm:
+          score = ws_mb + 0.25 * (priv_mb if priv_mb is not None else 0.0)
+
+        Rationale:
+          1. Working set (ws_mb) receives primary weight (1.0) because resident pages occupy
+             scarce physical RAM required by MoE inference.
+          2. Private commit (priv_mb) receives secondary weight (0.25) as a tie-breaker / bonus
+             reflecting system commit pressure relief, without treating commit as physical RAM.
+          3. Candidates without private commit telemetry (priv_mb is None) use purely ws_mb.
+        """
+        commit_bonus = (priv_mb * 0.25) if priv_mb is not None else 0.0
+        return round(ws_mb + commit_bonus, 2)
+
+    @classmethod
     def analyze_processes(
         cls,
         processes: List[ProcessResourceSnapshot],
@@ -233,7 +263,7 @@ class MemoryAdvisor:
         Analyzes a list of running process snapshots and returns ranked recommendations.
         Strict Safety Rules:
         - PROTECTED_SYSTEM processes are NEVER recommended for closure.
-        - Candidates are ranked by verified memory footprint.
+        - Candidates are ranked by verified memory footprint and category priority.
         - Distinguishes physical working set from private commit charge.
         - Clearly flags partial or missing private commit telemetry.
         - Never claims working set reduction is guaranteed available physical RAM.
@@ -278,6 +308,8 @@ class MemoryAdvisor:
             if total_ws_mb < 100.0 and (total_priv_mb or 0.0) < 100.0:
                 continue
 
+            ranking_score = cls.compute_ranking_score(total_ws_mb, total_priv_mb)
+
             candidate_data.append({
                 "name": name,
                 "proc_list": proc_list,
@@ -286,18 +318,19 @@ class MemoryAdvisor:
                 "ws_bytes": total_ws_bytes,
                 "ws_mb": total_ws_mb,
                 "priv_mb": total_priv_mb,
+                "ranking_score": ranking_score,
                 "instances_total": instances_total,
                 "instances_measured": instances_measured,
                 "is_partial": is_partial
             })
 
-        # Rank candidates using verified telemetry:
-        # Sort by total memory footprint ((total_priv_mb or 0) + ws_mb) descending,
-        # giving user applications priority at comparable sizes.
-        def _sort_key(c: Dict[str, Any]) -> Tuple[int, float]:
+        # Rank candidates using transparent prioritization:
+        # 1. User applications are prioritized over background / unknown applications.
+        # 2. Ranking heuristic score (ws_mb + 0.25 * priv_mb) orders candidates within the tier.
+        # 3. Working set physical residency breaks any remaining ties.
+        def _sort_key(c: Dict[str, Any]) -> Tuple[int, float, float]:
             cat_prio = 2 if c["category"] == ProcessCategory.USER_APPLICATION else 1
-            combined_mb = (c["priv_mb"] or 0.0) + c["ws_mb"]
-            return (cat_prio, combined_mb)
+            return (cat_prio, c["ranking_score"], c["ws_mb"])
 
         candidate_data.sort(key=_sort_key, reverse=True)
 
@@ -306,37 +339,32 @@ class MemoryAdvisor:
             category = c["category"]
             total_ws_mb = c["ws_mb"]
             total_priv_mb = c["priv_mb"]
+            ranking_score = c["ranking_score"]
             instances_total = c["instances_total"]
             instances_measured = c["instances_measured"]
             is_partial = c["is_partial"]
             all_pids = c["all_pids"]
 
-            # Heuristic calculation (informational only; not a guarantee)
-            heuristic_reclaim_mb: Optional[float] = None
-            if total_priv_mb is not None:
-                heuristic_reclaim_mb = round(total_priv_mb + max(0.0, total_ws_mb - total_priv_mb) * 0.5, 1)
-
-            # Working-set interpretation
+            # Working-set interpretation (physical memory residency)
             ws_note = (
-                f"Observed resident working set: ~{total_ws_mb:.0f} MB. "
-                "Working set measures physical memory residency; actual RAM released depends on OS standby caching."
+                f"Observed resident working set: ~{total_ws_mb:.0f} MB across {instances_total} instance(s). "
+                "Working set measures physical memory residency mapped into RAM; "
+                "actual physical RAM freed depends on OS page replacement and standby list management."
             )
 
-            # Private commit interpretation
+            # Private commit interpretation (dedicated virtual commit charge)
             if total_priv_mb is not None:
-                if is_partial:
-                    priv_note = (
-                        f"Observed private commit: ~{total_priv_mb:.0f} MB (partial measurement: "
-                        f"{instances_measured}/{instances_total} instances measured). "
-                        "Private commit represents dedicated commit charge; closing frees virtual commit allocation."
-                    )
-                else:
-                    priv_note = (
-                        f"Observed private commit: ~{total_priv_mb:.0f} MB across all {instances_total} instance(s). "
-                        "Private commit represents dedicated commit charge; closing frees virtual commit allocation."
-                    )
+                coverage_note = f" (partial measurement: {instances_measured}/{instances_total} instances measured)" if is_partial else f" across all {instances_total} instance(s)"
+                priv_note = (
+                    f"Observed private commit: ~{total_priv_mb:.0f} MB{coverage_note}. "
+                    "Private commit represents dedicated commit charge (virtual address space committed against the system commit limit); "
+                    "closing the application frees virtual commit allocation, but does NOT guarantee immediate physical RAM recovery."
+                )
             else:
                 priv_note = "Private commit telemetry unavailable (access restricted or zero measured instances)."
+
+            coverage_str = f" ({instances_measured}/{instances_total} measured)" if is_partial else ""
+            priv_str = f", ~{total_priv_mb:.0f} MB private commit{coverage_str}" if total_priv_mb is not None else ""
 
             if category == ProcessCategory.USER_APPLICATION:
                 profile = USER_APP_PROFILES.get(name, {})
@@ -344,13 +372,11 @@ class MemoryAdvisor:
                 sub_cat = profile.get("sub_category", "User Application")
                 action = profile.get("action", "Close application through its normal window interface.")
                 why = f"High-memory user-facing application ({sub_cat}). Safe to close if not currently required."
-                coverage_str = f" ({instances_measured}/{instances_total} measured)" if is_partial else ""
-                priv_str = f", ~{total_priv_mb:.0f} MB private commit{coverage_str}" if total_priv_mb is not None else ""
                 rec_text = (
-                    f"[{sub_cat}] {label} observed resident working set: ~{total_ws_mb:.0f} MB "
-                    f"across {instances_total} process instance(s){priv_str}. "
+                    f"[{sub_cat}] {label} — Resident working set: ~{total_ws_mb:.0f} MB{priv_str}. "
                     f"Action: {action} "
-                    f"(Note: Observed working set is an indicator; actual RAM released depends on OS standby caching)."
+                    f"(Note: Working set reflects physical residency; private commit reflects virtual commit charge. "
+                    f"Actual physical RAM freed must be verified via re-measurement telemetry)."
                 )
                 is_user_facing = True
 
@@ -360,25 +386,22 @@ class MemoryAdvisor:
                 sub_cat = profile.get("sub_category", "Background Worker")
                 action = profile.get("action", "Close or pause application via system tray or console.")
                 why = f"Optional background application ({sub_cat}). Review if active during inference."
-                coverage_str = f" ({instances_measured}/{instances_total} measured)" if is_partial else ""
-                priv_str = f", ~{total_priv_mb:.0f} MB private commit{coverage_str}" if total_priv_mb is not None else ""
                 rec_text = (
-                    f"[Background: {sub_cat}] {label} observed resident working set: ~{total_ws_mb:.0f} MB "
-                    f"across {instances_total} instance(s){priv_str}. "
+                    f"[Background: {sub_cat}] {label} — Resident working set: ~{total_ws_mb:.0f} MB{priv_str}. "
                     f"Action: {action} "
-                    f"If this is an active tool, consider closing it through its normal interface."
+                    f"(Note: Working set reflects physical residency; private commit reflects virtual commit charge. "
+                    f"Actual physical RAM freed must be verified via re-measurement telemetry)."
                 )
                 is_user_facing = False
 
             else:  # ProcessCategory.UNKNOWN
                 action = "Review process function. Close through its normal interface only if recognized and unused."
                 why = "Unclassified high-memory process. Treated conservatively; do not close if purpose is unknown."
-                coverage_str = f" ({instances_measured}/{instances_total} measured)" if is_partial else ""
-                priv_str = f", ~{total_priv_mb:.0f} MB private commit{coverage_str}" if total_priv_mb is not None else ""
                 rec_text = (
-                    f"[Unclassified Process] '{name}' observed resident working set: ~{total_ws_mb:.0f} MB "
-                    f"across {instances_total} instance(s){priv_str}. "
-                    f"Action: {action}"
+                    f"[Unclassified Process] '{name}' — Resident working set: ~{total_ws_mb:.0f} MB{priv_str}. "
+                    f"Action: {action} "
+                    f"(Note: Working set reflects physical residency; private commit reflects virtual commit charge. "
+                    f"Actual physical RAM freed must be verified via re-measurement telemetry)."
                 )
                 is_user_facing = False
 
@@ -391,13 +414,14 @@ class MemoryAdvisor:
                 instances_total=instances_total,
                 instances_measured=instances_measured,
                 is_partial=is_partial,
-                unverified_heuristic_reclaim_mb=heuristic_reclaim_mb,
+                unverified_heuristic_reclaim_mb=None,
                 recommendation_text=rec_text,
                 category=category,
                 why_recommended=why,
                 action_guidance=action,
                 working_set_interpretation=ws_note,
-                private_commit_interpretation=priv_note
+                private_commit_interpretation=priv_note,
+                ranking_score=ranking_score
             ))
 
         return recommendations
@@ -443,23 +467,48 @@ class MemoryAdvisor:
             protected_processes_observed=protected_observed
         )
 
-    @staticmethod
+    @classmethod
     def remeasure_memory(
+        cls,
         monitor: ResourceMonitor,
-        baseline_ram: Optional[SystemMemorySnapshot] = None
+        baseline_ram: Optional[SystemMemorySnapshot] = None,
+        budget_manager: Optional[Any] = None,
+        gpu_snapshot: Optional[GPUSnapshot] = None,
+        disk_snapshot: Optional[DiskSnapshot] = None
     ) -> Tuple[SystemMemorySnapshot, Dict[str, Any]]:
         """
         Collects fresh read-only system memory telemetry and compares it against a baseline snapshot.
-        Reports exact observed changes in available physical RAM and system commit charge.
-        Evaluates whether the 10.0 GiB available RAM admission gate is met.
+        Evaluates full system admission gates (RAM, system commit, VRAM, competing GPU apps, disk).
+        Fails closed: reaching the 10.0 GiB RAM threshold alone CANNOT pass admission if any other gate fails.
         """
         fresh = monitor.get_system_memory()
+
+        if budget_manager is None:
+            from .memory_budget import MemoryBudgetManager
+            budget_mgr = MemoryBudgetManager(DEFAULT_POLICY)
+        else:
+            budget_mgr = budget_manager
+
+        gpu = gpu_snapshot if gpu_snapshot is not None else monitor.get_gpu_telemetry()
+        disk = disk_snapshot if disk_snapshot is not None else monitor.get_disk_space("C:\\")
+
+        all_passed, gates = budget_mgr.evaluate_gates(fresh, gpu, disk)
+        ram_gate = gates.get("avail_ram")
+        ram_passed = ram_gate.passed if ram_gate is not None else False
+        failed_gate_names = [name for name, g in gates.items() if not g.passed]
+
         summary: Dict[str, Any] = {
             "status": fresh.status.value,
             "avail_ram_gib": fresh.avail_phys_gib,
             "commit_total_gib": fresh.commit_total_gib,
             "commit_pct": fresh.commit_pct,
-            "admission_gate_passed": fresh.avail_phys_gib >= 10.0,
+            "admission_gate_passed": all_passed,
+            "ram_gate_passed": ram_passed,
+            "all_gates_passed": all_passed,
+            "failed_gates": failed_gate_names,
+            "gates": gates,
+            "gpu": gpu,
+            "disk": disk,
             "ram_delta_gib": None,
             "commit_delta_pct": None,
             "notes": []
@@ -482,5 +531,11 @@ class MemoryAdvisor:
                 summary["notes"].append(f"System commit reduced by {commit_delta:.1f}%.")
             elif commit_delta < 0:
                 summary["notes"].append(f"System commit increased by {abs(commit_delta):.1f}%.")
+
+        if not all_passed:
+            summary["notes"].append(
+                f"Admission gated: {len(failed_gate_names)} gate(s) failed ({', '.join(failed_gate_names)}). "
+                "Meeting the RAM threshold alone is insufficient for inference admission."
+            )
 
         return fresh, summary

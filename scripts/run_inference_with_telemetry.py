@@ -34,6 +34,8 @@ from nova.resource_steward import (
     DEFAULT_POLICY,
     ExecutionMode,
     TelemetryStatus,
+    ProcessCategory,
+    MemoryAdvisor,
     PreflightReport,
     RecoveryReport,
     SupervisorResult,
@@ -225,10 +227,18 @@ def run_memory_report(steward: ResourceSteward) -> int:
 
     print("\n--- Detailed Process Working Set & Private Commit Inventory ---")
     for p in report.top_processes:
-        cat = "User Application" if p.is_user_application else "System/Background"
+        cat_enum = p.category or MemoryAdvisor.classify_process(p.name)
+        if cat_enum == ProcessCategory.PROTECTED_SYSTEM:
+            cat_label = "Protected System"
+        elif cat_enum == ProcessCategory.USER_APPLICATION:
+            cat_label = "User Application"
+        elif cat_enum == ProcessCategory.BACKGROUND_APPLICATION:
+            cat_label = "Background App"
+        else:
+            cat_label = "Unclassified"
         part_str = " (partial)" if p.is_partial_private_commit else ""
         priv_str = f"{p.private_commit_mb:>7.1f} MB{part_str}" if p.private_commit_mb is not None else "    N/A          "
-        print(f"  {p.name:<30} WS: {p.working_set_mb:>7.1f} MB  Priv: {priv_str:<17}  [{cat}] (Instances: {p.instances_measured}/{p.instances_total})")
+        print(f"  {p.name:<30} WS: {p.working_set_mb:>7.1f} MB  Priv: {priv_str:<17}  [{cat_label}] (Instances: {p.instances_measured}/{p.instances_total})")
 
     print("\n" + "=" * 72)
     print(f"ADVISOR NOTICE: {advice.disclaimer}")
