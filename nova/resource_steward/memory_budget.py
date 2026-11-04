@@ -14,7 +14,11 @@ from .models import (
     GateResult,
     PreflightReport,
     ProcessResourceSnapshot,
-    MemoryRecommendation
+    MemoryRecommendation,
+    MAX_ACCEPTED_DISK_BYTES,
+    is_safe_disk_byte_counter,
+    is_safe_finite_float,
+    is_safe_positive_policy_threshold
 )
 from .policy import ResourcePolicy, DEFAULT_POLICY, enforce_mandatory_admission_floors
 
@@ -40,13 +44,37 @@ class MemoryBudgetManager:
         gates: Dict[str, GateResult] = {}
 
         # 1. Telemetry Health Gate (Fail-Closed)
+        expected_free_gib = None
+        if is_safe_disk_byte_counter(disk.free_bytes, allow_zero=True):
+            try:
+                expected_free_gib = float(disk.free_bytes) / (1024 ** 3)
+            except (OverflowError, TypeError, ValueError):
+                expected_free_gib = None
+
+        expected_total_gib = None
+        if is_safe_disk_byte_counter(disk.total_bytes, allow_zero=False):
+            try:
+                expected_total_gib = float(disk.total_bytes) / (1024 ** 3)
+            except (OverflowError, TypeError, ValueError):
+                expected_total_gib = None
+
+        free_gib_consistent = (
+            expected_free_gib is not None and
+            is_safe_finite_float(disk.free_gib) and
+            abs(disk.free_gib - expected_free_gib) <= 1e-9
+        )
+        total_gib_consistent = (
+            expected_total_gib is not None and
+            is_safe_finite_float(disk.total_gib) and
+            abs(disk.total_gib - expected_total_gib) <= 1e-9
+        )
         disk_telemetry_healthy = (
             disk.status == TelemetryStatus.SUCCESS and
-            isinstance(disk.free_bytes, int) and not isinstance(disk.free_bytes, bool) and disk.free_bytes >= 0 and
-            isinstance(disk.total_bytes, int) and not isinstance(disk.total_bytes, bool) and disk.total_bytes > 0 and
-            disk.free_bytes <= disk.total_bytes and
-            disk.free_gib is not None and isinstance(disk.free_gib, (int, float)) and not isinstance(disk.free_gib, bool) and math.isfinite(disk.free_gib) and
-            disk.total_gib is not None and isinstance(disk.total_gib, (int, float)) and not isinstance(disk.total_gib, bool) and math.isfinite(disk.total_gib)
+            is_safe_disk_byte_counter(disk.free_bytes, allow_zero=True) and
+            is_safe_disk_byte_counter(disk.total_bytes, allow_zero=False) and
+            (disk.free_bytes <= disk.total_bytes if isinstance(disk.free_bytes, int) and isinstance(disk.total_bytes, int) else False) and
+            free_gib_consistent and
+            total_gib_consistent
         )
         telemetry_healthy = (
             system_ram.status == TelemetryStatus.SUCCESS and
@@ -183,40 +211,56 @@ class MemoryBudgetManager:
         disk_valid = True
         disk_invalid_reason = None
 
-        if disk.status != TelemetryStatus.SUCCESS:
+        # Validate policy threshold before calculating required_bytes
+        threshold_gib = effective_policy.minimum_disk_free_gib
+        threshold_valid = is_safe_positive_policy_threshold(threshold_gib)
+
+        if not threshold_valid:
+            disk_valid = False
+            disk_invalid_reason = f"Invalid non-finite or non-positive policy disk threshold: {threshold_gib!r}."
+        elif disk.status != TelemetryStatus.SUCCESS:
             disk_valid = False
             disk_invalid_reason = f"Disk telemetry status is not SUCCESS ({disk.error_message or 'Unavailable'})."
-        elif not isinstance(disk.free_bytes, int) or isinstance(disk.free_bytes, bool) or disk.free_bytes < 0:
+        elif not is_safe_disk_byte_counter(disk.free_bytes, allow_zero=True):
             disk_valid = False
-            disk_invalid_reason = f"Invalid free_bytes counter: {disk.free_bytes!r} (must be non-negative integer, non-bool)."
-        elif not isinstance(disk.total_bytes, int) or isinstance(disk.total_bytes, bool) or disk.total_bytes <= 0:
+            disk_invalid_reason = f"Invalid free_bytes counter: {disk.free_bytes!r} (must be non-negative integer <= 2^64-1, non-bool)."
+        elif not is_safe_disk_byte_counter(disk.total_bytes, allow_zero=False):
             disk_valid = False
-            disk_invalid_reason = f"Invalid total_bytes counter: {disk.total_bytes!r} (must be positive integer, non-bool)."
+            disk_invalid_reason = f"Invalid total_bytes counter: {disk.total_bytes!r} (must be positive integer <= 2^64-1, non-bool)."
         elif disk.free_bytes > disk.total_bytes:
             disk_valid = False
             disk_invalid_reason = f"Contradictory disk counters: free_bytes ({disk.free_bytes}) > total_bytes ({disk.total_bytes})."
-        elif disk.free_gib is None or not isinstance(disk.free_gib, (int, float)) or isinstance(disk.free_gib, bool) or not math.isfinite(disk.free_gib):
+        elif not is_safe_finite_float(disk.free_gib):
             disk_valid = False
             disk_invalid_reason = f"Invalid or non-finite free_gib telemetry: {disk.free_gib!r}."
-        elif disk.total_gib is None or not isinstance(disk.total_gib, (int, float)) or isinstance(disk.total_gib, bool) or not math.isfinite(disk.total_gib):
+        elif not is_safe_finite_float(disk.total_gib):
             disk_valid = False
             disk_invalid_reason = f"Invalid or non-finite total_gib telemetry: {disk.total_gib!r}."
         else:
-            # Reject conflicting representations: free_bytes and free_gib must be mathematically consistent
+            # Consistency check 1: free_gib must agree with free_bytes within narrow conversion precision
             expected_free_gib = float(disk.free_bytes) / (1024 ** 3)
-            if abs(disk.free_gib - expected_free_gib) > 0.001:
+            if abs(disk.free_gib - expected_free_gib) > 1e-9:
                 disk_valid = False
                 disk_invalid_reason = (
-                    f"Contradictory disk representations: free_bytes ({disk.free_bytes}) yields "
-                    f"{expected_free_gib:.4f} GiB, but free_gib is {disk.free_gib:.4f}."
+                    f"Contradictory free disk representations: free_bytes ({disk.free_bytes}) yields "
+                    f"{expected_free_gib:.6f} GiB, but free_gib is {disk.free_gib:.6f}."
                 )
+            else:
+                # Consistency check 2: total_gib must agree with total_bytes within narrow conversion precision
+                expected_total_gib = float(disk.total_bytes) / (1024 ** 3)
+                if abs(disk.total_gib - expected_total_gib) > 1e-9:
+                    disk_valid = False
+                    disk_invalid_reason = (
+                        f"Contradictory total disk representations: total_bytes ({disk.total_bytes}) yields "
+                        f"{expected_total_gib:.6f} GiB, but total_gib is {disk.total_gib:.6f}."
+                    )
 
         if not disk_valid:
             disk_passed = False
             disk_measured = "UNAVAILABLE" if disk.status != TelemetryStatus.SUCCESS else "INVALID / UNAVAILABLE"
             disk_failure = f"Fail-closed: disk validation failed ({disk_invalid_reason})"
         else:
-            required_bytes = math.ceil(effective_policy.minimum_disk_free_gib * (1024 ** 3))
+            required_bytes = math.ceil(threshold_gib * (1024 ** 3))
             # Authoritative admission decision derived strictly from integer free_bytes
             disk_passed = (disk.free_bytes >= required_bytes)
 
@@ -227,14 +271,14 @@ class MemoryBudgetManager:
 
             disk_measured = f"{disk.free_gib:.2f} GiB"
             disk_failure = (
-                f"Disk space deficit: {deficit_str} below required {effective_policy.minimum_disk_free_gib:.1f} GiB"
+                f"Disk space deficit: {deficit_str} below required {threshold_gib:.1f} GiB"
                 if not disk_passed else None
             )
 
         gates["disk_free"] = GateResult(
             gate_name="disk_free",
             passed=disk_passed,
-            required_str=f">= {effective_policy.minimum_disk_free_gib:.1f} GiB",
+            required_str=f">= {threshold_gib:.1f} GiB" if threshold_valid else "INVALID POLICY",
             measured_str=disk_measured,
             failure_reason=disk_failure
         )

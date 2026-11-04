@@ -162,10 +162,32 @@ def enforce_mandatory_admission_floors(policy: Optional[ResourcePolicy]) -> Reso
     Always returns a new defensive copy and never returns the caller's original mutable object.
     """
     import copy
+    import math
     base = policy or DEFAULT_POLICY
     clamped = copy.copy(base)
-    clamped.minimum_inference_ram_gib = max(MANDATORY_MIN_RAM_GIB, float(base.minimum_inference_ram_gib))
-    clamped.critical_commit_pct = min(MANDATORY_MAX_COMMIT_PCT, float(base.critical_commit_pct))
-    clamped.minimum_vram_mib = max(MANDATORY_MIN_VRAM_MIB, float(base.minimum_vram_mib))
-    clamped.minimum_disk_free_gib = max(MANDATORY_MIN_DISK_FREE_GIB, float(base.minimum_disk_free_gib))
+
+    try:
+        r = float(base.minimum_inference_ram_gib)
+        clamped.minimum_inference_ram_gib = max(MANDATORY_MIN_RAM_GIB, r) if math.isfinite(r) else r
+    except (OverflowError, TypeError, ValueError):
+        clamped.minimum_inference_ram_gib = float("inf")
+
+    try:
+        c = float(base.critical_commit_pct)
+        clamped.critical_commit_pct = min(MANDATORY_MAX_COMMIT_PCT, c) if math.isfinite(c) else c
+    except (OverflowError, TypeError, ValueError):
+        clamped.critical_commit_pct = 0.0
+
+    try:
+        v = float(base.minimum_vram_mib)
+        clamped.minimum_vram_mib = max(MANDATORY_MIN_VRAM_MIB, v) if math.isfinite(v) else v
+    except (OverflowError, TypeError, ValueError):
+        clamped.minimum_vram_mib = float("inf")
+
+    try:
+        d = float(base.minimum_disk_free_gib)
+        clamped.minimum_disk_free_gib = max(MANDATORY_MIN_DISK_FREE_GIB, d) if math.isfinite(d) else d
+    except (OverflowError, TypeError, ValueError):
+        clamped.minimum_disk_free_gib = float("inf")
+
     return clamped

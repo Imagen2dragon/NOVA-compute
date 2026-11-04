@@ -126,6 +126,35 @@ class GPUSnapshot:
     error_message: Optional[str] = None
     timestamp_utc: str = field(default_factory=current_iso_utc)
 
+MAX_ACCEPTED_DISK_BYTES: int = (1 << 64) - 1  # 18.44 Exabytes (maximum 64-bit unsigned integer)
+
+def is_safe_disk_byte_counter(val: Any, allow_zero: bool = True) -> bool:
+    """Exception-safe validation for integer disk byte counters."""
+    if isinstance(val, bool) or not isinstance(val, int):
+        return False
+    min_val = 0 if allow_zero else 1
+    return min_val <= val <= MAX_ACCEPTED_DISK_BYTES
+
+def is_safe_finite_float(val: Any) -> bool:
+    """Exception-safe validation for finite floating-point numeric values."""
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return False
+    try:
+        f = float(val)
+        return math.isfinite(f)
+    except (OverflowError, TypeError, ValueError):
+        return False
+
+def is_safe_positive_policy_threshold(val: Any) -> bool:
+    """Exception-safe validation for positive finite policy thresholds."""
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        return False
+    try:
+        f = float(val)
+        return math.isfinite(f) and f > 0.0 and f <= (MAX_ACCEPTED_DISK_BYTES / (1024 ** 3))
+    except (OverflowError, TypeError, ValueError):
+        return False
+
 @dataclass
 class DiskSnapshot:
     drive: str
@@ -157,32 +186,52 @@ class DiskSnapshot:
         self.error_message = error_message
         self.timestamp_utc = timestamp_utc or current_iso_utc()
 
-        # Check for malformed / non-finite free_gib / free_gb if explicitly provided
+        # Validate explicitly provided float metrics with exception safety
         for val_name, val in [("free_gib", free_gib), ("total_gib", total_gib), ("free_gb", free_gb), ("total_gb", total_gb)]:
-            if val is not None:
-                if isinstance(val, bool) or not isinstance(val, (int, float)) or math.isnan(val) or math.isinf(val):
-                    self.status = TelemetryStatus.FAILED
-                    self.error_message = f"Invalid or non-finite {val_name} provided: {val!r}"
+            if val is not None and not is_safe_finite_float(val):
+                self.status = TelemetryStatus.FAILED
+                self.error_message = f"Invalid or non-finite {val_name} provided: {val!r}"
+
+        # Validate integer byte counters with exception safety
+        is_valid_free_b = is_safe_disk_byte_counter(free_bytes, allow_zero=True)
+        is_valid_total_b = is_safe_disk_byte_counter(total_bytes, allow_zero=False)
+
+        if not is_valid_free_b:
+            self.status = TelemetryStatus.FAILED
+            if not self.error_message:
+                self.error_message = f"Invalid free_bytes counter: {free_bytes!r} (must be integer in [0, 2^64-1], non-bool)"
+        if not is_valid_total_b:
+            self.status = TelemetryStatus.FAILED
+            if not self.error_message:
+                self.error_message = f"Invalid total_bytes counter: {total_bytes!r} (must be integer in (0, 2^64-1], non-bool)"
+        if is_valid_free_b and is_valid_total_b and free_bytes > total_bytes:
+            self.status = TelemetryStatus.FAILED
+            if not self.error_message:
+                self.error_message = f"Contradictory counters: free_bytes ({free_bytes}) > total_bytes ({total_bytes})"
 
         # Raw integer byte counters are authoritative: derive presentation values when valid
-        is_valid_free_b = isinstance(free_bytes, int) and not isinstance(free_bytes, bool) and free_bytes >= 0
-        is_valid_total_b = isinstance(total_bytes, int) and not isinstance(total_bytes, bool) and total_bytes > 0
-
         if is_valid_free_b:
-            # Derived directly from authoritative raw bytes (normalizes any conflicting free_gib / free_gb)
-            self.free_gib = float(free_bytes) / (1024 ** 3)
-        elif free_gib is not None and isinstance(free_gib, (int, float)) and not isinstance(free_gib, bool) and math.isfinite(free_gib):
+            try:
+                self.free_gib = float(free_bytes) / (1024 ** 3)
+            except (OverflowError, TypeError, ValueError):
+                self.free_gib = 0.0
+                self.status = TelemetryStatus.FAILED
+        elif free_gib is not None and is_safe_finite_float(free_gib):
             self.free_gib = float(free_gib)
-        elif free_gb is not None and isinstance(free_gb, (int, float)) and not isinstance(free_gb, bool) and math.isfinite(free_gb):
+        elif free_gb is not None and is_safe_finite_float(free_gb):
             self.free_gib = float(free_gb)
         else:
             self.free_gib = 0.0
 
         if is_valid_total_b:
-            self.total_gib = float(total_bytes) / (1024 ** 3)
-        elif total_gib is not None and isinstance(total_gib, (int, float)) and not isinstance(total_gib, bool) and math.isfinite(total_gib):
+            try:
+                self.total_gib = float(total_bytes) / (1024 ** 3)
+            except (OverflowError, TypeError, ValueError):
+                self.total_gib = 0.0
+                self.status = TelemetryStatus.FAILED
+        elif total_gib is not None and is_safe_finite_float(total_gib):
             self.total_gib = float(total_gib)
-        elif total_gb is not None and isinstance(total_gb, (int, float)) and not isinstance(total_gb, bool) and math.isfinite(total_gb):
+        elif total_gb is not None and is_safe_finite_float(total_gb):
             self.total_gib = float(total_gb)
         else:
             self.total_gib = 0.0

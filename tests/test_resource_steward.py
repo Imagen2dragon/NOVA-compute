@@ -3173,5 +3173,91 @@ class TestResourceSteward(unittest.TestCase):
         self.assertFalse(all_p_e6, "free_bytes > total_bytes must fail closed")
         self.assertFalse(gates_e6["disk_free"].passed)
 
+    def test_73_total_capacity_consistency_and_exception_safe_validation(self):
+        """
+        Validates total capacity consistency and exception-safe handling of malformed/oversized numeric input:
+          Case A. Contradictory total capacity:
+            - Valid total_bytes (100 GiB), but total_gib contradicts (90.0 GiB).
+            - Expected: telemetry_integrity gate FAILS and disk_free gate FAILS.
+          Case B. Post-construction total metric mutation:
+            - Construct a healthy snapshot, then mutate total_gib to a contradictory finite value (955.0 GiB).
+            - Expected: telemetry_integrity gate FAILS and disk_free gate FAILS closed.
+          Case C. Extremely large integer converted metric:
+            - free_bytes = 10**400, total_bytes = 10**400.
+            - Model constructor and gate validator must fail closed without raising OverflowError.
+          Case D. Non-finite policy threshold (Positive Infinity):
+            - ResourcePolicy(minimum_disk_free_gib=float("inf")).
+            - evaluate_gates must return explicit fail-closed GateResult without raising OverflowError in math.ceil.
+          Case E. Non-finite policy threshold (NaN):
+            - ResourcePolicy(minimum_disk_free_gib=float("nan")).
+            - evaluate_gates must fail closed without raising ValueError.
+        """
+        manager = MemoryBudgetManager(DEFAULT_POLICY)
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+        total_100_gib_bytes = 100 * (1024 ** 3)
+        free_50_gib_bytes = 50 * (1024 ** 3)
+
+        # --- Case A: Contradictory total capacity ---
+        snap_a = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=free_50_gib_bytes,
+            total_bytes=total_100_gib_bytes
+        )
+        snap_a.total_gib = 90.0  # Contradicts total_bytes of 100 GiB
+        all_passed_a, gates_a = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_a)
+        self.assertFalse(all_passed_a, "Contradictory total_gib must FAIL admission")
+        self.assertFalse(gates_a["telemetry_integrity"].passed, "telemetry_integrity must FAIL for contradictory total_gib")
+        self.assertFalse(gates_a["disk_free"].passed, "disk_free must FAIL for contradictory total_gib")
+        self.assertIn("Contradictory total disk representations", gates_a["disk_free"].failure_reason)
+
+        # --- Case B: Post-construction total metric mutation ---
+        snap_b = self._make_healthy_disk(free_gib=50.0)
+        self.assertEqual(snap_b.total_gib, 950.0)
+        # Mutate total_gib to an inconsistent finite value
+        snap_b.total_gib = 955.0
+        all_passed_b, gates_b = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_b)
+        self.assertFalse(all_passed_b, "Mutated total_gib must FAIL closed")
+        self.assertFalse(gates_b["telemetry_integrity"].passed)
+        self.assertFalse(gates_b["disk_free"].passed)
+        self.assertIn("Contradictory total disk representations", gates_b["disk_free"].failure_reason)
+
+        # --- Case C: Extremely large integer converted metric ---
+        huge_int = 10 ** 400
+        # Must not raise OverflowError during instantiation
+        snap_c = DiskSnapshot(drive="C:\\", free_bytes=huge_int, total_bytes=huge_int)
+        self.assertEqual(snap_c.status, TelemetryStatus.FAILED)
+        # Must not raise OverflowError during evaluate_gates
+        all_passed_c, gates_c = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_c)
+        self.assertFalse(all_passed_c, "Extremely large integer must fail closed")
+        self.assertFalse(gates_c["disk_free"].passed)
+        self.assertFalse(gates_c["telemetry_integrity"].passed)
+
+        # Direct mutation of free_bytes to huge int also fails closed safely without exception
+        snap_c_forced = self._make_healthy_disk()
+        snap_c_forced.free_bytes = huge_int
+        all_passed_cf, gates_cf = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_c_forced)
+        self.assertFalse(all_passed_cf)
+        self.assertFalse(gates_cf["disk_free"].passed)
+
+        # --- Case D: Non-finite policy threshold (Positive Infinity) ---
+        inf_policy = ResourcePolicy(minimum_disk_free_gib=float("inf"))
+        manager_inf = MemoryBudgetManager(inf_policy)
+        disk_healthy = self._make_healthy_disk()
+        all_passed_d, gates_d = manager_inf.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_d, "Policy with inf disk threshold must FAIL closed")
+        self.assertFalse(gates_d["disk_free"].passed)
+        self.assertEqual(gates_d["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("Invalid non-finite or non-positive policy disk threshold: inf", gates_d["disk_free"].failure_reason)
+
+        # --- Case E: Non-finite policy threshold (NaN) ---
+        nan_policy = ResourcePolicy(minimum_disk_free_gib=float("nan"))
+        manager_nan = MemoryBudgetManager(nan_policy)
+        all_passed_e, gates_e = manager_nan.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_e, "Policy with NaN disk threshold must FAIL closed")
+        self.assertFalse(gates_e["disk_free"].passed)
+        self.assertEqual(gates_e["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("Invalid non-finite or non-positive policy disk threshold: nan", gates_e["disk_free"].failure_reason)
+
 if __name__ == "__main__":
     unittest.main()
