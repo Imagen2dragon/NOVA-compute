@@ -1,7 +1,7 @@
 """
 NOVA Compute — Memory Budget Manager
 Evaluates hardware state snapshots against configurable resource policies.
-Enforces strict fail-closed gating for memory, GPU, storage, and telemetry health.
+Enforces strict fail-closed gating for memory, GPU, storage, commit, and telemetry health.
 """
 
 from typing import Dict, Tuple, List, Optional
@@ -71,7 +71,34 @@ class MemoryBudgetManager:
             failure_reason=f"Available RAM deficit: {ram_deficit:.3f} GiB below required {self.policy.minimum_inference_ram_gib:.1f} GiB" if not ram_passed else None
         )
 
-        # 3. Available VRAM Gate
+        # 3. System Commit Gate (Fail-Closed)
+        commit_valid = (
+            system_ram.status == TelemetryStatus.SUCCESS and
+            system_ram.commit_pct is not None
+        )
+        commit_passed = (
+            commit_valid and
+            system_ram.commit_pct < self.policy.critical_commit_pct
+        )
+        if not commit_valid:
+            commit_measured = "UNAVAILABLE"
+            commit_failure = "System commit telemetry missing or invalid. Fail-closed: cannot verify commit pressure."
+        elif not commit_passed:
+            commit_measured = f"{system_ram.commit_pct:.1f}%"
+            commit_failure = f"System commit {system_ram.commit_pct:.1f}% exceeds critical threshold (< {self.policy.critical_commit_pct:.1f}%)."
+        else:
+            commit_measured = f"{system_ram.commit_pct:.1f}%"
+            commit_failure = None
+
+        gates["system_commit"] = GateResult(
+            gate_name="system_commit",
+            passed=commit_passed,
+            required_str=f"< {self.policy.critical_commit_pct:.1f}%",
+            measured_str=commit_measured,
+            failure_reason=commit_failure
+        )
+
+        # 4. Available VRAM Gate
         vram_passed = (
             gpu.status == TelemetryStatus.SUCCESS and
             gpu.vram_free_mib >= self.policy.minimum_vram_mib
@@ -85,7 +112,7 @@ class MemoryBudgetManager:
             failure_reason=f"VRAM deficit: {vram_deficit:.1f} MiB below required {self.policy.minimum_vram_mib:.0f} MiB" if not vram_passed else None
         )
 
-        # 4. Competing GPU Compute Workload Gate (Fail-Closed)
+        # 5. Competing GPU Compute Workload Gate (Fail-Closed)
         if gpu.status != TelemetryStatus.SUCCESS or gpu.compute_processes is None:
             gpu_comp_passed = False
             gpu_comp_measured = "UNKNOWN (Query Failed)"
@@ -104,7 +131,7 @@ class MemoryBudgetManager:
             failure_reason=gpu_comp_failure
         )
 
-        # 5. Free Storage Gate
+        # 6. Free Storage Gate
         disk_passed = (
             disk.status == TelemetryStatus.SUCCESS and
             disk.free_gb >= self.policy.minimum_disk_free_gib

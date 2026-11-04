@@ -4,10 +4,9 @@ Analyzes process memory distribution and generates safe, actionable recommendati
 for normal application closure without force-killing or interfering with user work.
 """
 
-from typing import List, Dict, Set
+from typing import List, Dict, Optional
 from .models import ProcessResourceSnapshot, MemoryRecommendation
 
-# Well-known user-facing desktop process groups
 USER_APP_PROFILES = {
     "msedge.exe": {
         "label": "Microsoft Edge Browser",
@@ -82,12 +81,12 @@ USER_APP_PROFILES = {
 }
 
 class MemoryAdvisor:
-    """Provides polite, evidence-based recommendations to help the user clear memory safely."""
+    """Provides evidence-based recommendations to help the user clear memory safely."""
 
     @staticmethod
     def analyze_processes(processes: List[ProcessResourceSnapshot], ram_deficit_gib: float = 0.0) -> List[MemoryRecommendation]:
         recommendations: List[MemoryRecommendation] = []
-        
+
         # Group by executable name
         grouped: Dict[str, List[ProcessResourceSnapshot]] = {}
         for p in processes:
@@ -102,10 +101,20 @@ class MemoryAdvisor:
 
         for name, proc_list in sorted_groups:
             total_ws_bytes = sum(proc.working_set_bytes for proc in proc_list)
-            total_priv_bytes = sum(proc.private_commit_bytes for proc in proc_list)
             total_ws_mb = round(total_ws_bytes / (1024**2), 1)
-            total_priv_mb = round(total_priv_bytes / (1024**2), 1)
-            pids = [proc.pid for proc in proc_list if proc.pid > 0]
+
+            # Collect private commit where actually measured
+            known_priv_bytes = [proc.private_commit_bytes for proc in proc_list if proc.private_commit_bytes is not None]
+            total_priv_mb: Optional[float] = round(sum(known_priv_bytes) / (1024**2), 1) if known_priv_bytes else None
+
+            # Collect all PIDs
+            all_pids: List[int] = []
+            for proc in proc_list:
+                if proc.pids:
+                    all_pids.extend(proc.pids)
+                elif proc.pid > 0:
+                    all_pids.append(proc.pid)
+            all_pids = sorted(list(set(all_pids)))
 
             # Only suggest for processes holding significant RAM (> 150 MB)
             if total_ws_mb < 150.0:
@@ -114,31 +123,35 @@ class MemoryAdvisor:
             profile = USER_APP_PROFILES.get(name)
             is_user_facing = profile is not None
 
-            # Realistic reclaim estimate:
-            # Private commit is 100% released on process exit.
-            # Working set file-backed pages may linger in standby cache, but ~75% becomes immediately reusable RAM.
-            estimated_reclaim_mb = round(total_priv_mb * 0.90 + (total_ws_mb - total_priv_mb) * 0.50, 1)
+            # Unverified heuristic: not a promise of exact reclaimable RAM
+            # Clean file-backed pages may transition to OS standby cache rather than free RAM immediately
+            heuristic_reclaim_mb: Optional[float] = None
+            if total_priv_mb is not None:
+                heuristic_reclaim_mb = round(total_priv_mb + (total_ws_mb - total_priv_mb) * 0.5, 1)
+
+            priv_str = f", ~{total_priv_mb:.0f} MB private commit" if total_priv_mb is not None else ""
+            inst_count = len(all_pids) if all_pids else len(proc_list)
 
             if is_user_facing:
                 rec_text = (
-                    f"[{profile['category']}] {profile['label']} is currently consuming ~{total_ws_mb:.0f} MB resident RAM "
-                    f"({total_priv_mb:.0f} MB private commit across {len(proc_list)} process instance(s)). "
-                    f"Action: {profile['action']}"
+                    f"[{profile['category']}] {profile['label']} observed resident working set: ~{total_ws_mb:.0f} MB "
+                    f"across {inst_count} process instance(s){priv_str}. "
+                    f"Action: {profile['action']} "
+                    f"(Note: Observed working set is an indicator; actual RAM released depends on OS standby caching)."
                 )
             else:
-                # Background system or tool process
                 rec_text = (
-                    f"Background process '{name}' is consuming ~{total_ws_mb:.0f} MB resident RAM. "
+                    f"Background process '{name}' observed resident working set: ~{total_ws_mb:.0f} MB across {inst_count} instance(s){priv_str}. "
                     f"If this is an active tool, consider closing it through its normal interface."
                 )
 
             recommendations.append(MemoryRecommendation(
                 process_name=name,
-                pids=pids,
-                total_working_set_mb=total_ws_mb,
+                pids=all_pids,
+                observed_working_set_mb=total_ws_mb,
                 total_private_commit_mb=total_priv_mb,
                 is_user_facing=is_user_facing,
-                estimated_reclaimable_ram_mb=estimated_reclaim_mb,
+                unverified_heuristic_reclaim_mb=heuristic_reclaim_mb,
                 recommendation_text=rec_text
             ))
 

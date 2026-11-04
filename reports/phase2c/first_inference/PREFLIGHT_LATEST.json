@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-11-04T09:12:10.484113+00:00",
+  "timestamp_utc": "2026-11-04T09:35:02.488500+00:00",
   "all_gates_passed": false,
   "gates": {
     "telemetry_integrity": {
@@ -11,8 +11,14 @@
     "avail_ram": {
       "passed": false,
       "required": ">= 10.0 GiB",
-      "measured": "8.665 GiB",
-      "failure_reason": "Available RAM deficit: 1.335 GiB below required 10.0 GiB"
+      "measured": "8.439 GiB",
+      "failure_reason": "Available RAM deficit: 1.561 GiB below required 10.0 GiB"
+    },
+    "system_commit": {
+      "passed": true,
+      "required": "< 90.0%",
+      "measured": "32.6%",
+      "failure_reason": null
     },
     "avail_vram": {
       "passed": true,
@@ -29,18 +35,18 @@
     "disk_free": {
       "passed": true,
       "required": ">= 25.0 GB",
-      "measured": "119.94 GB",
+      "measured": "118.85 GB",
       "failure_reason": null
     }
   },
   "system_ram": {
-    "avail_phys_gib": 8.665,
+    "avail_phys_gib": 8.439,
     "total_phys_gib": 15.649,
-    "committed_gib": 12.742,
+    "committed_gib": 13.233,
     "commit_total_gib": 40.649,
-    "commit_pct": 31.3,
-    "memory_load_pct": 44,
-    "system_cache_bytes": 7440506880,
+    "commit_pct": 32.6,
+    "memory_load_pct": 46,
+    "system_cache_bytes": 9728413696,
     "pages_input_per_sec": 0.0,
     "pages_output_per_sec": 0.0,
     "status": "SUCCESS",
@@ -52,175 +58,428 @@
     "vram_free_mib": 5920.0,
     "vram_used_mib": 0.0,
     "utilization_pct": 0.0,
-    "temperature_c": 35.0,
-    "power_draw_w": 12.6,
+    "temperature_c": 38.0,
+    "power_draw_w": 13.95,
     "driver_version": "592.82",
-    "compute_processes": [],
+    "active_compute_apps": 0,
     "status": "SUCCESS",
     "error": null
   },
   "disk": {
     "drive": "C:\\",
-    "free_gb": 119.94,
+    "free_gb": 118.85,
     "total_gb": 952.57,
     "status": "SUCCESS",
     "error": null
   },
   "top_processes": [
     {
-      "pid": 0,
+      "pid": 7828,
       "name": "msedge.exe",
-      "working_set_mb": 1614.3,
-      "private_commit_mb": 1614.3,
-      "is_user_app": true
+      "pids": [
+        7828,
+        3180,
+        12656,
+        20152,
+        17144,
+        19708,
+        20196,
+        17544,
+        8272,
+        19104,
+        5468,
+        4076,
+        3096,
+        10316,
+        22300,
+        8132,
+        12072,
+        18892,
+        15680,
+        11452,
+        7328,
+        14648,
+        22988,
+        23988,
+        24116,
+        21984
+      ],
+      "working_set_mb": 1530.8,
+      "private_commit_mb": 839.9,
+      "is_user_app": true,
+      "status": "SUCCESS"
     },
     {
-      "pid": 0,
-      "name": "Antigravity.exe",
-      "working_set_mb": 536.5,
-      "private_commit_mb": 536.5,
-      "is_user_app": false
-    },
-    {
-      "pid": 0,
+      "pid": 1908,
       "name": "svchost.exe",
-      "working_set_mb": 453.3,
-      "private_commit_mb": 453.3,
-      "is_user_app": false
+      "pids": [
+        1908,
+        612,
+        2056,
+        2092,
+        2100,
+        2108,
+        2124,
+        2272,
+        2420,
+        2508,
+        2648,
+        2828,
+        2880,
+        2928,
+        3436,
+        3664,
+        3676,
+        3880,
+        4152,
+        4248,
+        4280,
+        4328,
+        4716,
+        4624,
+        5940,
+        7620,
+        8924,
+        9212,
+        7224,
+        10056,
+        1352,
+        1820,
+        9596,
+        10276,
+        10288,
+        10360,
+        11524,
+        11412,
+        7848,
+        17532,
+        17780,
+        20776,
+        1692,
+        15096,
+        20428,
+        15172,
+        15832,
+        2144,
+        21048,
+        15500
+      ],
+      "working_set_mb": 655.9,
+      "private_commit_mb": null,
+      "is_user_app": false,
+      "status": "SUCCESS"
+    },
+    {
+      "pid": 7028,
+      "name": "Antigravity.exe",
+      "pids": [
+        7028,
+        22096,
+        7644,
+        21792,
+        20920,
+        15776,
+        13200,
+        7940,
+        8316,
+        18884,
+        5828,
+        3192,
+        19396,
+        23944
+      ],
+      "working_set_mb": 556.5,
+      "private_commit_mb": 802.9,
+      "is_user_app": true,
+      "status": "SUCCESS"
     },
     {
       "pid": 8512,
       "name": "language_server.exe",
-      "working_set_mb": 292.4,
-      "private_commit_mb": 292.4,
-      "is_user_app": false
+      "pids": [
+        8512
+      ],
+      "working_set_mb": 279.2,
+      "private_commit_mb": 358.6,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
       "pid": 4628,
       "name": "MsMpEng.exe",
-      "working_set_mb": 191.1,
-      "private_commit_mb": 191.1,
-      "is_user_app": false
+      "pids": [
+        4628
+      ],
+      "working_set_mb": 180.7,
+      "private_commit_mb": null,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
-      "pid": 0,
-      "name": "python.exe",
-      "working_set_mb": 153.0,
-      "private_commit_mb": 153.0,
-      "is_user_app": false
-    },
-    {
-      "pid": 16312,
+      "pid": 23964,
       "name": "powershell.exe",
-      "working_set_mb": 130.9,
-      "private_commit_mb": 130.9,
-      "is_user_app": true
+      "pids": [
+        23964
+      ],
+      "working_set_mb": 130.7,
+      "private_commit_mb": 116.3,
+      "is_user_app": true,
+      "status": "SUCCESS"
     },
     {
       "pid": 11160,
       "name": "explorer.exe",
-      "working_set_mb": 110.0,
-      "private_commit_mb": 110.0,
-      "is_user_app": false
+      "pids": [
+        11160
+      ],
+      "working_set_mb": 100.7,
+      "private_commit_mb": 239.7,
+      "is_user_app": false,
+      "status": "SUCCESS"
+    },
+    {
+      "pid": 11376,
+      "name": "RuntimeBroker.exe",
+      "pids": [
+        11376,
+        16496,
+        5388,
+        1640,
+        9896,
+        3076,
+        23712
+      ],
+      "working_set_mb": 99.0,
+      "private_commit_mb": 37.2,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
       "pid": 20860,
       "name": "sqlservr.exe",
-      "working_set_mb": 82.0,
-      "private_commit_mb": 82.0,
-      "is_user_app": false
+      "pids": [
+        20860
+      ],
+      "working_set_mb": 65.9,
+      "private_commit_mb": null,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
-      "pid": 0,
+      "pid": 19532,
+      "name": "backgroundTaskHost.exe",
+      "pids": [
+        19532
+      ],
+      "working_set_mb": 61.2,
+      "private_commit_mb": 20.4,
+      "is_user_app": false,
+      "status": "SUCCESS"
+    },
+    {
+      "pid": 12272,
       "name": "NVIDIA Overlay.exe",
-      "working_set_mb": 80.6,
-      "private_commit_mb": 80.6,
-      "is_user_app": false
+      "pids": [
+        12272,
+        14112,
+        13608,
+        13516,
+        14600
+      ],
+      "working_set_mb": 60.7,
+      "private_commit_mb": 326.5,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
-      "pid": 15416,
-      "name": "OmenCommandCenterBackground.exe",
-      "working_set_mb": 74.2,
-      "private_commit_mb": 74.2,
-      "is_user_app": false
+      "pid": 19344,
+      "name": "python.exe",
+      "pids": [
+        19344,
+        16948,
+        5460
+      ],
+      "working_set_mb": 56.9,
+      "private_commit_mb": 151.1,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
-      "pid": 0,
-      "name": "WmiPrvSE.exe",
-      "working_set_mb": 70.1,
-      "private_commit_mb": 70.1,
-      "is_user_app": false
+      "pid": 4960,
+      "name": "MoUsoCoreWorker.exe",
+      "pids": [
+        4960
+      ],
+      "working_set_mb": 56.4,
+      "private_commit_mb": null,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
-      "pid": 0,
-      "name": "msedgewebview2.exe",
-      "working_set_mb": 53.8,
-      "private_commit_mb": 53.8,
-      "is_user_app": false
+      "pid": 16268,
+      "name": "ShellExperienceHost.exe",
+      "pids": [
+        16268
+      ],
+      "working_set_mb": 54.2,
+      "private_commit_mb": 40.7,
+      "is_user_app": false,
+      "status": "SUCCESS"
     },
     {
-      "pid": 0,
-      "name": "nvcontainer.exe",
-      "working_set_mb": 52.0,
-      "private_commit_mb": 52.0,
-      "is_user_app": false
-    },
-    {
-      "pid": 1712,
-      "name": "dwm.exe",
-      "working_set_mb": 51.5,
-      "private_commit_mb": 51.5,
-      "is_user_app": false
+      "pid": 12008,
+      "name": "StartMenuExperienceHost.exe",
+      "pids": [
+        12008
+      ],
+      "working_set_mb": 51.0,
+      "private_commit_mb": 111.7,
+      "is_user_app": false,
+      "status": "SUCCESS"
     }
   ],
   "recommendations": [
     {
-      "process": "msedge.exe",
-      "working_set_mb": 1614.3,
-      "private_commit_mb": 1614.3,
+      "process_name": "msedge.exe",
+      "pids": [
+        3096,
+        3180,
+        4076,
+        5468,
+        7328,
+        7828,
+        8132,
+        8272,
+        10316,
+        11452,
+        12072,
+        12656,
+        14648,
+        15680,
+        17144,
+        17544,
+        18892,
+        19104,
+        19708,
+        20152,
+        20196,
+        21984,
+        22300,
+        22988,
+        23988,
+        24116
+      ],
+      "observed_working_set_mb": 1530.8,
+      "total_private_commit_mb": 839.9,
       "is_user_facing": true,
-      "estimated_reclaimable_mb": 1452.9,
-      "text": "[Browser] Microsoft Edge Browser is currently consuming ~1614 MB resident RAM (1614 MB private commit across 1 process instance(s)). Action: Save work and close active tabs or exit unused browser windows."
+      "unverified_heuristic_reclaim_mb": 1185.3,
+      "recommendation_text": "[Browser] Microsoft Edge Browser observed resident working set: ~1531 MB across 26 process instance(s), ~840 MB private commit. Action: Save work and close active tabs or exit unused browser windows. (Note: Observed working set is an indicator; actual RAM released depends on OS standby caching)."
     },
     {
-      "process": "antigravity.exe",
-      "working_set_mb": 536.5,
-      "private_commit_mb": 536.5,
+      "process_name": "svchost.exe",
+      "pids": [
+        612,
+        1352,
+        1692,
+        1820,
+        1908,
+        2056,
+        2092,
+        2100,
+        2108,
+        2124,
+        2144,
+        2272,
+        2420,
+        2508,
+        2648,
+        2828,
+        2880,
+        2928,
+        3436,
+        3664,
+        3676,
+        3880,
+        4152,
+        4248,
+        4280,
+        4328,
+        4624,
+        4716,
+        5940,
+        7224,
+        7620,
+        7848,
+        8924,
+        9212,
+        9596,
+        10056,
+        10276,
+        10288,
+        10360,
+        11412,
+        11524,
+        15096,
+        15172,
+        15500,
+        15832,
+        17532,
+        17780,
+        20428,
+        20776,
+        21048
+      ],
+      "observed_working_set_mb": 655.9,
+      "total_private_commit_mb": null,
       "is_user_facing": false,
-      "estimated_reclaimable_mb": 482.9,
-      "text": "Background process 'antigravity.exe' is consuming ~536 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+      "unverified_heuristic_reclaim_mb": null,
+      "recommendation_text": "Background process 'svchost.exe' observed resident working set: ~656 MB across 50 instance(s). If this is an active tool, consider closing it through its normal interface."
     },
     {
-      "process": "svchost.exe",
-      "working_set_mb": 453.3,
-      "private_commit_mb": 453.3,
+      "process_name": "antigravity.exe",
+      "pids": [
+        3192,
+        5828,
+        7028,
+        7644,
+        7940,
+        8316,
+        13200,
+        15776,
+        18884,
+        19396,
+        20920,
+        21792,
+        22096,
+        23944
+      ],
+      "observed_working_set_mb": 556.5,
+      "total_private_commit_mb": 802.9,
       "is_user_facing": false,
-      "estimated_reclaimable_mb": 408.0,
-      "text": "Background process 'svchost.exe' is consuming ~453 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+      "unverified_heuristic_reclaim_mb": 679.7,
+      "recommendation_text": "Background process 'antigravity.exe' observed resident working set: ~556 MB across 14 instance(s), ~803 MB private commit. If this is an active tool, consider closing it through its normal interface."
     },
     {
-      "process": "language_server.exe",
-      "working_set_mb": 292.4,
-      "private_commit_mb": 292.4,
+      "process_name": "language_server.exe",
+      "pids": [
+        8512
+      ],
+      "observed_working_set_mb": 279.2,
+      "total_private_commit_mb": 358.6,
       "is_user_facing": false,
-      "estimated_reclaimable_mb": 263.2,
-      "text": "Background process 'language_server.exe' is consuming ~292 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+      "unverified_heuristic_reclaim_mb": 318.9,
+      "recommendation_text": "Background process 'language_server.exe' observed resident working set: ~279 MB across 1 instance(s), ~359 MB private commit. If this is an active tool, consider closing it through its normal interface."
     },
     {
-      "process": "msmpeng.exe",
-      "working_set_mb": 191.1,
-      "private_commit_mb": 191.1,
+      "process_name": "msmpeng.exe",
+      "pids": [
+        4628
+      ],
+      "observed_working_set_mb": 180.7,
+      "total_private_commit_mb": null,
       "is_user_facing": false,
-      "estimated_reclaimable_mb": 172.0,
-      "text": "Background process 'msmpeng.exe' is consuming ~191 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
-    },
-    {
-      "process": "python.exe",
-      "working_set_mb": 153.0,
-      "private_commit_mb": 153.0,
-      "is_user_facing": false,
-      "estimated_reclaimable_mb": 137.7,
-      "text": "Background process 'python.exe' is consuming ~153 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+      "unverified_heuristic_reclaim_mb": null,
+      "recommendation_text": "Background process 'msmpeng.exe' observed resident working set: ~181 MB across 1 instance(s). If this is an active tool, consider closing it through its normal interface."
     }
   ]
 }

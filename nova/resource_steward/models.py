@@ -50,13 +50,14 @@ class SystemMemorySnapshot:
 class ProcessResourceSnapshot:
     pid: int
     name: str
-    working_set_bytes: int          # Resident physical memory
-    peak_working_set_bytes: int     # Peak resident physical memory
-    private_commit_bytes: int       # Private committed virtual memory (PrivateUsage)
-    process_commit_charge_bytes: int # Total committed memory by process (PagefileUsage)
-    page_fault_count: int           # Total page faults
+    working_set_bytes: int                  # Observed resident physical memory
+    peak_working_set_bytes: Optional[int] = None  # Peak resident physical memory
+    private_commit_bytes: Optional[int] = None    # Private committed virtual memory (PrivateUsage)
+    process_commit_charge_bytes: Optional[int] = None # Total committed memory (PagefileUsage)
+    page_fault_count: Optional[int] = None        # Total page faults
     working_set_mb: float = 0.0
-    private_commit_mb: float = 0.0
+    private_commit_mb: Optional[float] = None
+    pids: List[int] = field(default_factory=list) # Aggregated PIDs for multi-process apps
     cpu_percent: Optional[float] = None
     gpu_vram_used_bytes: Optional[int] = None
     is_user_application: bool = False
@@ -66,8 +67,10 @@ class ProcessResourceSnapshot:
     def __post_init__(self):
         if self.working_set_mb == 0.0 and self.working_set_bytes > 0:
             self.working_set_mb = round(self.working_set_bytes / (1024**2), 1)
-        if self.private_commit_mb == 0.0 and self.private_commit_bytes > 0:
+        if self.private_commit_mb is None and self.private_commit_bytes is not None:
             self.private_commit_mb = round(self.private_commit_bytes / (1024**2), 1)
+        if not self.pids and self.pid > 0:
+            self.pids = [self.pid]
 
 @dataclass
 class GPUProcessInfo:
@@ -113,10 +116,10 @@ class GateResult:
 class MemoryRecommendation:
     process_name: str
     pids: List[int]
-    total_working_set_mb: float
-    total_private_commit_mb: float
+    observed_working_set_mb: float
+    total_private_commit_mb: Optional[float]
     is_user_facing: bool
-    estimated_reclaimable_ram_mb: float
+    unverified_heuristic_reclaim_mb: Optional[float]
     recommendation_text: str
 
 @dataclass
@@ -142,9 +145,13 @@ class RecoveryReport:
     post_process_private_commit_mb: float
     child_pid: Optional[int]
     termination_status: str
+    shutdown_method: str                          # e.g. "NATURAL_EXIT", "CTRL_BREAK", "FORCED_TERMINATION", "NO_CHILD"
     recovery_duration_seconds: float
     residual_processes_detected: List[int]
-    residual_vram_leak_mib: float
-    recovery_successful: bool
+    residual_vram_leak_mib: Optional[float]       # None if GPU telemetry failed
+    recovery_successful: bool                     # Strict: True ONLY if clean teardown, no residuals, valid post-telemetry
+    gpu_verification_status: str = "VERIFIED"     # "VERIFIED", "FAILED", "UNVERIFIED"
+    process_verification_status: str = "VERIFIED" # "VERIFIED", "FAILED", "UNKNOWN"
+    pipes_closed: bool = True
     notes: List[str] = field(default_factory=list)
     timestamp_utc: str = field(default_factory=current_iso_utc)

@@ -3,8 +3,8 @@
 **Document ID:** `NOVA-POL-P2C-RECOVERY-01`  
 **Date:** 2026-11-04  
 **Author:** Antigravity (Implementation Engineer)  
-**Governance:** Reviewed by ChatGPT (Lead Architect) & User (Project Owner)  
-**Status:** ACTIVE POLICY  
+**Governance:** Implementation submitted; **Awaiting Lead Architect (ChatGPT) & Project Owner Review**  
+**Status:** ACTIVE POLICY (REVISED)  
 
 ---
 
@@ -15,8 +15,9 @@ This policy establishes strict operating boundaries for process management, memo
 The governing principles are:
 1. **Zero Impact on User Applications:** Never kill, suspend, or alter the priority of applications belonging to the user or system.
 2. **Explicit Child Ownership:** Cleanup actions apply strictly to processes spawned directly by NOVA.
-3. **Transparency over Automation:** When memory is insufficient, advise the user; do not force cleanup.
-4. **Clean Exit Guarantees:** Ensure GPU contexts, file handles, and pipe descriptors are systematically reclaimed upon completion or abort.
+3. **Accurate Windows Teardown:** Differentiate console control shutdown from forced termination. Do not claim that `TerminateProcess` or `proc.kill()` is graceful.
+4. **Clean Exit Guarantees:** Ensure GPU contexts, file handles, pipe descriptors, and reader threads are systematically reclaimed upon completion or abort.
+5. **Trustworthy Verification:** If post-run telemetry or residual process checks cannot be completed successfully, recovery must be marked as `UNKNOWN` or `FAILED`, never reported as success.
 
 ---
 
@@ -38,18 +39,19 @@ The governing principles are:
 ### 2.2 Permitted and Required Actions
 
 - **Bounded Child Process Management:**
-  - Spawning `llama-cli` with `BELOW_NORMAL_PRIORITY_CLASS` (`0x00004000`) on Windows to ensure OS responsiveness and UI fluidity.
+  - Spawning `llama-cli` with `CREATE_NEW_PROCESS_GROUP | BELOW_NORMAL_PRIORITY_CLASS` (`0x00004200`) on Windows to ensure UI fluidity and isolate console control signals.
   - Capturing and storing the child process PID.
-  - Terminating the child process gracefully via `proc.terminate()` on abort or timeout, allowing runtime cleanup handlers to execute.
-  - Escalating to `proc.kill()` if the child process fails to terminate within 5.0 seconds.
+  - Attempting console control shutdown via `CTRL_BREAK_EVENT` with a 5.0-second grace period.
+  - Escalating to `proc.kill()` (`TerminateProcess`) if the child process fails to terminate within 5.0 seconds.
 - **Resource Recovery Verification:**
-  - Closing all standard I/O pipes (`stdin`, `stdout`, `stderr`) and subprocess handles.
-  - Sampling post-run GPU VRAM to confirm all CUDA allocations have been released back to the OS.
-  - Reporting any lingering child processes or leaked memory in `RecoveryReport`.
+  - Closing all standard I/O pipes (`stdin`, `stdout`, `stderr`) and joining reader threads.
+  - Inspecting post-run GPU telemetry. If the GPU query fails, report `gpu_verification_status = "FAILED"`, `residual_vram_leak_mib = None`, and `recovery_successful = False`.
+  - Checking residual processes via `tasklist`. If the check fails, report `process_verification_status = "UNKNOWN"` and `recovery_successful = False`.
 - **User-Centric Memory Advising:**
-  - Inspecting resident memory of user-mode processes in read-only mode via `psutil`.
+  - Inspecting resident memory of user-mode processes in read-only mode via `tasklist` and `GetProcessMemoryInfo`.
   - Computing the RAM deficit against the $\ge 10.0\text{ GiB}$ gate.
-  - Listing candidate applications and their resident memory in terminal output, advising the user to save work and close them manually.
+  - Listing candidate applications and observed working sets in terminal output, advising the user to save work and close them manually.
+  - Explicitly documenting that observed working set is an indicator and does not guarantee an equivalent release of physical RAM.
 
 ---
 
@@ -67,19 +69,24 @@ sequenceDiagram
     H->>M: cleanup() triggered
     M->>C: Check if process is running
     alt Process is running
-        M->>C: proc.terminate() (SIGTERM/WM_CLOSE)
+        M->>C: Send CTRL_BREAK_EVENT (Windows process group)
         M->>C: wait(timeout=5.0s)
         opt Timeout Exceeded
             M->>C: proc.kill() (TerminateProcess)
         end
     end
-    M->>C: Close pipe handles (stdout, stderr)
+    M->>C: Close pipe handles (stdout, stderr, stdin)
     M->>G: Query dedicated VRAM
-    G-->>M: Return post-run free VRAM
-    M->>H: Generate RecoveryReport (reclaimed=True)
+    alt GPU Query Fails
+        G-->>M: Query failed
+        M->>H: gpu_verification_status="FAILED", recovery_successful=False
+    else GPU Query Succeeds
+        G-->>M: Return post-run free VRAM
+        M->>H: Generate RecoveryReport (reclaimed=True)
+    end
 ```
 
 1. **Child State Verification:** Confirms `poll()` returns an integer returncode.
 2. **Handle Cleanup:** Explicitly closes pipe handles to prevent handle leaks.
-3. **GPU Memory Verification:** Queries `nvidia-smi` to confirm VRAM usage has returned to the pre-run baseline ($\pm 100\text{ MiB}$). If lingering VRAM is detected, a warning is emitted to advise restarting the terminal session.
-4. **Audit Trail:** Appends recovery status, returncode, and VRAM delta to the execution telemetry log.
+3. **GPU Memory Verification:** Queries `nvidia-smi` to confirm VRAM usage has returned to the pre-run baseline ($\pm 100\text{ MiB}$). If lingering VRAM is detected, a warning is emitted. If the query fails, verification is marked `FAILED`.
+4. **Audit Trail:** Appends recovery status, returncode, shutdown method, and VRAM delta to the execution telemetry log.

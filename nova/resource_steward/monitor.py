@@ -1,12 +1,13 @@
 """
 NOVA Compute — Hardware & Process Resource Monitor
 Collects system memory, storage, GPU telemetry, and process working sets
-using native Windows APIs and fail-closed diagnostics.
+using native Windows APIs, PDH performance counters, and fail-closed diagnostics.
 """
 
 import os
 import sys
 import time
+import io
 import ctypes
 from ctypes import wintypes
 import subprocess
@@ -77,7 +78,7 @@ class PDH_FMT_COUNTERVALUE(ctypes.Structure):
 
 KNOWN_USER_PROCESSES = {
     "msedge.exe", "chrome.exe", "firefox.exe", "brave.exe", "opera.exe",
-    "code.exe", "Antigravity.exe", "claude.exe", "slack.exe", "discord.exe",
+    "code.exe", "antigravity.exe", "claude.exe", "slack.exe", "discord.exe",
     "telegram.exe", "steam.exe", "spotify.exe", "devenv.exe", "pycharm64.exe",
     "ollama.exe", "llama-server.exe", "cmd.exe", "powershell.exe", "wt.exe"
 }
@@ -99,32 +100,33 @@ class WindowsPDHCollector:
                     'disk_read_bytes_sec': '\\PhysicalDisk(_Total)\\Disk Read Bytes/sec',
                     'disk_write_bytes_sec': '\\PhysicalDisk(_Total)\\Disk Write Bytes/sec',
                 }
-                for name, path in spec.items():
+                for key, path in spec.items():
                     h_cnt = wintypes.HANDLE()
-                    if pdh.PdhAddEnglishCounterW(self.h_query, path, 0, ctypes.byref(h_cnt)) == 0:
-                        self.counters[name] = h_cnt
-                pdh.PdhCollectQueryData(self.h_query)
-                self.initialized = True
+                    if pdh.PdhAddCounterW(self.h_query, path, 0, ctypes.byref(h_cnt)) == 0:
+                        self.counters[key] = h_cnt
+                if self.counters:
+                    pdh.PdhCollectQueryData(self.h_query)
+                    self.initialized = True
         except Exception:
             self.initialized = False
 
     def collect(self) -> Dict[str, Optional[float]]:
+        results = {k: None for k in ['pages_input_sec', 'pages_output_sec', 'page_reads_sec',
+                                     'page_writes_sec', 'disk_read_bytes_sec', 'disk_write_bytes_sec']}
         if not self.initialized:
-            return {}
-        res = {}
+            return results
         try:
             pdh = ctypes.windll.pdh
             if pdh.PdhCollectQueryData(self.h_query) == 0:
-                val = PDH_FMT_COUNTERVALUE()
                 PDH_FMT_DOUBLE = 0x00000200
-                for name, h_cnt in self.counters.items():
+                for key, h_cnt in self.counters.items():
+                    val = PDH_FMT_COUNTERVALUE()
                     if pdh.PdhGetFormattedCounterValue(h_cnt, PDH_FMT_DOUBLE, None, ctypes.byref(val)) == 0:
-                        res[name] = max(0.0, float(val.doubleValue))
-                    else:
-                        res[name] = None
+                        if val.CStatus == 0:
+                            results[key] = round(val.doubleValue, 2)
         except Exception:
             pass
-        return res
+        return results
 
     def close(self):
         if self.initialized and self.h_query:
@@ -134,19 +136,16 @@ class WindowsPDHCollector:
                 pass
             self.initialized = False
 
-# Global PDH collector singleton
-_pdh_singleton: Optional[WindowsPDHCollector] = None
-_pdh_lock = threading.Lock()
+_global_pdh_collector: Optional[WindowsPDHCollector] = None
 
 def get_pdh_collector() -> WindowsPDHCollector:
-    global _pdh_singleton
-    with _pdh_lock:
-        if _pdh_singleton is None:
-            _pdh_singleton = WindowsPDHCollector()
-        return _pdh_singleton
+    global _global_pdh_collector
+    if _global_pdh_collector is None:
+        _global_pdh_collector = WindowsPDHCollector()
+    return _global_pdh_collector
 
 class ResourceMonitor:
-    """Comprehensive hardware and process resource diagnostic monitor."""
+    """Hardware and process diagnostics provider using native Win32 APIs and safe tooling."""
 
     @staticmethod
     def get_system_memory() -> SystemMemorySnapshot:
@@ -238,8 +237,8 @@ class ResourceMonitor:
     @staticmethod
     def get_gpu_telemetry() -> GPUSnapshot:
         """
-        Queries NVIDIA GPU state via nvidia-smi with strict fail-closed diagnostics.
-        If nvidia-smi fails or is unavailable, returns status=FAILED and compute_processes=None.
+        Queries NVIDIA GPU state via nvidia-smi with strict fail-closed diagnostics and robust CSV parsing.
+        If nvidia-smi fails or produces malformed output, returns status=FAILED and compute_processes=None.
         """
         try:
             q_gpu = [
@@ -256,25 +255,35 @@ class ResourceMonitor:
                     error_message=f"nvidia-smi query-gpu returned code {res_gpu.returncode}: {res_gpu.stderr.strip()}"
                 )
 
-            parts = [p.strip() for p in res_gpu.stdout.strip().split(",")]
-            if len(parts) < 8:
+            gpu_reader = csv.reader(io.StringIO(res_gpu.stdout.strip()))
+            rows = [r for r in gpu_reader if r]
+            if not rows or len(rows[0]) < 8:
                 return GPUSnapshot(
                     name="Unknown", vram_total_mib=0.0, vram_free_mib=0.0, vram_used_mib=0.0,
                     utilization_pct=0.0, temperature_c=0.0, power_draw_w=0.0, driver_version="Unknown",
                     compute_processes=None, status=TelemetryStatus.FAILED,
-                    error_message=f"nvidia-smi output parsing failed: expected 8 fields, got {len(parts)}"
+                    error_message=f"nvidia-smi GPU query output malformed: expected 8 fields, got {len(rows[0]) if rows else 0}"
                 )
 
-            name = parts[0]
-            vram_total = float(parts[1])
-            vram_free = float(parts[2])
-            vram_used = float(parts[3])
-            util = float(parts[4])
-            temp = float(parts[5])
-            pwr = float(parts[6]) if parts[6] != "[N/A]" else 0.0
-            drv = parts[7]
+            row = [c.strip() for c in rows[0]]
+            name = row[0]
+            try:
+                vram_total = float(row[1])
+                vram_free = float(row[2])
+                vram_used = float(row[3])
+                util = float(row[4])
+                temp = float(row[5])
+                pwr = float(row[6]) if row[6] != "[N/A]" else 0.0
+                drv = row[7]
+            except ValueError as e:
+                return GPUSnapshot(
+                    name=name, vram_total_mib=0.0, vram_free_mib=0.0, vram_used_mib=0.0,
+                    utilization_pct=0.0, temperature_c=0.0, power_draw_w=0.0, driver_version="Unknown",
+                    compute_processes=None, status=TelemetryStatus.FAILED,
+                    error_message=f"nvidia-smi numeric parsing error: {e}"
+                )
 
-            # Query active compute processes with strict error propagation
+            # Query active compute processes with strict CSV validation
             q_procs = ["nvidia-smi", "--query-compute-apps=pid,process_name,used_memory", "--format=csv,noheader,nounits"]
             res_procs = subprocess.run(q_procs, capture_output=True, text=True, timeout=5)
             if res_procs.returncode != 0:
@@ -286,19 +295,38 @@ class ResourceMonitor:
                 )
 
             compute_apps: List[GPUProcessInfo] = []
-            for line in res_procs.stdout.strip().splitlines():
-                if not line.strip():
-                    continue
-                p_parts = [p.strip() for p in line.split(",")]
-                if len(p_parts) >= 3:
+            stdout_text = res_procs.stdout.strip()
+            if stdout_text:
+                proc_reader = csv.reader(io.StringIO(stdout_text))
+                for line_idx, p_parts in enumerate(proc_reader, start=1):
+                    if not p_parts:
+                        continue
+                    p_parts = [p.strip() for p in p_parts]
+                    if len(p_parts) < 3:
+                        # Malformed row: fail closed!
+                        return GPUSnapshot(
+                            name=name, vram_total_mib=vram_total, vram_free_mib=vram_free, vram_used_mib=vram_used,
+                            utilization_pct=util, temperature_c=temp, power_draw_w=pwr, driver_version=drv,
+                            compute_processes=None, status=TelemetryStatus.FAILED,
+                            error_message=f"Malformed GPU compute process row {line_idx}: expected 3 fields, got {len(p_parts)} ({p_parts})"
+                        )
                     try:
+                        pid = int(p_parts[0])
+                        p_name = p_parts[1]
+                        used_mem = float(p_parts[2])
                         compute_apps.append(GPUProcessInfo(
-                            pid=int(p_parts[0]),
-                            process_name=p_parts[1],
-                            used_memory_mib=float(p_parts[2])
+                            pid=pid,
+                            process_name=p_name,
+                            used_memory_mib=used_mem
                         ))
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        # Malformed numeric value: fail closed! Never discard malformed rows.
+                        return GPUSnapshot(
+                            name=name, vram_total_mib=vram_total, vram_free_mib=vram_free, vram_used_mib=vram_used,
+                            utilization_pct=util, temperature_c=temp, power_draw_w=pwr, driver_version=drv,
+                            compute_processes=None, status=TelemetryStatus.FAILED,
+                            error_message=f"Malformed GPU compute process numeric field in row {line_idx} ({p_parts}): {e}"
+                        )
 
             return GPUSnapshot(
                 name=name,
@@ -321,14 +349,15 @@ class ResourceMonitor:
 
     @staticmethod
     def get_process_memory(pid: int) -> Optional[ProcessResourceSnapshot]:
+        """Queries precise working set, private commit, and commit charge for an owned PID."""
         PROCESS_QUERY_INFORMATION = 0x0400
         PROCESS_VM_READ = 0x0010
         h_proc = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
         if not h_proc:
             err = ctypes.GetLastError()
             return ProcessResourceSnapshot(
-                pid=pid, name=f"pid_{pid}", working_set_bytes=0, peak_working_set_bytes=0,
-                private_commit_bytes=0, process_commit_charge_bytes=0, page_fault_count=0,
+                pid=pid, name=f"pid_{pid}", working_set_bytes=0, peak_working_set_bytes=None,
+                private_commit_bytes=None, process_commit_charge_bytes=None, page_fault_count=None,
                 status=TelemetryStatus.FAILED, error_message=f"OpenProcess failed: Win32 error {err}"
             )
         try:
@@ -346,8 +375,8 @@ class ResourceMonitor:
                     status=TelemetryStatus.SUCCESS
                 )
             return ProcessResourceSnapshot(
-                pid=pid, name=f"pid_{pid}", working_set_bytes=0, peak_working_set_bytes=0,
-                private_commit_bytes=0, process_commit_charge_bytes=0, page_fault_count=0,
+                pid=pid, name=f"pid_{pid}", working_set_bytes=0, peak_working_set_bytes=None,
+                private_commit_bytes=None, process_commit_charge_bytes=None, page_fault_count=None,
                 status=TelemetryStatus.FAILED, error_message="GetProcessMemoryInfo call failed"
             )
         finally:
@@ -355,15 +384,18 @@ class ResourceMonitor:
 
     @staticmethod
     def list_top_processes(limit: int = 15) -> List[ProcessResourceSnapshot]:
-        """Collects and groups running processes by resident memory footprint."""
+        """
+        Collects running processes and groups them by executable name.
+        Uses tasklist for observed working set and attempts Win32 GetProcessMemoryInfo
+        for exact private commit. Does NOT conflate working set with private commit.
+        """
         try:
             cmd = ["tasklist", "/FO", "CSV", "/NH"]
             res = subprocess.run(cmd, capture_output=True, text=True, errors="ignore", timeout=8)
             if res.returncode != 0:
                 return []
             reader = csv.reader(res.stdout.strip().splitlines())
-            procs = []
-            grouped_mem: Dict[str, Tuple[List[int], int]] = {}
+            grouped_mem: Dict[str, Dict[str, Any]] = {}
             for row in reader:
                 if len(row) >= 5:
                     name = row[0]
@@ -376,23 +408,39 @@ class ResourceMonitor:
                         mem_kb = int(mem_str)
                     except ValueError:
                         continue
-                    pids, total_kb = grouped_mem.get(name, ([], 0))
-                    pids.append(pid)
-                    grouped_mem[name] = (pids, total_kb + mem_kb)
+                    if name not in grouped_mem:
+                        grouped_mem[name] = {"pids": [], "total_ws_kb": 0}
+                    grouped_mem[name]["pids"].append(pid)
+                    grouped_mem[name]["total_ws_kb"] += mem_kb
 
-            sorted_groups = sorted(grouped_mem.items(), key=lambda x: x[1][1], reverse=True)[:limit]
+            sorted_groups = sorted(grouped_mem.items(), key=lambda x: x[1]["total_ws_kb"], reverse=True)[:limit]
             snapshots = []
-            for name, (pids, total_kb) in sorted_groups:
-                ws_bytes = total_kb * 1024
+            for name, data in sorted_groups:
+                pids = data["pids"]
+                total_ws_bytes = data["total_ws_kb"] * 1024
                 is_user = name.lower() in KNOWN_USER_PROCESSES
+
+                # Attempt to query actual private commit for accessible PIDs
+                total_priv_commit: Optional[int] = None
+                priv_sum = 0
+                queried_any = False
+                for pid in pids[:10]: # Check up to 10 instances
+                    p_info = ResourceMonitor.get_process_memory(pid)
+                    if p_info and p_info.status == TelemetryStatus.SUCCESS and p_info.private_commit_bytes is not None:
+                        priv_sum += p_info.private_commit_bytes
+                        queried_any = True
+                if queried_any:
+                    total_priv_commit = priv_sum
+
                 snapshots.append(ProcessResourceSnapshot(
-                    pid=pids[0] if len(pids) == 1 else 0,
+                    pid=pids[0] if pids else 0,
                     name=name,
-                    working_set_bytes=ws_bytes,
-                    peak_working_set_bytes=ws_bytes,
-                    private_commit_bytes=ws_bytes, # proxy for grouped overview
-                    process_commit_charge_bytes=ws_bytes,
-                    page_fault_count=0,
+                    working_set_bytes=total_ws_bytes,
+                    peak_working_set_bytes=None,
+                    private_commit_bytes=total_priv_commit,
+                    process_commit_charge_bytes=None, # Not measured across grouped tasklist
+                    page_fault_count=None,
+                    pids=pids,
                     is_user_application=is_user,
                     status=TelemetryStatus.SUCCESS
                 ))
@@ -401,12 +449,13 @@ class ResourceMonitor:
             return []
 
 class LiveTelemetrySampler:
-    """Background sampling thread recording telemetry every interval_ms."""
+    """Background sampling thread recording telemetry every interval_ms with unique sample IDs and monotonic timestamps."""
     def __init__(self, target_pid: Optional[int], interval_ms: int = 500, on_sample: Optional[Callable[[Dict], None]] = None):
         self.target_pid = target_pid
         self.interval_sec = max(0.1, interval_ms / 1000.0)
         self.on_sample = on_sample
         self.samples = []
+        self._sample_id = 0
         self._stop_event = threading.Event()
         self._thread = None
         self.t_start = 0.0
@@ -425,11 +474,15 @@ class LiveTelemetrySampler:
     def _loop(self):
         while not self._stop_event.is_set():
             t_now = time.time() - self.t_start
+            t_mono = time.monotonic()
             ram = ResourceMonitor.get_system_memory()
             gpu = ResourceMonitor.get_gpu_telemetry()
             proc = ResourceMonitor.get_process_memory(self.target_pid) if self.target_pid else None
 
+            self._sample_id += 1
             sample = {
+                "sample_id": self._sample_id,
+                "timestamp_monotonic": t_mono,
                 "elapsed_s": round(t_now, 3),
                 "timestamp_utc": current_iso_utc(),
                 "system_ram": {
@@ -439,7 +492,8 @@ class LiveTelemetrySampler:
                     "system_cache_gib": round(ram.system_cache_bytes / (1024**3), 3) if ram.system_cache_bytes else None,
                     "pages_input_per_sec": ram.pages_input_per_sec,
                     "pages_output_per_sec": ram.pages_output_per_sec,
-                    "status": ram.status.value
+                    "status": ram.status.value,
+                    "error": ram.error_message
                 },
                 "gpu": {
                     "vram_free_mib": gpu.vram_free_mib,
@@ -447,13 +501,15 @@ class LiveTelemetrySampler:
                     "gpu_util_pct": gpu.utilization_pct,
                     "temperature_c": gpu.temperature_c,
                     "power_draw_w": gpu.power_draw_w,
-                    "status": gpu.status.value
+                    "status": gpu.status.value,
+                    "error": gpu.error_message
                 },
                 "process": {
                     "working_set_mib": proc.working_set_mb if proc else None,
                     "private_commit_mib": proc.private_commit_mb if proc else None,
                     "page_fault_count": proc.page_fault_count if proc else None,
-                    "status": proc.status.value if proc else None
+                    "status": proc.status.value if proc else None,
+                    "error": proc.error_message if proc else None
                 } if proc else None
             }
             self.samples.append(sample)
