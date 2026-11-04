@@ -3344,5 +3344,105 @@ class TestResourceSteward(unittest.TestCase):
         self.assertTrue(is_safe_positive_policy_threshold(40.0))
         self.assertTrue(is_safe_positive_policy_threshold(25.0))
 
+    def test_75_maximum_disk_threshold_representation_and_satisfiability(self):
+        """
+        Validates maximum disk threshold representation, satisfiability, and byte-count bounds:
+          Case A. Maximum accepted threshold produces required bytes <= MAX_ACCEPTED_DISK_BYTES.
+          Case B. Maximum accepted threshold is satisfiable by an appropriate valid byte-counter.
+          Case C. Next representable float above MAX_ACCEPTED_DISK_GIB is rejected as INVALID POLICY.
+          Case D. 17179869184.0 GiB (2**34) is rejected as INVALID POLICY because its required bytes
+                  would equal 2**64 (one byte greater than MAX_ACCEPTED_DISK_BYTES).
+          Case E. Ordinary thresholds (25.0 GiB, 40.0 GiB) retain exact byte-level behavior.
+          Case F. Verifies integer byte count arithmetic, not just the floating-point constant.
+        """
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+
+        # --- Case A: Maximum accepted threshold produces required bytes <= MAX_ACCEPTED_DISK_BYTES ---
+        req_bytes_max = math.ceil(MAX_ACCEPTED_DISK_GIB * (1024 ** 3))
+        self.assertLessEqual(
+            req_bytes_max,
+            MAX_ACCEPTED_DISK_BYTES,
+            f"Required bytes ({req_bytes_max}) must not exceed MAX_ACCEPTED_DISK_BYTES ({MAX_ACCEPTED_DISK_BYTES})"
+        )
+        self.assertEqual(req_bytes_max, 18446744073709549568)
+        self.assertEqual(MAX_ACCEPTED_DISK_BYTES - req_bytes_max, 2047)
+
+        # --- Case B: Maximum accepted threshold can be satisfied by a valid measurement ---
+        snap_satisfied = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=req_bytes_max,
+            total_bytes=MAX_ACCEPTED_DISK_BYTES
+        )
+        self.assertEqual(snap_satisfied.status, TelemetryStatus.SUCCESS)
+        self.assertIsNone(snap_satisfied.error_message)
+
+        manager_max = MemoryBudgetManager(ResourcePolicy(minimum_disk_free_gib=MAX_ACCEPTED_DISK_GIB))
+        all_passed_sat, gates_sat = manager_max.evaluate_gates(ram_healthy, gpu_healthy, snap_satisfied)
+        self.assertTrue(all_passed_sat, "Valid byte counter at maximum threshold must PASS admission")
+        self.assertTrue(gates_sat["disk_free"].passed)
+        self.assertEqual(gates_sat["disk_free"].required_str, f">= {MAX_ACCEPTED_DISK_GIB:.1f} GiB")
+
+        # Boundary: one byte below required fails
+        snap_deficit = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=req_bytes_max - 1,
+            total_bytes=MAX_ACCEPTED_DISK_BYTES
+        )
+        all_passed_def, gates_def = manager_max.evaluate_gates(ram_healthy, gpu_healthy, snap_deficit)
+        self.assertFalse(all_passed_def, "One byte below required must FAIL admission")
+        self.assertFalse(gates_def["disk_free"].passed)
+
+        # --- Case C: Next representable float above accepted threshold is rejected ---
+        next_float_above = math.nextafter(MAX_ACCEPTED_DISK_GIB, math.inf)
+        self.assertFalse(
+            is_safe_positive_policy_threshold(next_float_above),
+            "Next float above MAX_ACCEPTED_DISK_GIB must be rejected by validator"
+        )
+        policy_above = ResourcePolicy(minimum_disk_free_gib=next_float_above)
+        all_passed_ab, gates_ab = MemoryBudgetManager(policy_above).evaluate_gates(
+            ram_healthy, gpu_healthy, snap_satisfied
+        )
+        self.assertFalse(all_passed_ab, "Next float above max must fail closed")
+        self.assertFalse(gates_ab["disk_free"].passed)
+        self.assertEqual(gates_ab["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("exceeds maximum supported range", gates_ab["disk_free"].failure_reason)
+
+        # --- Case D: 17179869184.0 GiB (2**34) is rejected ---
+        # Prove why 17179869184.0 is rejected: its ceil evaluates to 2**64, which exceeds MAX_ACCEPTED_DISK_BYTES
+        ceil_17b = math.ceil(17179869184.0 * (1024 ** 3))
+        self.assertEqual(ceil_17b, 1 << 64)
+        self.assertEqual(ceil_17b, MAX_ACCEPTED_DISK_BYTES + 1)
+        self.assertFalse(
+            is_safe_positive_policy_threshold(17179869184.0),
+            "17179869184.0 must be rejected by is_safe_positive_policy_threshold"
+        )
+        policy_17b = ResourcePolicy(minimum_disk_free_gib=17179869184.0)
+        all_passed_17b, gates_17b = MemoryBudgetManager(policy_17b).evaluate_gates(
+            ram_healthy, gpu_healthy, snap_satisfied
+        )
+        self.assertFalse(all_passed_17b)
+        self.assertFalse(gates_17b["disk_free"].passed)
+        self.assertEqual(gates_17b["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("exceeds maximum supported range", gates_17b["disk_free"].failure_reason)
+
+        # --- Case E: Ordinary thresholds retain exact intended integer behavior ---
+        req_25 = math.ceil(25.0 * (1024 ** 3))
+        self.assertEqual(req_25, 26843545600)
+        self.assertLessEqual(req_25, MAX_ACCEPTED_DISK_BYTES)
+
+        req_40 = math.ceil(40.0 * (1024 ** 3))
+        self.assertEqual(req_40, 42949672960)
+        self.assertLessEqual(req_40, MAX_ACCEPTED_DISK_BYTES)
+
+        # Verify 25 GiB gate behavior
+        disk_25_exact = self._make_healthy_disk(free_bytes=req_25)
+        all_passed_25, gates_25 = MemoryBudgetManager(DEFAULT_POLICY).evaluate_gates(
+            ram_healthy, gpu_healthy, disk_25_exact
+        )
+        self.assertTrue(all_passed_25)
+        self.assertTrue(gates_25["disk_free"].passed)
+        self.assertEqual(gates_25["disk_free"].required_str, ">= 25.0 GiB")
+
 if __name__ == "__main__":
     unittest.main()

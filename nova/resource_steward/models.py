@@ -127,7 +127,11 @@ class GPUSnapshot:
     timestamp_utc: str = field(default_factory=current_iso_utc)
 
 MAX_ACCEPTED_DISK_BYTES: int = (1 << 64) - 1  # 18.44 Exabytes (maximum 64-bit unsigned integer)
-MAX_ACCEPTED_DISK_GIB: float = MAX_ACCEPTED_DISK_BYTES / (1024 ** 3)
+# The exact quotient (2**64 - 1)/(1024**3) in IEEE 754 float64 rounds up to 17179869184.0 (2**34).
+# Because 17179869184.0 * (1024**3) evaluates to 2**64 (exceeding MAX_ACCEPTED_DISK_BYTES by 1 byte),
+# MAX_ACCEPTED_DISK_GIB is defined as the largest representable float whose ceil(val * 1024**3)
+# does not exceed MAX_ACCEPTED_DISK_BYTES (the next float below 17179869184.0).
+MAX_ACCEPTED_DISK_GIB: float = math.nextafter(17179869184.0, -math.inf)
 
 def is_safe_disk_byte_counter(val: Any, allow_zero: bool = True) -> bool:
     """Exception-safe validation for integer disk byte counters."""

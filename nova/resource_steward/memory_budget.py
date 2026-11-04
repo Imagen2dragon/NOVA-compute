@@ -273,19 +273,27 @@ class MemoryBudgetManager:
             disk_failure = f"Fail-closed: disk validation failed ({disk_invalid_reason})"
         else:
             required_bytes = math.ceil(threshold_gib * (1024 ** 3))
-            # Authoritative admission decision derived strictly from integer free_bytes
-            disk_passed = (disk.free_bytes >= required_bytes)
+            if required_bytes > MAX_ACCEPTED_DISK_BYTES:
+                disk_passed = False
+                disk_measured = "INVALID / UNAVAILABLE"
+                disk_failure = (
+                    f"Fail-closed: calculated required disk bytes ({required_bytes}) "
+                    f"exceeds maximum supported counter ({MAX_ACCEPTED_DISK_BYTES})"
+                )
+            else:
+                # Authoritative admission decision derived strictly from integer free_bytes
+                disk_passed = (disk.free_bytes >= required_bytes)
 
-            byte_deficit = max(0, required_bytes - disk.free_bytes)
-            gib_deficit = byte_deficit / (1024 ** 3)
-            deficit_rounded = round(gib_deficit, 2)
-            deficit_str = f"{deficit_rounded:.2f} GiB" if deficit_rounded > 0 else "< 0.01 GiB"
+                byte_deficit = max(0, required_bytes - disk.free_bytes)
+                gib_deficit = byte_deficit / (1024 ** 3)
+                deficit_rounded = round(gib_deficit, 2)
+                deficit_str = f"{deficit_rounded:.2f} GiB" if deficit_rounded > 0 else "< 0.01 GiB"
 
-            disk_measured = f"{disk.free_gib:.2f} GiB"
-            disk_failure = (
-                f"Disk space deficit: {deficit_str} below required {threshold_gib:.1f} GiB"
-                if not disk_passed else None
-            )
+                disk_measured = f"{disk.free_gib:.2f} GiB"
+                disk_failure = (
+                    f"Disk space deficit: {deficit_str} below required {threshold_gib:.1f} GiB"
+                    if not disk_passed else None
+                )
 
         gates["disk_free"] = GateResult(
             gate_name="disk_free",
