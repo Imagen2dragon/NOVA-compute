@@ -198,13 +198,11 @@ class AdaptiveMemoryController:
         cooldown_mgr: Optional[ReclamationCooldownManager] = None,
         reclaimer: Optional[SafeMemoryReclaimer] = None,
         reports_dir: Optional[str] = None,
-        clock: Callable[[], float] = time.monotonic,
-        pid_provider: Callable[[], int] = os.getpid
+        clock: Callable[[], float] = time.monotonic
     ):
         self.policy = policy or DEFAULT_POLICY
         self.monitor = monitor or ResourceMonitor()
         self.clock = clock
-        self.pid_provider = pid_provider
         self.detector = MemoryPressureDetector(self.policy)
         self.cooldown_mgr = cooldown_mgr or ReclamationCooldownManager(
             cooldown_seconds=self.policy.reclamation_cooldown_seconds,
@@ -234,7 +232,7 @@ class AdaptiveMemoryController:
         5. Measure post-reclamation system and process-local telemetry.
         6. Compute verified deltas and log report safely.
         """
-        pid_to_check = self.pid_provider()
+        pid_to_check = os.getpid()
         timestamp_utc = current_iso_utc()
         safety_notes: List[str] = [
             "Policy: SAFE_AUTO (Strictly NOVA-owned resources only).",
@@ -410,6 +408,10 @@ class AdaptiveMemoryController:
         ram_delta_gib = round(sys_delta_bytes / (1024**3), 4)
 
         # Process-local memory verification
+        process_ws_verified = False
+        process_priv_verified = False
+        process_telemetry_verified = False
+
         pre_ws_valid = _validate_process_snapshot(pre_proc, pid_to_check)
         post_ws_valid = _validate_process_snapshot(post_proc, pid_to_check)
 
@@ -508,52 +510,8 @@ class AdaptiveMemoryController:
             nova_process_private_bytes_after=nova_priv_after,
             nova_process_working_set_delta_bytes=nova_ws_delta_bytes,
             nova_process_private_delta_bytes=nova_priv_delta_bytes,
-            process_working_set_verified=process_ws_verified if 'process_ws_verified' in locals() else False,
-            process_private_commit_verified=process_priv_verified if 'process_priv_verified' in locals() else False,
-            process_telemetry_verified=process_telemetry_verified,
-            actions_attempted=attempted,
-            actions_completed=completed,
-            actions_failed=failed,
-            reclamation_duration_seconds=duration,
-            cooldown_applied=False,
-            overall_status=status,
-            safety_notes=safety_notes,
-            paging_activity_before=paging_before,
-            paging_activity_after=paging_after
-        )
-
-        self.save_report(report)
-        return report
-
-        paging_before = {
-            "pages_input_per_sec": pre_ram.pages_input_per_sec,
-            "pages_output_per_sec": pre_ram.pages_output_per_sec
-        } if pre_ram.pages_input_per_sec is not None else None
-
-        paging_after = {
-            "pages_input_per_sec": post_ram.pages_input_per_sec,
-            "pages_output_per_sec": post_ram.pages_output_per_sec
-        } if post_ram.pages_input_per_sec is not None else None
-
-        report = MemoryReclaimReport(
-            timestamp_utc=timestamp_utc,
-            trigger_reason=trigger_reason,
-            pressure_level=pressure,
-            system_avail_bytes_before=pre_ram.avail_phys_bytes,
-            system_avail_bytes_after=post_ram.avail_phys_bytes,
-            observed_system_avail_delta_bytes=sys_delta_bytes,
-            observed_system_avail_delta_mib=sys_delta_mib,
-            ram_available_before_gib=pre_ram.avail_phys_gib,
-            ram_available_after_gib=post_ram.avail_phys_gib,
-            ram_delta_gib=ram_delta_gib,
-            commit_before_pct=pre_ram.commit_pct or 0.0,
-            commit_after_pct=post_ram.commit_pct or 0.0,
-            nova_process_working_set_bytes_before=nova_ws_before,
-            nova_process_working_set_bytes_after=nova_ws_after,
-            nova_process_private_bytes_before=nova_priv_before,
-            nova_process_private_bytes_after=nova_priv_after,
-            nova_process_working_set_delta_bytes=nova_ws_delta_bytes,
-            nova_process_private_delta_bytes=nova_priv_delta_bytes,
+            process_working_set_verified=process_ws_verified,
+            process_private_commit_verified=process_priv_verified,
             process_telemetry_verified=process_telemetry_verified,
             actions_attempted=attempted,
             actions_completed=completed,

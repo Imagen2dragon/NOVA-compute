@@ -2,9 +2,9 @@
 
 **Document:** AMR Automated Verification & Test Results  
 **Test Suite:** `tests/test_resource_steward.py`  
-**Total Tests:** 50 Passed, 0 Failed, 0 Errors  
-**Execution Time:** ~5.2 seconds  
-**Status:** ALL 50 TESTS VERIFIED (Final Ownership & Action Integrity Baseline)
+**Total Tests:** 51 Passed, 0 Failed, 0 Errors  
+**Execution Time:** ~5.3 seconds  
+**Status:** ALL 51 TESTS VERIFIED (Final Ownership Integrity Micro-Fix Baseline)
 
 ---
 
@@ -18,11 +18,11 @@ The test suite validates runtime supervision stability, recovery verification, a
 5. **Controlled Stream EOF Fixture (`test_42`)** proving that in a controlled process-exit / reader-ordering test using a controlled stream and mocked process handle, trailing output arriving after direct child exit is fully retained and fatal markers are caught.
 6. **Reader Exception and Timeout Guards (`test_43`, `test_44`)** proving that read failure or timeout yields `UNVERIFIED` rather than `SUCCESS`.
 7. **Process-Local Accounting Verification (`test_35`–`test_40`)** proving strict fail-closed handling on failed snapshots, PID mismatches, zero default counters, and requiring private-commit reduction for `RECLAMATION_COMPLETED`.
-8. **Enforced Process Ownership & Action Integrity (`test_46`–`test_50`)** proving that AMR exclusively operates on NOVA's runtime PID, rejects caller redirection, requires successful cleanup actions to report completion, and accurately asserts telemetry verification flags.
+8. **Enforced Process Ownership, Real GC Exception & Fail-Closed Defaults (`test_46`–`test_51`)** proving that AMR strictly uses `os.getpid()` without any injection route, rejects caller PID redirection, exercises a real `gc.collect(2)` exception, and guarantees that report verification flags default fail-closed (`False`).
 
 ---
 
-## 2. Comprehensive Test Catalog (50 Tests)
+## 2. Comprehensive Test Catalog (51 Tests)
 
 | Test ID | Test Name | Target Subsystem | Key Verification Condition | Result |
 | :--- | :--- | :--- | :--- | :--- |
@@ -71,11 +71,12 @@ The test suite validates runtime supervision stability, recovery verification, a
 | `test_43` | `test_43_reader_exception_versus_successful_eof` | Reader Guard | Reader exception sets `read_failed=True`, verifier reports UNVERIFIED | **PASS** |
 | `test_44` | `test_44_reader_timeout_results_in_unverified` | Reader Guard | Reader join timeout sets `reader_timed_out=True`, verifier reports UNVERIFIED | **PASS** |
 | `test_45` | `test_45_amr_no_measurable_improvement_and_unverified_persistence` | AMR Persistence | Verifies atomic JSON persistence for NO_MEASURABLE_IMPROVEMENT & RECLAMATION_UNVERIFIED | **PASS** |
-| `test_46` | `test_46_amr_default_operation_uses_nova_runtime_pid` | AMR Process Ownership | Default AMR operation always queries NOVA's own PID via `os.getpid()` | **PASS** |
-| `test_47` | `test_47_amr_caller_cannot_redirect_to_unrelated_pid` | AMR Process Ownership | `evaluate_and_reclaim` does not accept arbitrary `target_pid` overrides | **PASS** |
-| `test_48` | `test_48_amr_pre_snapshot_pid_mismatch_produces_unverified` | AMR Process Ownership | Pre-snapshot PID mismatch vs runtime PID reports RECLAMATION_UNVERIFIED | **PASS** |
-| `test_49` | `test_49_amr_gc_failure_with_private_commit_drop_produces_unverified` | AMR Action Integrity | Failed GC action reports RECLAMATION_UNVERIFIED even if private commit dropped | **PASS** |
+| `test_46` | `test_46_amr_default_operation_uses_nova_runtime_pid` | AMR Process Ownership | Queries NOVA's own PID via `os.getpid()`, verified with patched runtime PID | **PASS** |
+| `test_47` | `test_47_amr_caller_cannot_redirect_to_unrelated_pid` | AMR Process Ownership | Rejects `pid_provider` and `target_pid` redirection arguments (TypeError) | **PASS** |
+| `test_48` | `test_48_amr_pre_and_post_snapshot_pid_mismatch_produces_unverified` | AMR Process Ownership | Pre- and post-snapshot PID mismatches vs runtime PID report RECLAMATION_UNVERIFIED | **PASS** |
+| `test_49` | `test_49_amr_real_reclaimer_gc_exception_produces_unverified` | AMR Action Integrity | Real SafeMemoryReclaimer with gc.collect exception reports RECLAMATION_UNVERIFIED | **PASS** |
 | `test_50` | `test_50_amr_normal_and_cooldown_telemetry_verified_flag_accuracy` | AMR Telemetry Verification | Process telemetry verified strictly requires both valid working set and private commit | **PASS** |
+| `test_51` | `test_51_memory_reclaim_report_defaults_fail_closed` | AMR Fail-Closed Defaults | MemoryReclaimReport defaults all process verification flags to False | **PASS** |
 
 ---
 

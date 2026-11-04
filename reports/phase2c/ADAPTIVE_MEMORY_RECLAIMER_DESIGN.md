@@ -53,8 +53,8 @@ AMR operates exclusively under the **`SAFE_AUTO`** execution policy. The operati
    - Executes `gc.collect(2)` to reclaim cyclical references and orphaned telemetry/diagnostics objects across all Python runtime generations.
 2. **Strictly Process-Local Ownership**:
    - `SafeMemoryReclaimer` does not invoke or register arbitrary cleaners. It is bounded solely to NOVA process runtime memory.
-   - Production operations exclusively query `os.getpid()` (via a constructor `pid_provider` defaulting to `os.getpid`).
-   - Callers cannot pass arbitrary target PIDs to `evaluate_and_reclaim()`, preventing accidental or malicious targeting of foreign processes.
+   - Production operations directly query `os.getpid()` inside `evaluate_and_reclaim()`. All constructor and method PID injection parameters (`pid_provider`, `target_pid`) are completely eliminated.
+   - Pre- and post-reclamation process snapshots must both match this exact PID; any mismatch immediately reports `RECLAMATION_UNVERIFIED`.
    - External application memory, system caches, and file standby lists are completely untouched.
 3. **Zero Host Side-Effects**:
    - Never calls `OpenProcess` with modifying rights against non-NOVA PIDs.
@@ -139,10 +139,10 @@ Every AMR execution follows a strict transactional flow:
      `overall_status = RECLAMATION_COMPLETED`.
    - If action succeeded but $\Delta_{\text{priv}} < 1\text{ MiB}$:
      `overall_status = NO_MEASURABLE_IMPROVEMENT`.
-   - **Explicit Verification Flags**: `MemoryReclaimReport` records distinct boolean flags:
-     - `process_working_set_verified`: True if working-set measurement succeeded and matches PID.
-     - `process_private_commit_verified`: True if private-commit counter succeeded and matches PID.
-     - `process_telemetry_verified`: True only if BOTH working-set and private-commit measurements are verified. In normal and cooldown paths, `process_telemetry_verified` requires both counters to be verified.
+   - **Fail-Closed Verification Flags**: `MemoryReclaimReport` records distinct boolean flags, all defaulting to `False`:
+     - `process_working_set_verified`: True if working-set measurement succeeded and matches PID (default `False`).
+     - `process_private_commit_verified`: True if private-commit counter succeeded and matches PID (default `False`).
+     - `process_telemetry_verified`: True only if BOTH working-set and private-commit measurements are verified (default `False`). In normal and cooldown paths, `process_telemetry_verified` requires both counters to be verified.
 6. **Atomic Audit Logging**:
    - Every outcome (`RECLAMATION_COMPLETED`, `NO_ACTION_REQUIRED`, `NO_MEASURABLE_IMPROVEMENT`, `RECLAMATION_FAILED`, `RECLAMATION_UNVERIFIED`) writes `MemoryReclaimReport` atomically to disk using a temporary `.tmp` file, `fsync()`, and `os.replace()`.
    - Respects `NOVA_AMR_REPORT_DIR` environment variable to ensure test runs do not pollute tracked project reports.
