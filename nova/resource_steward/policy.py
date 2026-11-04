@@ -55,6 +55,10 @@ class ResourcePolicy:
         d["execution_mode"] = self.execution_mode.value
         return d
 
+    def with_mandatory_floors(self) -> "ResourcePolicy":
+        """Returns a ResourcePolicy clamped to project-wide mandatory admission floors."""
+        return enforce_mandatory_admission_floors(self)
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ResourcePolicy":
         data_copy = dict(data)
@@ -78,3 +82,39 @@ class ResourcePolicy:
             json.dump(self.to_dict(), f, indent=2)
 
 DEFAULT_POLICY = ResourcePolicy()
+
+# Project-wide mandatory admission floors (non-negotiable safety constraints)
+MANDATORY_MIN_RAM_GIB: float = 10.0
+MANDATORY_MAX_COMMIT_PCT: float = 90.0
+MANDATORY_MIN_VRAM_MIB: float = 5500.0
+MANDATORY_MIN_DISK_FREE_GIB: float = 25.0
+
+def enforce_mandatory_admission_floors(policy: Optional[ResourcePolicy]) -> ResourcePolicy:
+    """
+    Ensures that a ResourcePolicy cannot weaken mandatory admission thresholds:
+      - Available RAM >= 10.0 GiB
+      - System commit < 90.0%
+      - Free VRAM >= 5,500 MiB
+      - Free disk >= 25.0 GB
+    Stricter settings (e.g. >= 12.0 GiB RAM, < 80% commit, >= 5,800 MiB VRAM, >= 30 GB disk) are preserved.
+    Permissive/weakened settings are clamped to mandatory project floors.
+    """
+    base = policy or DEFAULT_POLICY
+    effective_ram = max(MANDATORY_MIN_RAM_GIB, float(base.minimum_inference_ram_gib))
+    effective_commit = min(MANDATORY_MAX_COMMIT_PCT, float(base.critical_commit_pct))
+    effective_vram = max(MANDATORY_MIN_VRAM_MIB, float(base.minimum_vram_mib))
+    effective_disk = max(MANDATORY_MIN_DISK_FREE_GIB, float(base.minimum_disk_free_gib))
+
+    if (effective_ram == base.minimum_inference_ram_gib and
+        effective_commit == base.critical_commit_pct and
+        effective_vram == base.minimum_vram_mib and
+        effective_disk == base.minimum_disk_free_gib):
+        return base
+
+    import copy
+    clamped = copy.copy(base)
+    clamped.minimum_inference_ram_gib = effective_ram
+    clamped.critical_commit_pct = effective_commit
+    clamped.minimum_vram_mib = effective_vram
+    clamped.minimum_disk_free_gib = effective_disk
+    return clamped

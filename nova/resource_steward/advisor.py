@@ -289,10 +289,13 @@ class MemoryAdvisor:
 
             for proc in proc_list:
                 # 1. Expected instances
-                if isinstance(proc.instances_total, int) and not isinstance(proc.instances_total, bool) and proc.instances_total > 0:
-                    proc_exp = proc.instances_total
+                # Strict non-boolean positive integer check; falls back to valid PIDs count or 1.
+                raw_exp = getattr(proc, 'instances_total', None)
+                if isinstance(raw_exp, int) and not isinstance(raw_exp, bool) and raw_exp > 0:
+                    proc_exp = raw_exp
                 elif proc.pids:
-                    proc_exp = len(proc.pids)
+                    valid_pids_count = sum(1 for pid in proc.pids if isinstance(pid, int) and not isinstance(pid, bool) and pid > 0)
+                    proc_exp = max(1, valid_pids_count)
                 else:
                     proc_exp = 1
                 exp_instances_total += proc_exp
@@ -320,17 +323,23 @@ class MemoryAdvisor:
                     valid_ws_bytes_list.append(ws_val)
 
                 # 4. Measured instances extraction
-                # When instances_measured is not an int or is negative, clamp to 0.
-                if isinstance(proc.instances_measured, int) and not isinstance(proc.instances_measured, bool):
-                    proc_meas = max(0, proc.instances_measured)
+                # Strict non-boolean integer validation:
+                # - Booleans (True/False) are rejected and become 0.
+                # - Negative counts become invalid or zero.
+                # - Explicit zero remains zero.
+                # - Missing or malformed counts (None, str, float) become 0 (no artificial coverage).
+                # - Measured count must never exceed expected count: clamped to min(proc_meas, proc_exp).
+                raw_meas = getattr(proc, 'instances_measured', None)
+                if isinstance(raw_meas, int) and not isinstance(raw_meas, bool) and raw_meas > 0:
+                    proc_meas = min(raw_meas, proc_exp)
                 else:
                     proc_meas = 0
 
                 # 5. Private-commit validity:
-                # Requires status SUCCESS, non-boolean non-negative integer, AND measured instances > 0.
+                # Requires status SUCCESS, non-boolean non-negative integer, AND proc_meas > 0.
                 # If a snapshot contains a valid-looking private-commit value but explicitly reports 0
-                # measured instances, private commit is classified as inconsistent/unavailable and
-                # excluded from verified aggregation (meas coverage remains strictly 0; never replace with 1).
+                # measured instances (or boolean, negative, malformed), private commit is classified as
+                # inconsistent/unavailable and excluded from verified aggregation (coverage remains strictly 0).
                 priv_val = proc.private_commit_bytes
                 is_priv_valid = (
                     proc.status == TelemetryStatus.SUCCESS and
@@ -342,7 +351,7 @@ class MemoryAdvisor:
                 )
                 if is_priv_valid:
                     valid_priv_bytes_list.append(priv_val)
-                    meas_instances_total += min(proc_meas, proc_exp)
+                    meas_instances_total += proc_meas
 
             instances_total = max(1, exp_instances_total)
             instances_measured = min(meas_instances_total, instances_total)
@@ -549,7 +558,8 @@ class MemoryAdvisor:
         disk = monitor.get_disk_space("C:\\")
 
         from .memory_budget import MemoryBudgetManager
-        budget_mgr = MemoryBudgetManager(policy or DEFAULT_POLICY)
+        from .policy import enforce_mandatory_admission_floors
+        budget_mgr = MemoryBudgetManager(enforce_mandatory_admission_floors(policy))
 
         all_passed, gates = budget_mgr.evaluate_gates(fresh, gpu, disk)
         ram_gate = gates.get("avail_ram")

@@ -29,7 +29,8 @@ from .models import (
 
 from .policy import (
     ResourcePolicy,
-    DEFAULT_POLICY
+    DEFAULT_POLICY,
+    enforce_mandatory_admission_floors
 )
 
 from .monitor import (
@@ -65,7 +66,7 @@ class ResourceSteward:
     """Unified coordinator for resource diagnostics, preflight auditing, safe reclamation, and adaptive memory control."""
 
     def __init__(self, policy: ResourcePolicy = None, reports_dir: Optional[str] = None):
-        self.policy = policy or DEFAULT_POLICY
+        self.policy = enforce_mandatory_admission_floors(policy)
         self.reports_dir = reports_dir
         self.budget_mgr = MemoryBudgetManager(self.policy)
         self.monitor = ResourceMonitor()

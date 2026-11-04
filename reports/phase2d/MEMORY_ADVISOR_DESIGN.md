@@ -82,8 +82,12 @@ The Advisor avoids misleading claims regarding reclaimable memory:
 
 ### Telemetry Validation Before Aggregation
 To prevent corrupted or failed process counters from skewing recommendations:
-1. **Working Set Validation:** Each process snapshot must have `status == TelemetryStatus.SUCCESS`, `working_set_bytes` as a non-boolean integer (`isinstance(val, int) and not isinstance(val, bool)`), and `working_set_bytes >= 0`. Failed, negative, or boolean counters are strictly excluded from aggregates. Independent working-set validity is preserved even if private commit telemetry is unavailable or contradictory.
-2. **Private Commit Validation & Counter Integrity:** When present, `private_commit_bytes` must be a non-boolean, non-negative integer, and requires `instances_measured > 0`. If a snapshot contains a valid-looking private-commit value but explicitly reports 0 measured instances, private commit is classified as inconsistent/unavailable and excluded from verified aggregation.
+1. **Working Set Validation:** Each process snapshot must have `status == TelemetryStatus.SUCCESS`, `working_set_bytes` as a non-boolean integer (`isinstance(val, int) and not isinstance(val, bool)`), and `working_set_bytes >= 0`. Failed, negative, or boolean counters are strictly excluded from aggregates. Independent working-set validity is preserved even if private commit telemetry is unavailable, malformed, or contradictory.
+2. **Private Commit Validation & Strict Non-Boolean Counter Integrity:**
+   - Strict counter typing: Measured instance counts (`instances_measured`) and total expected counts (`instances_total`) must be strict non-boolean integers (`isinstance(c, int) and not isinstance(c, bool)`).
+   - Boolean values (`True` or `False`), negative counts, and malformed non-integer types are rejected and clamped to 0. Missing counters never create artificial measurement coverage.
+   - Measured instance counts must never exceed total expected instance counts (`proc_meas <= proc_exp`).
+   - Private commit requires `proc_meas > 0` and non-boolean non-negative integer `private_commit_bytes`. If a snapshot explicitly reports 0 measured instances (or boolean/negative), private commit is classified as inconsistent/unavailable and excluded from aggregation.
 3. **Instance Accounting & Strict Zero-Measurement Coverage:** Total expected instances (`instances_total`) and measured instances (`instances_measured`) are tracked truthfully. When `instances_total > 0` and `instances_measured == 0`, measurement coverage remains strictly 0 (never replaced with 1). Grouped measurements across multiple instances safely aggregate valid snapshots while excluding contradictory measurements.
 
 ### Mathematical Distinction: Why Summing WS and Private Commit is Invalid
@@ -144,6 +148,17 @@ $$\text{RankingScore} = \text{WS}_{\text{MB}} + 0.25 \times (\text{PrivateCommit
 ```
 
 **Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. The public API strictly prohibits injecting caller-supplied GPU snapshots, disk snapshots, or arbitrary budget evaluators. It always queries fresh telemetry across all hardware tiers directly through the monitor and evaluates admission using NOVA's trusted `MemoryBudgetManager` and configured `ResourcePolicy`. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
+
+### Mandatory Non-Overridable Admission Floors
+To protect machine stability and prevent accidental or adversarial weakening of admission thresholds, the platform enforces mandatory project floors:
+- **Available RAM:** $\ge 10.0\text{ GiB}$
+- **System Commit:** $< 90.0\%$
+- **Free VRAM:** $\ge 5,500\text{ MiB}$
+- **Competing GPU Compute Apps:** $== 0$
+- **Free Disk Space:** $\ge 25.0\text{ GB}$
+- **Telemetry Integrity:** All sensors reporting `SUCCESS`
+
+A configurable `ResourcePolicy` is permitted to specify **stricter** criteria (e.g. $\ge 12.0\text{ GiB}$ RAM or $< 80\%$ commit), but can **never weaken** these mandatory constraints. Permissive policies are clamped via `enforce_mandatory_admission_floors()`.
 
 ---
 

@@ -2468,6 +2468,94 @@ class TestResourceSteward(unittest.TestCase):
         self.assertEqual(r_comp.total_private_commit_mb, 300.0)
         self.assertEqual(r_comp.observed_working_set_mb, 600.0)
 
+        # B4: instances_measured=True (Boolean rejected: becomes 0, priv excluded, WS preserved)
+        bool_true_procs = [
+            ProcessResourceSnapshot(
+                pid=6004,
+                name="msedge.exe",
+                working_set_bytes=500 * 1024 * 1024,
+                private_commit_bytes=400 * 1024 * 1024,
+                pids=[6001, 6002],
+                instances_total=2,
+                instances_measured=True, # Boolean True must be rejected!
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_true = MemoryAdvisor.analyze_processes(bool_true_procs)
+        self.assertEqual(len(recs_true), 1)
+        r_true = recs_true[0]
+        self.assertEqual(r_true.instances_total, 2)
+        self.assertEqual(r_true.instances_measured, 0) # Strictly 0
+        self.assertTrue(r_true.is_partial)
+        self.assertIsNone(r_true.total_private_commit_mb) # Excluded
+        self.assertEqual(r_true.observed_working_set_mb, 500.0) # WS preserved
+
+        # B5: instances_measured=False (Boolean rejected: becomes 0, priv excluded, WS preserved)
+        bool_false_procs = [
+            ProcessResourceSnapshot(
+                pid=6005,
+                name="msedge.exe",
+                working_set_bytes=500 * 1024 * 1024,
+                private_commit_bytes=400 * 1024 * 1024,
+                pids=[6001, 6002],
+                instances_total=2,
+                instances_measured=False, # Boolean False must be rejected!
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_false = MemoryAdvisor.analyze_processes(bool_false_procs)
+        self.assertEqual(len(recs_false), 1)
+        r_false = recs_false[0]
+        self.assertEqual(r_false.instances_total, 2)
+        self.assertEqual(r_false.instances_measured, 0) # Strictly 0
+        self.assertTrue(r_false.is_partial)
+        self.assertIsNone(r_false.total_private_commit_mb) # Excluded
+        self.assertEqual(r_false.observed_working_set_mb, 500.0) # WS preserved
+
+        # B6: Negative measurement count (instances_measured=-5 becomes 0, priv excluded, WS preserved)
+        neg_meas_procs = [
+            ProcessResourceSnapshot(
+                pid=6006,
+                name="msedge.exe",
+                working_set_bytes=500 * 1024 * 1024,
+                private_commit_bytes=400 * 1024 * 1024,
+                pids=[6001, 6002],
+                instances_total=2,
+                instances_measured=-5, # Negative count must become 0!
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_neg = MemoryAdvisor.analyze_processes(neg_meas_procs)
+        self.assertEqual(len(recs_neg), 1)
+        r_neg = recs_neg[0]
+        self.assertEqual(r_neg.instances_total, 2)
+        self.assertEqual(r_neg.instances_measured, 0) # Strictly 0
+        self.assertTrue(r_neg.is_partial)
+        self.assertIsNone(r_neg.total_private_commit_mb) # Excluded
+        self.assertEqual(r_neg.observed_working_set_mb, 500.0) # WS preserved
+
+        # B7: Measured count above expected count (instances_total=2, instances_measured=5 clamped to 2)
+        over_meas_procs = [
+            ProcessResourceSnapshot(
+                pid=6007,
+                name="msedge.exe",
+                working_set_bytes=500 * 1024 * 1024,
+                private_commit_bytes=400 * 1024 * 1024,
+                pids=[6001, 6002],
+                instances_total=2,
+                instances_measured=5, # Over-measurement must be clamped to instances_total
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_over = MemoryAdvisor.analyze_processes(over_meas_procs)
+        self.assertEqual(len(recs_over), 1)
+        r_over = recs_over[0]
+        self.assertEqual(r_over.instances_total, 2)
+        self.assertEqual(r_over.instances_measured, 2) # Clamped to 2, never 5
+        self.assertFalse(r_over.is_partial)
+        self.assertEqual(r_over.total_private_commit_mb, 400.0)
+        self.assertEqual(r_over.observed_working_set_mb, 500.0)
+
         # Scenario C: Contradictory and partially valid grouped measurements for the same application
         mixed_procs = [
             # Instance 1: Valid (300 MB WS, 200 MB Priv, 1/1 measured)
@@ -2572,6 +2660,113 @@ class TestResourceSteward(unittest.TestCase):
         fresh_fail, summary_fail = MemoryAdvisor.remeasure_memory(mock_monitor)
         self.assertFalse(summary_fail["admission_gate_passed"])
         self.assertIn("avail_vram", summary_fail["failed_gates"])
+
+    def test_68_mandatory_admission_floors_cannot_be_weakened_by_policy(self):
+        """
+        Adversarial regression test:
+        Proves that callers cannot weaken NOVA's 6 mandatory admission constraints
+        using a deliberately permissive ResourcePolicy:
+          1. Available RAM >= 10.0 GiB
+          2. System commit < 90.0%
+          3. Free VRAM >= 5,500 MiB
+          4. Competing GPU compute apps == 0
+          5. Free disk >= 25.0 GB
+          6. Telemetry integrity (all sensors SUCCESS)
+        Proves that legitimate stricter policy settings are strictly preserved.
+        """
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=6000.0)
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=50.0)
+
+        # Deliberately permissive policy attempting to weaken all admission thresholds
+        permissive_policy = ResourcePolicy(
+            minimum_inference_ram_gib=2.0,     # Permissive: 2.0 GiB (Mandatory floor: 10.0 GiB)
+            critical_commit_pct=99.0,          # Permissive: 99.0% (Mandatory ceiling: 90.0%)
+            minimum_vram_mib=1000.0,           # Permissive: 1000 MiB (Mandatory floor: 5500 MiB)
+            minimum_disk_free_gib=5.0          # Permissive: 5.0 GB (Mandatory floor: 25.0 GB)
+        )
+
+        # Sub-test 1: Available RAM deficit (8.0 GiB < 10.0 GiB floor, even though > 2.0 GiB permissive)
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=8.0, commit_pct=40.0)
+        steward = ResourceSteward(policy=permissive_policy)
+        steward.monitor = mock_monitor
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"], "Permissive policy weakened RAM admission threshold!")
+        self.assertIn("avail_ram", summary["failed_gates"])
+        self.assertEqual(summary["gates"]["avail_ram"].required_str, ">= 10.0 GiB")
+
+        # Also verify via MemoryAdvisor.remeasure_memory directly
+        snap_adv, summary_adv = MemoryAdvisor.remeasure_memory(mock_monitor, policy=permissive_policy)
+        self.assertFalse(summary_adv["admission_gate_passed"])
+        self.assertIn("avail_ram", summary_adv["failed_gates"])
+
+        # Sub-test 2: System commit excess (95.0% >= 90.0% ceiling, even though < 99.0% permissive)
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.0, commit_pct=95.0)
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"], "Permissive policy weakened commit threshold!")
+        self.assertIn("system_commit", summary["failed_gates"])
+        self.assertEqual(summary["gates"]["system_commit"].required_str, "< 90.0%")
+
+        # Sub-test 3: VRAM deficit (4000 MiB < 5500 MiB floor, even though > 1000 MiB permissive)
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=4000.0)
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"], "Permissive policy weakened VRAM threshold!")
+        self.assertIn("avail_vram", summary["failed_gates"])
+        self.assertEqual(summary["gates"]["avail_vram"].required_str, ">= 5500 MiB")
+
+        # Sub-test 4: Disk deficit (15.0 GB < 25.0 GB floor, even though > 5.0 GB permissive)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=6000.0)
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=15.0)
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"], "Permissive policy weakened disk threshold!")
+        self.assertIn("disk_free", summary["failed_gates"])
+        self.assertEqual(summary["gates"]["disk_free"].required_str, ">= 25.0 GB")
+
+        # Sub-test 5: Competing GPU compute apps (1 active app fails unconditionally)
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=50.0)
+        comp_gpu = self._make_healthy_gpu(free_mib=6000.0)
+        comp_gpu.compute_processes = [GPUProcessInfo(pid=999, process_name="other_ai.exe", used_memory_mib=1000.0)]
+        mock_monitor.get_gpu_telemetry.return_value = comp_gpu
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"], "Competing GPU workloads were not gated!")
+        self.assertIn("no_competing_gpu", summary["failed_gates"])
+
+        # Sub-test 6: Telemetry integrity failure (sensor status FAILED fails unconditionally)
+        mock_monitor.get_gpu_telemetry.return_value = GPUSnapshot(
+            name="NVIDIA GeForce RTX 4050", vram_total_mib=6144.0, vram_free_mib=0.0,
+            vram_used_mib=0.0, utilization_pct=0.0, temperature_c=0.0, power_draw_w=0.0,
+            driver_version="Unknown", status=TelemetryStatus.FAILED, error_message="Sensor failure"
+        )
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"], "Telemetry sensor failure did not fail closed!")
+        self.assertIn("telemetry_integrity", summary["failed_gates"])
+
+        # Sub-test 7: Stricter policy settings are strictly preserved
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=6000.0)
+        stricter_policy = ResourcePolicy(
+            minimum_inference_ram_gib=13.0,    # Stricter than 10.0 GiB
+            critical_commit_pct=75.0,          # Stricter than 90.0%
+            minimum_vram_mib=5800.0,           # Stricter than 5500 MiB
+            minimum_disk_free_gib=40.0         # Stricter than 25.0 GB
+        )
+        steward_strict = ResourceSteward(policy=stricter_policy)
+        steward_strict.monitor = mock_monitor
+
+        # Host has 11.5 GiB RAM (meets 10.0 GiB mandatory floor, but fails stricter 13.0 GiB policy)
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=11.5, commit_pct=40.0)
+        snap_s, summary_s = steward_strict.remeasure_memory()
+        self.assertFalse(summary_s["admission_gate_passed"])
+        self.assertIn("avail_ram", summary_s["failed_gates"])
+        self.assertEqual(summary_s["gates"]["avail_ram"].required_str, ">= 13.0 GiB")
+
+        # Host has 78% commit (meets 90% mandatory ceiling, but fails stricter 75% policy)
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=14.0, commit_pct=78.0)
+        snap_s2, summary_s2 = steward_strict.remeasure_memory()
+        self.assertFalse(summary_s2["admission_gate_passed"])
+        self.assertIn("system_commit", summary_s2["failed_gates"])
+        self.assertEqual(summary_s2["gates"]["system_commit"].required_str, "< 75.0%")
 
 if __name__ == "__main__":
     unittest.main()

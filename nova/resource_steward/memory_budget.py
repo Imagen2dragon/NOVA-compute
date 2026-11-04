@@ -16,13 +16,13 @@ from .models import (
     ProcessResourceSnapshot,
     MemoryRecommendation
 )
-from .policy import ResourcePolicy, DEFAULT_POLICY
+from .policy import ResourcePolicy, DEFAULT_POLICY, enforce_mandatory_admission_floors
 
 class MemoryBudgetManager:
     """Evaluates resource availability and enforces preflight safety gates."""
 
     def __init__(self, policy: Optional[ResourcePolicy] = None):
-        self.policy = policy or DEFAULT_POLICY
+        self.policy = enforce_mandatory_admission_floors(policy)
 
     def evaluate_gates(
         self,
