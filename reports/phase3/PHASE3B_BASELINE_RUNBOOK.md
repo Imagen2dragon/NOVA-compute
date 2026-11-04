@@ -39,11 +39,14 @@ All parameters below were obtained via verified, read-only system queries and bi
 - **Compiler:** Clang 20.1.8 for Windows `x86_64`
 - **Runtime Build Target:** `llama.cpp` Windows x64 with CUDA 12.4 backend (`ggml-cuda.dll`, 594 MB)
 
-### 2.2 CUDA Driver & Hardware Subsystem
+### 2.2 CUDA Driver & Hardware Subsystem (Version Provenance)
 - **GPU Name:** NVIDIA GeForce RTX 4050 Laptop GPU (AD107)
-- **NVIDIA Driver Version:** `592.82` (Windows Display Driver Model: WDDM 3.2)
-- **Driver-Supported CUDA Version:** CUDA 13.1 (maximum driver capability)
-- **Bundled CUDA Runtime:** CUDA 12.4 (`cudart64_12.dll`, FileVersion: `6.14.11.12040`)
+- **NVIDIA Display Driver Version:** `592.82` (Windows Display Driver Model: WDDM 3.2)
+- **CUDA Driver-Supported API Version:** `CUDA 13.1` (queried via `cuDriverGetVersion` / `cudaDriverGetVersion`: raw integer `13010`, major 13, minor 1)
+- **CUDA Runtime API Version:** `CUDA 12.4` (queried via `cudaRuntimeGetVersion`: raw integer `12040`, major 12, minor 4)
+- **Bundled CUDA Runtime DLL Metadata:** `runtime\windows\llama-cpp\cudart64_12.dll` (PE FileVersion: `6.14.11.12040`, ProductVersion: `6,14,11,12040`)
+  > [!NOTE]
+  > **Version Provenance Rule:** The Windows PE file-version string (`6.14.11.12040`) is metadata embedded in the PE header and is not a substitute for the CUDA Runtime API version (`12040` / CUDA 12.4) returned by `cudaRuntimeGetVersion()`.
 - **GPU Compute Capability:** `8.9` (Ada Lovelace architecture)
 - **Dedicated Video Memory (Total):** `6,141 MiB` GDDR6 (96-bit bus, ~192 GB/s peak theoretical bandwidth)
 - **Observed Idle Free VRAM:** `5,920 MiB` (Windows DWM consumes ~200–350 MiB)
@@ -156,20 +159,34 @@ During execution, NOVA's `ResourceSupervisor` monitors the child process at **50
 
 ---
 
-## 6. Mandatory Stop and Critical Abort Conditions
+## 6. Runtime Abort Enforcement Audit & Stop Conditions
 
-If system resource limits are approached during execution, the supervisor triggers an immediate automated recovery sequence:
+To ensure absolute governance integrity, every abort rule listed in NOVA documentation is audited against the actual implementation in `nova/resource_steward/supervisor.py` and its corresponding test suite in `tests/test_resource_steward.py`:
 
-### 6.1 Abort Triggers
-1. **Critical VRAM Depletion:** Free dedicated VRAM drops below **`512 MiB`** at any sample.
-2. **Sustained Low RAM:** Available physical RAM drops below **`2.0 GiB`** for **`5.0 consecutive seconds`**.
-3. **Critical System Commit:** System virtual commit charge reaches or exceeds **`90.0%`**.
-4. **CUDA Out-of-Memory:** Child process emits a CUDA OOM error (`cudaErrorMemoryAllocation` or `out of memory`).
-5. **Process Stagnation / Hang:** Zero token output or process telemetry activity for **`> 30.0 seconds`**.
+### 6.1 Runtime Abort Enforcement Audit Matrix
 
-### 6.2 Two-Stage Recovery Sequence
-1. **Stage 1 (Console Break):** Supervisor sends Win32 `CTRL_BREAK_EVENT` to the process group. Child is granted a **5.0-second grace window** to flush telemetry and cleanly release CUDA device allocations.
-2. **Stage 2 (Forced Termination):** If child fails to exit within 5.0 seconds, supervisor issues `process.kill()`, verifies process termination, logs post-mortem memory recovery deltas, and saves an `ABORTED` audit report.
+| Rule / Safeguard | Trigger Condition | Code Implementation Location | Test Coverage & Verification Status | Operational Classification |
+|---|---|---|---|:---:|
+| **Available RAM Depletion** | Available RAM $< 2.0\text{ GiB}$ sustained for $\ge 5.0\text{s}$ | `supervisor.py` L185–200 | `test_12`, `test_13` | **IMPLEMENTED AND TESTED** |
+| **CUDA Out-of-Memory** | `"CUDA error"` or `"out of memory"` in stream | `supervisor.py` L62–67, L260–266 | `test_15` | **IMPLEMENTED AND TESTED** |
+| **Telemetry Sampler Stale**| Sampler unasserted for $> 2.0\text{s}$ | `supervisor.py` L224–233 | `test_08`, `test_09`, `test_10` | **IMPLEMENTED AND TESTED** |
+| **Critical VRAM Depletion** | Free VRAM $< 512.0\text{ MiB}$ at any sample | `supervisor.py` L210–216 | Preflight gate tested (`test_04`); supervisor runtime branch lacks dedicated unit test | **IMPLEMENTED BUT UNTESTED** |
+| **Critical System Commit** | System commit $\ge 90.0\%$ of limit | `supervisor.py` L202–208 | Preflight gate tested (`test_05`, `24`, `25`); supervisor runtime branch lacks dedicated unit test | **IMPLEMENTED BUT UNTESTED** |
+| **Process Silence Watchdog**| No stdout lines emitted for $> 30.0\text{s}$ | *Not present in supervisor logic* (`test_14` verifies silent stdout does NOT abort) | `test_14_supervisor_silent_stdout_does_not_block_telemetry` | **MANUALLY MONITORED (WARNING ONLY)** |
+
+### 6.2 Corrected Process Silence & Watchdog Policy
+> [!IMPORTANT]
+> **Silence is NOT an Automatic Abort Trigger:**  
+> A lack of console stdout output alone must **NEVER** trigger automatic process termination.  
+> - **Legitimate Silent Phases:** Initial model loading, Win32 `mmap` demand paging from NVMe, and CUDA driver context initialization can legitimately take 15 to 45 seconds without producing stdout lines.
+> - **Evidence Required Before Declaring a Stall:** Operators must evaluate **process liveness** (`proc.poll() is None`) alongside **telemetry activity** (e.g. CPU utilization, GPU memory allocation, and OS page-fault activity). As long as telemetry indicates active hardware progress, the process is executing normally.
+> - **30-Second Warning Rule:** If a child process produces no stdout and zero hardware/telemetry activity changes for $> 30.0\text{ seconds}$, a warning is flagged for operator inspection. Automatic termination is never invoked on console silence alone.
+
+### 6.3 Process Scope & Two-Stage Recovery Protocol
+If an automatic abort is triggered (via RAM depletion, VRAM floor breach, commit limit, CUDA OOM, or stale telemetry) or if the operator manually intervenes:
+1. **Strict Process Isolation:** Recovery is strictly restricted to the **NOVA-owned child process** and its dedicated process group (`CREATE_NEW_PROCESS_GROUP`, child PID). External user processes, background applications, and desktop services are **never** modified or terminated.
+2. **Stage 1 (Graceful Console Break):** The supervisor sends Win32 `CTRL_BREAK_EVENT` to the child's process group. The child is granted a **5.0-second grace window** to flush telemetry and cleanly release CUDA device allocations.
+3. **Stage 2 (Forced Termination):** If the child does not exit within 5.0 seconds, the supervisor escalates to `process.kill()`, polls for exit, records post-mortem memory recovery deltas, and saves an `ABORTED` audit report.
 
 ---
 
