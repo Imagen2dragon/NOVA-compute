@@ -16,6 +16,7 @@ from .models import (
     ProcessResourceSnapshot,
     MemoryRecommendation,
     MAX_ACCEPTED_DISK_BYTES,
+    MAX_ACCEPTED_DISK_GIB,
     is_safe_disk_byte_counter,
     is_safe_finite_float,
     is_safe_positive_policy_threshold
@@ -217,7 +218,18 @@ class MemoryBudgetManager:
 
         if not threshold_valid:
             disk_valid = False
-            disk_invalid_reason = f"Invalid non-finite or non-positive policy disk threshold: {threshold_gib!r}."
+            if (
+                isinstance(threshold_gib, (int, float)) and
+                not isinstance(threshold_gib, bool) and
+                math.isfinite(threshold_gib) and
+                threshold_gib > 0
+            ):
+                disk_invalid_reason = (
+                    f"Invalid policy disk threshold: {threshold_gib!r} "
+                    f"exceeds maximum supported range (<= {MAX_ACCEPTED_DISK_GIB:.1f} GiB)."
+                )
+            else:
+                disk_invalid_reason = f"Invalid non-finite or non-positive policy disk threshold: {threshold_gib!r}."
         elif disk.status != TelemetryStatus.SUCCESS:
             disk_valid = False
             disk_invalid_reason = f"Disk telemetry status is not SUCCESS ({disk.error_message or 'Unavailable'})."

@@ -127,6 +127,7 @@ class GPUSnapshot:
     timestamp_utc: str = field(default_factory=current_iso_utc)
 
 MAX_ACCEPTED_DISK_BYTES: int = (1 << 64) - 1  # 18.44 Exabytes (maximum 64-bit unsigned integer)
+MAX_ACCEPTED_DISK_GIB: float = MAX_ACCEPTED_DISK_BYTES / (1024 ** 3)
 
 def is_safe_disk_byte_counter(val: Any, allow_zero: bool = True) -> bool:
     """Exception-safe validation for integer disk byte counters."""
@@ -146,12 +147,16 @@ def is_safe_finite_float(val: Any) -> bool:
         return False
 
 def is_safe_positive_policy_threshold(val: Any) -> bool:
-    """Exception-safe validation for positive finite policy thresholds."""
+    """
+    Exception-safe validation for positive finite policy thresholds.
+    Requires 0 < threshold_gib <= MAX_ACCEPTED_DISK_BYTES / (1024 ** 3).
+    Rejects NaN, inf, <= 0, booleans, non-numeric types, and values exceeding maximum disk capacity.
+    """
     if isinstance(val, bool) or not isinstance(val, (int, float)):
         return False
     try:
         f = float(val)
-        return math.isfinite(f) and f > 0.0 and f <= (MAX_ACCEPTED_DISK_BYTES / (1024 ** 3))
+        return math.isfinite(f) and 0.0 < f <= MAX_ACCEPTED_DISK_GIB
     except (OverflowError, TypeError, ValueError):
         return False
 

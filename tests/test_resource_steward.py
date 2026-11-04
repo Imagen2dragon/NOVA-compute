@@ -44,7 +44,10 @@ from nova.resource_steward.models import (
     MemoryReclaimReport,
     ProcessCategory,
     MemoryRecommendation,
-    MemoryAdvisorReport
+    MemoryAdvisorReport,
+    MAX_ACCEPTED_DISK_BYTES,
+    MAX_ACCEPTED_DISK_GIB,
+    is_safe_positive_policy_threshold
 )
 from nova.resource_steward.policy import (
     ResourcePolicy,
@@ -3258,6 +3261,88 @@ class TestResourceSteward(unittest.TestCase):
         self.assertFalse(gates_e["disk_free"].passed)
         self.assertEqual(gates_e["disk_free"].required_str, "INVALID POLICY")
         self.assertIn("Invalid non-finite or non-positive policy disk threshold: nan", gates_e["disk_free"].failure_reason)
+
+    def test_74_policy_threshold_range_and_safe_numeric_boundaries(self):
+        """
+        Validates disk admission policy threshold bounds and safe numeric calculations:
+          Case A. Extremely large but finite threshold (1e308):
+            - ResourcePolicy(minimum_disk_free_gib=1e308).
+            - Must produce explicit invalid-policy fail-closed admission without OverflowError.
+          Case B. Threshold just above maximum representable byte-counter range:
+            - MAX_ACCEPTED_DISK_GIB + 1.0.
+            - Must produce explicit invalid-policy fail-closed admission.
+          Case C. Threshold exactly at maximum supported range:
+            - MAX_ACCEPTED_DISK_GIB.
+            - Must safely calculate required bytes and fail closed without exception
+              when machine available bytes are insufficient.
+          Case D. Ordinary valid stricter threshold (40 GiB):
+            - Retained and enforced: passes when machine has 50 GiB, fails when machine has 35 GiB.
+          Case E. Preserve existing negative, zero, bool, and malformed input safety:
+            - Produces GateResult with required_str="INVALID POLICY", no uncaught exceptions.
+        """
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+        disk_healthy = self._make_healthy_disk(free_gib=50.0)
+
+        # --- Case A: Extremely large but finite threshold (1e308) ---
+        policy_a = ResourcePolicy(minimum_disk_free_gib=1e308)
+        manager_a = MemoryBudgetManager(policy_a)
+        all_passed_a, gates_a = manager_a.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_a, "1e308 threshold must FAIL admission")
+        self.assertFalse(gates_a["disk_free"].passed)
+        self.assertEqual(gates_a["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("exceeds maximum supported range", gates_a["disk_free"].failure_reason)
+
+        # --- Case B: Threshold just above maximum representable byte-counter range ---
+        policy_b = ResourcePolicy(minimum_disk_free_gib=MAX_ACCEPTED_DISK_GIB + 1.0)
+        manager_b = MemoryBudgetManager(policy_b)
+        all_passed_b, gates_b = manager_b.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_b, "Threshold above max supported must FAIL admission")
+        self.assertFalse(gates_b["disk_free"].passed)
+        self.assertEqual(gates_b["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("exceeds maximum supported range", gates_b["disk_free"].failure_reason)
+
+        # --- Case C: Threshold at maximum supported range ---
+        policy_c = ResourcePolicy(minimum_disk_free_gib=MAX_ACCEPTED_DISK_GIB)
+        manager_c = MemoryBudgetManager(policy_c)
+        all_passed_c, gates_c = manager_c.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_c, "Max supported threshold with insufficient free bytes must FAIL closed")
+        self.assertFalse(gates_c["disk_free"].passed)
+        self.assertEqual(gates_c["disk_free"].required_str, f">= {MAX_ACCEPTED_DISK_GIB:.1f} GiB")
+        self.assertIn("Disk space deficit", gates_c["disk_free"].failure_reason)
+
+        # --- Case D: Ordinary valid stricter threshold (40 GiB) ---
+        policy_d = ResourcePolicy(minimum_disk_free_gib=40.0)
+        manager_d = MemoryBudgetManager(policy_d)
+        # When machine has 50 GiB free -> PASS
+        disk_50 = self._make_healthy_disk(free_gib=50.0)
+        all_passed_d1, gates_d1 = manager_d.evaluate_gates(ram_healthy, gpu_healthy, disk_50)
+        self.assertTrue(all_passed_d1, "Machine with 50 GiB must PASS 40 GiB policy threshold")
+        self.assertTrue(gates_d1["disk_free"].passed)
+        self.assertEqual(gates_d1["disk_free"].required_str, ">= 40.0 GiB")
+        # When machine has 35 GiB free -> FAIL
+        disk_35 = self._make_healthy_disk(free_gib=35.0)
+        all_passed_d2, gates_d2 = manager_d.evaluate_gates(ram_healthy, gpu_healthy, disk_35)
+        self.assertFalse(all_passed_d2, "Machine with 35 GiB must FAIL 40 GiB policy threshold")
+        self.assertFalse(gates_d2["disk_free"].passed)
+        self.assertEqual(gates_d2["disk_free"].required_str, ">= 40.0 GiB")
+        self.assertIn("Disk space deficit: 5.00 GiB below required 40.0 GiB", gates_d2["disk_free"].failure_reason)
+
+        # --- Case E: Preserve existing negative, zero, bool, and malformed input safety ---
+        self.assertFalse(is_safe_positive_policy_threshold(0.0))
+        self.assertFalse(is_safe_positive_policy_threshold(-10.0))
+        self.assertFalse(is_safe_positive_policy_threshold(True))
+        self.assertFalse(is_safe_positive_policy_threshold(False))
+        self.assertFalse(is_safe_positive_policy_threshold("40.0"))
+        self.assertFalse(is_safe_positive_policy_threshold(None))
+        self.assertFalse(is_safe_positive_policy_threshold(float("nan")))
+        self.assertFalse(is_safe_positive_policy_threshold(float("inf")))
+        self.assertFalse(is_safe_positive_policy_threshold(float("-inf")))
+        self.assertFalse(is_safe_positive_policy_threshold(1e308))
+        self.assertFalse(is_safe_positive_policy_threshold(MAX_ACCEPTED_DISK_GIB + 1.0))
+        self.assertTrue(is_safe_positive_policy_threshold(MAX_ACCEPTED_DISK_GIB))
+        self.assertTrue(is_safe_positive_policy_threshold(40.0))
+        self.assertTrue(is_safe_positive_policy_threshold(25.0))
 
 if __name__ == "__main__":
     unittest.main()
