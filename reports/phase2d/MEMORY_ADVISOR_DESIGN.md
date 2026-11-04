@@ -82,30 +82,28 @@ The Advisor avoids misleading claims regarding reclaimable memory:
 
 ### Telemetry Validation Before Aggregation
 To prevent corrupted or failed process counters from skewing recommendations:
-1. **Working Set Validation:** Each process snapshot must have `status == TelemetryStatus.SUCCESS`, `working_set_bytes` as a non-boolean integer (`isinstance(val, int) and not isinstance(val, bool)`), and `working_set_bytes >= 0`. Failed, negative, or boolean counters are strictly excluded from aggregates.
-2. **Private Commit Validation:** When present, `private_commit_bytes` must be a non-boolean, non-negative integer. Missing or failed values never contribute to verified totals.
-3. **Instance Accounting & Partial Coverage:** Total expected instances (`instances_total`) and measured instances (`instances_measured`) are tracked truthfully. Zero measured instances out of a positive total is never treated as complete; it is explicitly marked as unavailable/partial.
+1. **Working Set Validation:** Each process snapshot must have `status == TelemetryStatus.SUCCESS`, `working_set_bytes` as a non-boolean integer (`isinstance(val, int) and not isinstance(val, bool)`), and `working_set_bytes >= 0`. Failed, negative, or boolean counters are strictly excluded from aggregates. Independent working-set validity is preserved even if private commit telemetry is unavailable or contradictory.
+2. **Private Commit Validation & Counter Integrity:** When present, `private_commit_bytes` must be a non-boolean, non-negative integer, and requires `instances_measured > 0`. If a snapshot contains a valid-looking private-commit value but explicitly reports 0 measured instances, private commit is classified as inconsistent/unavailable and excluded from verified aggregation.
+3. **Instance Accounting & Strict Zero-Measurement Coverage:** Total expected instances (`instances_total`) and measured instances (`instances_measured`) are tracked truthfully. When `instances_total > 0` and `instances_measured == 0`, measurement coverage remains strictly 0 (never replaced with 1). Grouped measurements across multiple instances safely aggregate valid snapshots while excluding contradictory measurements.
 
 ### Mathematical Distinction: Why Summing WS and Private Commit is Invalid
 A process's working set represents physical RAM pages currently mapped into its page table. Private commit represents virtual address space pages committed exclusively by the process (backed either by RAM or the paging file). Because resident private pages reside **simultaneously in both the working set and private commit**, summing them directly ($WS + PC$) counts resident private memory twice and creates a mathematically false metric.
 
-### Candidate Ordering: Working Set as Primary Consideration
-Because NOVA Compute is constrained primarily by physical RAM residency for MoE weight paging, candidates holding $\ge 100\text{ MB}$ memory are ordered with physical working set as the primary factor:
-
-1. **Primary Consideration ($WS_{\text{MB}}$):** Processes holding the largest resident physical working set are placed first to surface the greatest potential relief for physical RAM admission.
-2. **Secondary Consideration (Category Priority):** When physical footprints are equal or comparable, interactive User Applications (Category A) are prioritized over Background Applications (Category B) because closing interactive user software is safer than stopping system background daemons.
-3. **Tertiary Consideration (Private Commit):** Dedicated private virtual commit charge serves as the final tie-breaker, favoring processes whose closure also relieves system commit pressure.
+### Candidate Ordering: 3-Tier Sort Key
+Because NOVA Compute is constrained primarily by physical RAM residency for MoE weight paging, candidate processes holding $\ge 100\text{ MB}$ memory are ordered strictly by the following 3-tier tuple:
 
 $$\text{SortKey} = (\text{WS}_{\text{MB}}, \text{Priority}_{\text{category}}, \text{PrivateCommit}_{\text{MB}})$$
 
-### Advisory Ranking Heuristic Score
-The Advisor computes an advisory prioritization index:
+1. **Primary Consideration ($\text{WS}_{\text{MB}}$):** Observed physical resident working set. Processes holding the largest resident physical working set are placed first to surface the greatest potential relief for physical RAM admission.
+2. **Secondary Consideration ($\text{Priority}_{\text{category}}$):** Category priority. When physical footprints are equal, interactive User Applications (Priority 2) are prioritized over Background Applications (Priority 1) because closing interactive user software is safer than stopping system background daemons.
+3. **Tertiary Consideration ($\text{PrivateCommit}_{\text{MB}}$):** Dedicated private virtual commit charge serves as the final tie-breaker (or 0.0 if unavailable), favoring processes whose closure also relieves system commit pressure.
 
-$$\text{RankingScore} = \text{WS}_{\text{MB}} + \text{Bonus}_{\text{category}} + 0.05 \times (\text{PrivateCommit}_{\text{MB}} \text{ if available else } 0.0)$$
+### Advisory Heuristic Ranking Score (Informational Indicator Only)
+The Advisor also computes an advisory prioritization index for informational tracking:
 
-where $\text{Bonus}_{\text{category}} = 2.0$ for User Applications and $0.0$ otherwise.
+$$\text{RankingScore} = \text{WS}_{\text{MB}} + 0.25 \times (\text{PrivateCommit}_{\text{MB}} \text{ if available else } 0.0)$$
 
-**Advisory Disclaimer:** The ranking score is strictly a unitless prioritization index. It does **not** represent recoverable physical RAM.
+**Advisory Disclaimer:** The ranking score is strictly an informational composite indicator. It does **not** represent recoverable physical RAM, does **not** guarantee memory recovery, and is **not** used as the candidate sorting formula (candidate ordering is strictly governed by the 3-tier tuple above).
 
 ---
 
@@ -117,7 +115,7 @@ where $\text{Bonus}_{\text{category}} = 2.0$ for User Applications and $0.0$ oth
                 ▼
   [1. Intelligent Memory Advisor]
         │   ├─► Read-only telemetry collection (RAM, commit, top processes)
-        │   ├─► Strict Counter Validation (SUCCESS, non-boolean int, non-negative)
+        │   ├─► Strict Counter Validation (SUCCESS, non-boolean int, non-negative, meas > 0)
         │   ├─► Canonical 3-Tier Categorization (Protected System Always Excluded)
         │   └─► Candidate Ranking (Physical Working Set as Primary Consideration)
         ▼
@@ -126,6 +124,7 @@ where $\text{Bonus}_{\text{category}} = 2.0$ for User Applications and $0.0$ oth
         ▼
   [3. Fresh Re-Measurement (`remeasure_memory`)]
         │   ├─► Strict Fresh Telemetry Enforcement (No caller snapshot injection permitted)
+        │   ├─► Strict Admission Evaluator Integrity (Always uses trusted MemoryBudgetManager & ResourcePolicy)
         │   ├─► Fresh hardware queries (RAM via GlobalMemoryStatusEx, GPU via NVML, Disk via GetDiskFreeSpaceEx)
         │   ├─► Truthful delta calculation (RAM gain, commit reduction)
         │   └─► Full Gate Suite Evaluation via MemoryBudgetManager.evaluate_gates()
@@ -144,7 +143,7 @@ where $\text{Bonus}_{\text{category}} = 2.0$ for User Applications and $0.0$ oth
               └─► ADMISSION GATED (Fail-closed; reaching RAM threshold alone cannot grant admission)
 ```
 
-**Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. The public API strictly prohibits injecting caller-supplied GPU or disk snapshots. It always queries fresh telemetry across all hardware tiers directly through the monitor. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
+**Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. The public API strictly prohibits injecting caller-supplied GPU snapshots, disk snapshots, or arbitrary budget evaluators. It always queries fresh telemetry across all hardware tiers directly through the monitor and evaluates admission using NOVA's trusted `MemoryBudgetManager` and configured `ResourcePolicy`. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
 
 ---
 

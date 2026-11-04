@@ -228,21 +228,18 @@ class MemoryAdvisor:
     @classmethod
     def compute_ranking_score(cls, ws_mb: float, priv_mb: Optional[float] = None) -> float:
         """
-        Computes a transparent advisory prioritization index for ordering candidate processes.
+        Computes a transparent advisory prioritization index for candidate processes.
 
         CRITICAL ARCHITECTURAL DISTINCTION:
-        This score is an advisory ranking heuristic only. It does NOT represent recoverable
-        physical RAM, nor does it sum physical memory.
-
-        Ranking Algorithm:
-          score = ws_mb + 0.25 * (priv_mb if priv_mb is not None else 0.0)
-
-        Rationale:
-          1. Working set (ws_mb) receives primary weight (1.0) because resident physical pages
-             occupy scarce physical RAM required by MoE inference.
-          2. Private commit (priv_mb) receives secondary weight (0.25) as a tie-breaker / bonus
-             reflecting system commit pressure relief, without treating commit as physical RAM.
-          3. Candidates without private commit telemetry (priv_mb is None) use purely ws_mb.
+        1. Sorting Formula: Candidate ordering is strictly governed by the 3-tier tuple:
+             _sort_key = (ws_mb, cat_prio, priv_mb or 0.0)
+           - Primary key: Observed physical working set (resident RAM footprint in MB)
+           - Secondary key: Category priority (User Applications prioritized over Background/Unknown)
+           - Tertiary key: Dedicated private commit charge (virtual commit relief tie-breaker)
+        2. Informational Score: RankingScore is an informational composite indicator only:
+             RankingScore = ws_mb + 0.25 * (priv_mb if priv_mb is not None else 0.0)
+           It does NOT represent recoverable physical RAM, does not guarantee memory recovery,
+           and is NOT used as the candidate sorting formula.
         """
         commit_bonus = (priv_mb * 0.25) if priv_mb is not None else 0.0
         return round(ws_mb + commit_bonus, 2)
@@ -322,21 +319,30 @@ class MemoryAdvisor:
                 if is_ws_valid:
                     valid_ws_bytes_list.append(ws_val)
 
-                # 4. Private-commit validity (status SUCCESS, non-boolean non-negative integer when present)
+                # 4. Measured instances extraction
+                # When instances_measured is not an int or is negative, clamp to 0.
+                if isinstance(proc.instances_measured, int) and not isinstance(proc.instances_measured, bool):
+                    proc_meas = max(0, proc.instances_measured)
+                else:
+                    proc_meas = 0
+
+                # 5. Private-commit validity:
+                # Requires status SUCCESS, non-boolean non-negative integer, AND measured instances > 0.
+                # If a snapshot contains a valid-looking private-commit value but explicitly reports 0
+                # measured instances, private commit is classified as inconsistent/unavailable and
+                # excluded from verified aggregation (meas coverage remains strictly 0; never replace with 1).
                 priv_val = proc.private_commit_bytes
                 is_priv_valid = (
                     proc.status == TelemetryStatus.SUCCESS and
                     priv_val is not None and
                     isinstance(priv_val, int) and
                     not isinstance(priv_val, bool) and
-                    priv_val >= 0
+                    priv_val >= 0 and
+                    proc_meas > 0
                 )
                 if is_priv_valid:
                     valid_priv_bytes_list.append(priv_val)
-                    if isinstance(proc.instances_measured, int) and not isinstance(proc.instances_measured, bool) and proc.instances_measured > 0:
-                        meas_instances_total += min(proc.instances_measured, proc_exp)
-                    else:
-                        meas_instances_total += 1
+                    meas_instances_total += min(proc_meas, proc_exp)
 
             instances_total = max(1, exp_instances_total)
             instances_measured = min(meas_instances_total, instances_total)
@@ -378,7 +384,8 @@ class MemoryAdvisor:
         # Rank candidates so observed physical working set remains the primary consideration:
         # Priority 1 (Primary): Observed physical working set (resident RAM footprint in MB)
         # Priority 2 (Secondary): Category priority (User Applications prioritized over Background/Unknown)
-        # Priority 3 (Secondary / Tie-breaker): Dedicated private commit charge
+        # Priority 3 (Tertiary / Tie-breaker): Dedicated private commit charge
+        # Note: RankingScore is an informational indicator only; candidate ordering strictly uses this 3-tier key.
         def _sort_key(c: Dict[str, Any]) -> Tuple[float, int, float]:
             cat_prio = 2 if c["category"] == ProcessCategory.USER_APPLICATION else 1
             return (c["ws_mb"], cat_prio, c["priv_mb"] or 0.0)
@@ -526,24 +533,23 @@ class MemoryAdvisor:
         cls,
         monitor: ResourceMonitor,
         baseline_ram: Optional[SystemMemorySnapshot] = None,
-        budget_manager: Optional[Any] = None
+        policy: Optional[ResourcePolicy] = None
     ) -> Tuple[SystemMemorySnapshot, Dict[str, Any]]:
         """
         Collects fresh read-only system memory telemetry and compares it against a baseline snapshot.
         Always obtains fresh system RAM, fresh GPU telemetry, and fresh disk telemetry directly
-        from the monitor. Never accepts external caller-supplied GPU or disk snapshots.
-        Evaluates full system admission gates (RAM, system commit, VRAM, competing GPU apps, disk).
+        from the monitor. Never accepts external caller-supplied GPU, disk snapshots, or custom
+        budget evaluators.
+        Evaluates full system admission gates (RAM, system commit, VRAM, competing GPU apps, disk)
+        using NOVA's trusted MemoryBudgetManager and intended ResourcePolicy.
         Fails closed: reaching the 10.0 GiB RAM threshold alone CANNOT pass admission if any other gate fails.
         """
         fresh = monitor.get_system_memory()
         gpu = monitor.get_gpu_telemetry()
         disk = monitor.get_disk_space("C:\\")
 
-        if budget_manager is None:
-            from .memory_budget import MemoryBudgetManager
-            budget_mgr = MemoryBudgetManager(DEFAULT_POLICY)
-        else:
-            budget_mgr = budget_manager
+        from .memory_budget import MemoryBudgetManager
+        budget_mgr = MemoryBudgetManager(policy or DEFAULT_POLICY)
 
         all_passed, gates = budget_mgr.evaluate_gates(fresh, gpu, disk)
         ram_gate = gates.get("avail_ram")

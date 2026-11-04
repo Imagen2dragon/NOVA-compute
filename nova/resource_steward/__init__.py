@@ -117,9 +117,10 @@ class ResourceSteward:
         Re-measures system memory telemetry and evaluates full admission gates.
         Always obtains fresh RAM, GPU, and disk telemetry directly from the monitor to ensure
         admission eligibility requires passing all system gates without stale snapshot injection.
+        Always uses NOVA's trusted MemoryBudgetManager and intended ResourcePolicy.
         """
         return self.advisor.remeasure_memory(
             self.monitor,
             baseline_ram=baseline_ram,
-            budget_manager=self.budget_mgr
+            policy=self.policy
         )

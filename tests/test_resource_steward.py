@@ -2397,7 +2397,8 @@ class TestResourceSteward(unittest.TestCase):
         self.assertIsNone(rec_map["opera.exe"].total_private_commit_mb)
 
         # Scenario B: Zero measured instances out of positive total
-        zero_meas_procs = [
+        # B1: Zero measured instances with missing private commit
+        zero_meas_procs_missing = [
             ProcessResourceSnapshot(
                 pid=6001,
                 name="msedge.exe",
@@ -2409,37 +2410,92 @@ class TestResourceSteward(unittest.TestCase):
                 status=TelemetryStatus.SUCCESS
             )
         ]
-        recs_zero = MemoryAdvisor.analyze_processes(zero_meas_procs)
-        self.assertEqual(len(recs_zero), 1)
-        r_zero = recs_zero[0]
+        recs_zero_missing = MemoryAdvisor.analyze_processes(zero_meas_procs_missing)
+        self.assertEqual(len(recs_zero_missing), 1)
+        r_zero = recs_zero_missing[0]
         self.assertEqual(r_zero.instances_total, 4)
         self.assertEqual(r_zero.instances_measured, 0)
         self.assertTrue(r_zero.is_partial) # CANNOT be treated as complete!
         self.assertIsNone(r_zero.total_private_commit_mb)
+        self.assertEqual(r_zero.observed_working_set_mb, 600.0) # WS preserved independently
         self.assertIn("unavailable", r_zero.private_commit_interpretation)
         self.assertIn("0/4", r_zero.private_commit_interpretation)
 
-        # Scenario C: Mixed valid and invalid snapshots for the same application
+        # B2: Zero measured instances with non-None private commit
+        # (Private commit must be classified inconsistent/unavailable and excluded; coverage remains 0)
+        zero_meas_procs_non_none = [
+            ProcessResourceSnapshot(
+                pid=6002,
+                name="msedge.exe",
+                working_set_bytes=600 * 1024 * 1024,
+                private_commit_bytes=500 * 1024 * 1024, # Non-None value with 0 measured instances
+                pids=[6001, 6002, 6003, 6004],
+                instances_total=4,
+                instances_measured=0, # Explicitly 0 measured instances
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_zero_non_none = MemoryAdvisor.analyze_processes(zero_meas_procs_non_none)
+        self.assertEqual(len(recs_zero_non_none), 1)
+        r_zero_nn = recs_zero_non_none[0]
+        self.assertEqual(r_zero_nn.instances_total, 4)
+        self.assertEqual(r_zero_nn.instances_measured, 0) # Coverage must remain strictly 0 (never replaced with 1)
+        self.assertTrue(r_zero_nn.is_partial)
+        self.assertIsNone(r_zero_nn.total_private_commit_mb) # Excluded from aggregation!
+        self.assertEqual(r_zero_nn.observed_working_set_mb, 600.0) # WS preserved independently
+        self.assertIn("unavailable", r_zero_nn.private_commit_interpretation)
+        self.assertIn("0/4", r_zero_nn.private_commit_interpretation)
+
+        # B3: Complete measurement (>= 1 measured instances)
+        complete_meas_procs = [
+            ProcessResourceSnapshot(
+                pid=6003,
+                name="msedge.exe",
+                working_set_bytes=600 * 1024 * 1024,
+                private_commit_bytes=300 * 1024 * 1024,
+                pids=[6001, 6002, 6003],
+                instances_total=3,
+                instances_measured=3,
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_complete = MemoryAdvisor.analyze_processes(complete_meas_procs)
+        self.assertEqual(len(recs_complete), 1)
+        r_comp = recs_complete[0]
+        self.assertEqual(r_comp.instances_total, 3)
+        self.assertEqual(r_comp.instances_measured, 3)
+        self.assertFalse(r_comp.is_partial)
+        self.assertEqual(r_comp.total_private_commit_mb, 300.0)
+        self.assertEqual(r_comp.observed_working_set_mb, 600.0)
+
+        # Scenario C: Contradictory and partially valid grouped measurements for the same application
         mixed_procs = [
-            # Instance 1: Valid (300 MB WS, 200 MB Priv)
+            # Instance 1: Valid (300 MB WS, 200 MB Priv, 1/1 measured)
             ProcessResourceSnapshot(pid=7001, name="code.exe", working_set_bytes=300 * 1024 * 1024,
-                                    private_commit_bytes=200 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+                                    private_commit_bytes=200 * 1024 * 1024, instances_total=1,
+                                    instances_measured=1, status=TelemetryStatus.SUCCESS),
             # Instance 2: Failed telemetry (must be excluded from total)
             ProcessResourceSnapshot(pid=7002, name="code.exe", working_set_bytes=400 * 1024 * 1024,
-                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.FAILED),
-            # Instance 3: Valid WS (200 MB), but negative priv commit
+                                    private_commit_bytes=400 * 1024 * 1024, instances_total=1,
+                                    instances_measured=1, status=TelemetryStatus.FAILED),
+            # Instance 3: Valid WS (200 MB), but negative priv commit (priv excluded)
             ProcessResourceSnapshot(pid=7003, name="code.exe", working_set_bytes=200 * 1024 * 1024,
-                                    private_commit_bytes=-100, status=TelemetryStatus.SUCCESS)
+                                    private_commit_bytes=-100, instances_total=1,
+                                    instances_measured=1, status=TelemetryStatus.SUCCESS),
+            # Instance 4: Contradictory snapshot: Valid WS (150 MB), non-None priv commit (100 MB), but 0 measured instances!
+            ProcessResourceSnapshot(pid=7004, name="code.exe", working_set_bytes=150 * 1024 * 1024,
+                                    private_commit_bytes=100 * 1024 * 1024, instances_total=1,
+                                    instances_measured=0, status=TelemetryStatus.SUCCESS)
         ]
         recs_mixed = MemoryAdvisor.analyze_processes(mixed_procs)
         self.assertEqual(len(recs_mixed), 1)
         r_mixed = recs_mixed[0]
-        # Valid WS: 300 + 200 = 500 MB (instance 2 excluded)
-        self.assertEqual(r_mixed.observed_working_set_mb, 500.0)
-        # Valid Priv: 200 MB (instance 2 and 3 excluded)
+        # Valid WS: 300 + 200 + 150 = 650 MB (instance 2 excluded)
+        self.assertEqual(r_mixed.observed_working_set_mb, 650.0)
+        # Valid Priv: 200 MB (instance 2 FAILED, 3 negative, 4 contradictory 0-meas excluded)
         self.assertEqual(r_mixed.total_private_commit_mb, 200.0)
-        # Expected instances preserved (3 total, 1 measured for priv commit)
-        self.assertEqual(r_mixed.instances_total, 3)
+        # Expected instances preserved (4 total, 1 measured for priv commit)
+        self.assertEqual(r_mixed.instances_total, 4)
         self.assertEqual(r_mixed.instances_measured, 1)
         self.assertTrue(r_mixed.is_partial)
 
@@ -2468,11 +2524,13 @@ class TestResourceSteward(unittest.TestCase):
         canonical = MemoryAdvisor.classify_process(conflicting_snapshot.name)
         self.assertEqual(canonical, ProcessCategory.PROTECTED_SYSTEM)
 
-    def test_67_remeasure_memory_no_caller_snapshot_injection(self):
+    def test_67_remeasure_memory_no_caller_snapshot_or_evaluator_injection(self):
         """
-        Proves that the public remeasure_memory API does not accept caller-supplied snapshot injection:
-        - Passing gpu_snapshot or disk_snapshot kwarg raises TypeError.
+        Proves that the public remeasure_memory API does not accept caller-supplied snapshot or evaluator injection:
+        - Passing gpu_snapshot, disk_snapshot, or budget_manager kwarg raises TypeError.
         - Fresh telemetry is always queried directly from monitor.
+        - Admission evaluation strictly uses NOVA's trusted MemoryBudgetManager and intended ResourcePolicy.
+        - Callers cannot inject a permissive custom evaluator to obtain admission_gate_passed=True.
         """
         steward = ResourceSteward()
         mock_monitor = MagicMock()
@@ -2481,23 +2539,39 @@ class TestResourceSteward(unittest.TestCase):
         mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
         steward.monitor = mock_monitor
 
-        # Verify parameter rejection on steward.remeasure_memory
+        # 1. Verify parameter rejection on steward.remeasure_memory
         with self.assertRaises(TypeError):
             steward.remeasure_memory(gpu_snapshot=self._make_healthy_gpu()) # type: ignore
 
         with self.assertRaises(TypeError):
             steward.remeasure_memory(disk_snapshot=self._make_healthy_disk()) # type: ignore
 
-        # Verify parameter rejection on MemoryAdvisor.remeasure_memory
+        with self.assertRaises(TypeError):
+            steward.remeasure_memory(budget_manager=MagicMock()) # type: ignore
+
+        # 2. Verify parameter rejection on MemoryAdvisor.remeasure_memory
         with self.assertRaises(TypeError):
             MemoryAdvisor.remeasure_memory(mock_monitor, gpu_snapshot=self._make_healthy_gpu()) # type: ignore
 
-        # Normal call succeeds and invokes monitor queries
+        with self.assertRaises(TypeError):
+            MemoryAdvisor.remeasure_memory(mock_monitor, disk_snapshot=self._make_healthy_disk()) # type: ignore
+
+        with self.assertRaises(TypeError):
+            MemoryAdvisor.remeasure_memory(mock_monitor, budget_manager=MagicMock()) # type: ignore
+
+        # 3. Normal call succeeds and invokes monitor queries
         fresh, summary = steward.remeasure_memory()
         self.assertTrue(summary["admission_gate_passed"])
         mock_monitor.get_system_memory.assert_called()
         mock_monitor.get_gpu_telemetry.assert_called()
         mock_monitor.get_disk_space.assert_called_with("C:\\")
+
+        # 4. Prove permissive evaluator bypass is impossible:
+        # If GPU telemetry fails Gate 4 (3000 MiB free < 5500 MiB), admission_gate_passed MUST be False.
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=3000.0)
+        fresh_fail, summary_fail = MemoryAdvisor.remeasure_memory(mock_monitor)
+        self.assertFalse(summary_fail["admission_gate_passed"])
+        self.assertIn("avail_vram", summary_fail["failed_gates"])
 
 if __name__ == "__main__":
     unittest.main()
