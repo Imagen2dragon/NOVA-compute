@@ -14,6 +14,7 @@ import os
 import sys
 import time
 import math
+import json
 import queue
 import tempfile
 import signal
@@ -36,7 +37,10 @@ from nova.resource_steward.models import (
     ProcessResourceSnapshot,
     SupervisorResult,
     InferenceOutcome,
-    RecoveryReport
+    RecoveryReport,
+    MemoryPressureLevel,
+    ReclamationStatus,
+    MemoryReclaimReport
 )
 from nova.resource_steward.policy import ResourcePolicy
 from nova.resource_steward.memory_budget import MemoryBudgetManager
@@ -44,6 +48,13 @@ from nova.resource_steward.advisor import MemoryAdvisor
 from nova.resource_steward.recovery import SafeReclamationManager
 from nova.resource_steward.monitor import ResourceMonitor
 from nova.resource_steward.supervisor import supervise_child_process
+from nova.resource_steward.adaptive_memory import (
+    MemoryPressureDetector,
+    ReclamationCooldownManager,
+    SafeMemoryReclaimer,
+    AdaptiveMemoryController
+)
+from nova.resource_steward import ResourceSteward
 from scripts.run_inference_with_telemetry import verify_inference_success
 
 class FakeClock:
@@ -331,7 +342,7 @@ class TestResourceSteward(unittest.TestCase):
         self.assertIn("Telemetry sample gap detected: received 3, expected 2", res.abort_reason)
 
     def test_12_supervisor_low_ram_recovered_resets_timer(self):
-        clock = FakeClock(100.0)
+        clock = FakeClock(105.0)
         s_queue = queue.Queue()
         o_queue = queue.Queue()
         mock_proc = MagicMock()
@@ -359,7 +370,7 @@ class TestResourceSteward(unittest.TestCase):
         self.assertEqual(res.processed_samples_count, 4)
 
     def test_13_supervisor_low_ram_sustained_5s_aborts(self):
-        clock = FakeClock(100.0)
+        clock = FakeClock(105.2)
         s_queue = queue.Queue()
         o_queue = queue.Queue()
         mock_proc = MagicMock()
@@ -382,7 +393,7 @@ class TestResourceSteward(unittest.TestCase):
         self.assertIn("Available RAM sustained < 2.0 GiB for 5.20s", res.abort_reason)
 
     def test_14_supervisor_silent_stdout_does_not_block_telemetry(self):
-        clock = FakeClock(100.0)
+        clock = FakeClock(100.5)
         s_queue = queue.Queue()
         o_queue = queue.Queue() # Empty output queue
         mock_proc = MagicMock()
@@ -611,6 +622,381 @@ class TestResourceSteward(unittest.TestCase):
         )
         outcome, reason = verify_inference_success(sup_abort, rec_ok)
         self.assertEqual(outcome, InferenceOutcome.ABORTED)
+
+    # =======================================================================
+    # SECTION F: TIMESTAMP, SAMPLE & COMMIT CONSISTENCY VALIDATION
+    # =======================================================================
+
+    def test_20_supervisor_future_timestamp_aborts(self):
+        clock = FakeClock(100.0)
+        s_queue = queue.Queue()
+        o_queue = queue.Queue()
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+
+        # Sample timestamp is 100.5 while clock is 100.0 (> clock + 0.1)
+        s_queue.put(self._make_sample(1, 100.5))
+
+        res = supervise_child_process(
+            proc=mock_proc,
+            sample_queue=s_queue,
+            output_queue=o_queue,
+            policy=self.policy,
+            clock=clock,
+            poll_sleep_sec=0.0
+        )
+        self.assertTrue(res.abort_triggered)
+        self.assertIn("in the future", res.abort_reason)
+
+    def test_21_supervisor_backward_timestamp_aborts(self):
+        clock = FakeClock(105.0)
+        s_queue = queue.Queue()
+        o_queue = queue.Queue()
+        mock_proc = MagicMock()
+        mock_proc.poll.return_value = None
+
+        # Sample 1 at 102.0, Sample 2 moved backward to 101.0
+        s_queue.put(self._make_sample(1, 102.0))
+        s_queue.put(self._make_sample(2, 101.0))
+
+        res = supervise_child_process(
+            proc=mock_proc,
+            sample_queue=s_queue,
+            output_queue=o_queue,
+            policy=self.policy,
+            clock=clock,
+            poll_sleep_sec=0.0
+        )
+        self.assertTrue(res.abort_triggered)
+        self.assertIn("timestamp moved backward", res.abort_reason)
+
+    def test_22_supervisor_invalid_sample_id_types_abort(self):
+        for bad_id in [True, False, 1.0, "1", None, [1]]:
+            clock = FakeClock(100.0)
+            s_queue = queue.Queue()
+            o_queue = queue.Queue()
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+
+            s = self._make_sample(1, 100.0)
+            s["sample_id"] = bad_id
+            s_queue.put(s)
+
+            res = supervise_child_process(
+                proc=mock_proc,
+                sample_queue=s_queue,
+                output_queue=o_queue,
+                policy=self.policy,
+                clock=clock,
+                poll_sleep_sec=0.0
+            )
+            self.assertTrue(res.abort_triggered, f"Failed to abort on bad sample_id {bad_id!r}")
+            self.assertIn("invalid sample_id", res.abort_reason)
+
+    def test_23_supervisor_non_finite_metrics_abort(self):
+        for bad_metric, bad_val in [("avail_phys_gib", -1.0), ("avail_phys_gib", float("nan")),
+                                    ("commit_pct", 105.0), ("commit_pct", -5.0)]:
+            clock = FakeClock(100.0)
+            s_queue = queue.Queue()
+            o_queue = queue.Queue()
+            mock_proc = MagicMock()
+            mock_proc.poll.return_value = None
+
+            s = self._make_sample(1, 100.0)
+            s["system_ram"][bad_metric] = bad_val
+            s_queue.put(s)
+
+            res = supervise_child_process(
+                proc=mock_proc,
+                sample_queue=s_queue,
+                output_queue=o_queue,
+                policy=self.policy,
+                clock=clock,
+                poll_sleep_sec=0.0
+            )
+            self.assertTrue(res.abort_triggered, f"Failed to abort on {bad_metric}={bad_val}")
+            self.assertIn("invalid, negative, or non-finite metrics", res.abort_reason)
+
+    def test_24_commit_consistency_counter_mismatch_fails_gate(self):
+        total = int(40 * 1024**3)
+        committed = int(16 * 1024**3)
+        # Contradictory available: sum is 100 MB short of total
+        avail = total - committed - (100 * 1024**2)
+
+        snap = SystemMemorySnapshot(
+            total_phys_bytes=int(16 * 1024**3),
+            avail_phys_bytes=int(12 * 1024**3),
+            total_phys_gib=16.0,
+            avail_phys_gib=12.0,
+            commit_total_bytes=total,
+            commit_avail_bytes=avail,
+            committed_bytes=committed,
+            commit_total_gib=40.0,
+            commit_avail_gib=round(avail / (1024**3), 3),
+            committed_gib=16.0,
+            commit_pct=40.0,
+            memory_load_pct=30,
+            status=TelemetryStatus.SUCCESS
+        )
+        gpu = self._make_healthy_gpu()
+        disk = self._make_healthy_disk()
+
+        passed, gates = self.budget_mgr.evaluate_gates(snap, gpu, disk)
+        self.assertFalse(passed)
+        self.assertFalse(gates["system_commit"].passed)
+        self.assertIn("Contradictory commit metrics: committed + avail", gates["system_commit"].failure_reason)
+
+    def test_25_commit_consistency_pct_mismatch_fails_gate(self):
+        total = int(40 * 1024**3)
+        committed = int(16 * 1024**3) # 40.0%
+        avail = total - committed
+        # Contradictory percentage: reported 50.0% vs calculated 40.0% (delta 10% > 1%)
+        snap = SystemMemorySnapshot(
+            total_phys_bytes=int(16 * 1024**3),
+            avail_phys_bytes=int(12 * 1024**3),
+            total_phys_gib=16.0,
+            avail_phys_gib=12.0,
+            commit_total_bytes=total,
+            commit_avail_bytes=avail,
+            committed_bytes=committed,
+            commit_total_gib=40.0,
+            commit_avail_gib=24.0,
+            committed_gib=16.0,
+            commit_pct=50.0,
+            memory_load_pct=30,
+            status=TelemetryStatus.SUCCESS
+        )
+        gpu = self._make_healthy_gpu()
+        disk = self._make_healthy_disk()
+
+        passed, gates = self.budget_mgr.evaluate_gates(snap, gpu, disk)
+        self.assertFalse(passed)
+        self.assertFalse(gates["system_commit"].passed)
+        self.assertIn("Contradictory commit percentage", gates["system_commit"].failure_reason)
+
+    def test_26_inference_verifier_zero_runs_rejected(self):
+        rec_ok = MagicMock()
+        rec_ok.recovery_successful = True
+
+        # Output with 0 runs (prompt eval only)
+        sup_zero_runs = SupervisorResult(
+            abort_triggered=False,
+            abort_reason="",
+            exit_code=0,
+            peak_ram_gib=10.0,
+            peak_vram_mib=4200.0,
+            processed_samples_count=5,
+            duration_seconds=1.2,
+            output_lines=[
+                "load time = 500 ms\n",
+                "prompt eval time = 50.00 ms / 10 tokens\n",
+                "eval time = 0.00 ms / 0 runs\n",
+                "print_timings: done\n"
+            ]
+        )
+        outcome, reason = verify_inference_success(sup_zero_runs, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+        self.assertIn("0 generated tokens", reason)
+
+        # Output with 1 positive run
+        sup_one_run = SupervisorResult(
+            abort_triggered=False,
+            abort_reason="",
+            exit_code=0,
+            peak_ram_gib=10.0,
+            peak_vram_mib=4200.0,
+            processed_samples_count=5,
+            duration_seconds=1.2,
+            output_lines=[
+                "load time = 500 ms\n",
+                "prompt eval time = 50.00 ms / 10 tokens\n",
+                "eval time = 25.00 ms / 1 runs ( 25.00 ms per token, 40.00 tokens per second)\n",
+                "print_timings: done\n"
+            ]
+        )
+        outcome, reason = verify_inference_success(sup_one_run, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.SUCCESS)
+
+    # =======================================================================
+    # SECTION G: ADAPTIVE MEMORY RECLAIMER (AMR)
+    # =======================================================================
+
+    def test_27_amr_pressure_detection_levels(self):
+        detector = MemoryPressureDetector(self.policy)
+
+        # 1. NORMAL (>= 12.0 GiB)
+        snap_normal = self._make_healthy_ram(avail_gib=12.5)
+        self.assertEqual(detector.evaluate_pressure(snap_normal), MemoryPressureLevel.NORMAL)
+
+        # 2. OPTIMIZATION (10.0 GiB <= RAM < 12.0 GiB)
+        snap_opt = self._make_healthy_ram(avail_gib=11.0)
+        self.assertEqual(detector.evaluate_pressure(snap_opt), MemoryPressureLevel.OPTIMIZATION)
+
+        # 3. CONSTRAINED (< 10.0 GiB)
+        snap_const = self._make_healthy_ram(avail_gib=9.0)
+        self.assertEqual(detector.evaluate_pressure(snap_const), MemoryPressureLevel.CONSTRAINED)
+
+        # 4. CRITICAL (< 2.0 GiB or commit >= 90%)
+        snap_crit_ram = self._make_healthy_ram(avail_gib=1.8)
+        self.assertEqual(detector.evaluate_pressure(snap_crit_ram), MemoryPressureLevel.CRITICAL)
+
+        snap_crit_commit = self._make_healthy_ram(avail_gib=12.0, commit_pct=92.0)
+        self.assertEqual(detector.evaluate_pressure(snap_crit_commit), MemoryPressureLevel.CRITICAL)
+
+        # 5. Sensor failure -> CRITICAL (Fail-Closed)
+        snap_failed = self._make_healthy_ram(status=TelemetryStatus.FAILED)
+        self.assertEqual(detector.evaluate_pressure(snap_failed), MemoryPressureLevel.CRITICAL)
+
+    def test_28_amr_cooldown_throttling_and_reset(self):
+        clock = FakeClock(100.0)
+        cd_mgr = ReclamationCooldownManager(cooldown_seconds=30.0, clock=clock)
+
+        # Initially allowed
+        self.assertTrue(cd_mgr.can_reclaim())
+        self.assertEqual(cd_mgr.remaining_cooldown_seconds, 0.0)
+
+        # Record reclamation at t=100.0
+        cd_mgr.record_reclamation()
+        self.assertFalse(cd_mgr.can_reclaim())
+        self.assertEqual(cd_mgr.remaining_cooldown_seconds, 30.0)
+
+        # Advance 15s (still cooling down)
+        clock.advance(15.0)
+        self.assertFalse(cd_mgr.can_reclaim())
+        self.assertEqual(cd_mgr.remaining_cooldown_seconds, 15.0)
+
+        # Advance another 16s (total 31s: cooldown expired)
+        clock.advance(16.0)
+        self.assertTrue(cd_mgr.can_reclaim())
+        self.assertEqual(cd_mgr.remaining_cooldown_seconds, 0.0)
+
+        # Test reset
+        cd_mgr.record_reclamation()
+        self.assertFalse(cd_mgr.can_reclaim())
+        cd_mgr.reset()
+        self.assertTrue(cd_mgr.can_reclaim())
+
+    def test_29_amr_safe_reclaimer_no_exceptions(self):
+        reclaimer = SafeMemoryReclaimer()
+        extra_called = []
+        def mock_cleaner():
+            extra_called.append(True)
+
+        attempted, completed, failed, dur = reclaimer.reclaim(extra_cleaners=[mock_cleaner])
+        self.assertIn("python_gc_collect", attempted)
+        self.assertTrue(any("python_gc_collect" in c for c in completed))
+        self.assertEqual(len(failed), 0)
+        self.assertTrue(extra_called[0])
+        self.assertGreaterEqual(dur, 0.0)
+
+    def test_30_amr_delta_measurement_and_status(self):
+        clock = FakeClock(100.0)
+        mock_monitor = MagicMock()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            controller = AdaptiveMemoryController(
+                policy=self.policy,
+                monitor=mock_monitor,
+                reports_dir=tmp_dir,
+                clock=clock
+            )
+
+            # Scenario A: Normal RAM -> NO_ACTION_REQUIRED
+            mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.5)
+            rep_a = controller.evaluate_and_reclaim()
+            self.assertEqual(rep_a.overall_status, ReclamationStatus.NO_ACTION_REQUIRED)
+            self.assertEqual(rep_a.ram_delta_gib, 0.0)
+
+            # Scenario B: Optimization RAM (11.0 GiB) with positive delta (+50 MB) -> RECLAMATION_COMPLETED
+            mock_monitor.get_system_memory.side_effect = [
+                self._make_healthy_ram(avail_gib=11.00), # Pre
+                self._make_healthy_ram(avail_gib=11.05)  # Post (+50 MB >= 10 MB)
+            ]
+            rep_b = controller.evaluate_and_reclaim(force=True)
+            self.assertEqual(rep_b.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
+            self.assertAlmostEqual(rep_b.ram_delta_gib, 0.05, places=3)
+
+            # Scenario C: Constrained RAM (9.0 GiB) with delta < 10 MB -> NO_MEASURABLE_IMPROVEMENT
+            mock_monitor.get_system_memory.side_effect = [
+                self._make_healthy_ram(avail_gib=9.000), # Pre
+                self._make_healthy_ram(avail_gib=9.002)  # Post (+2 MB < 10 MB)
+            ]
+            rep_c = controller.evaluate_and_reclaim(force=True)
+            self.assertEqual(rep_c.overall_status, ReclamationStatus.NO_MEASURABLE_IMPROVEMENT)
+
+    def test_31_amr_reports_saved_to_json(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            mock_monitor = MagicMock()
+            mock_monitor.get_system_memory.side_effect = [
+                self._make_healthy_ram(avail_gib=11.0),
+                self._make_healthy_ram(avail_gib=11.1)
+            ]
+            controller = AdaptiveMemoryController(
+                policy=self.policy,
+                monitor=mock_monitor,
+                reports_dir=tmp_dir
+            )
+            report = controller.evaluate_and_reclaim()
+            latest_path = os.path.join(tmp_dir, "reclaim_latest.json")
+            self.assertTrue(os.path.exists(latest_path))
+
+            with open(latest_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.assertEqual(data["overall_status"], ReclamationStatus.RECLAMATION_COMPLETED.value)
+            self.assertIn("safety_notes", data)
+            self.assertEqual(len(data["safety_notes"]), 4)
+
+    def test_32_static_inspection_forbidden_apis_absent(self):
+        """Static inspection: verifies forbidden Windows memory cleaner APIs are NEVER called or imported."""
+        import ast
+        steward_dir = os.path.join(PROJECT_ROOT, "nova", "resource_steward")
+        forbidden = [
+            "EmptyWorkingSet",
+            "K32EmptyWorkingSet",
+            "NtSetSystemInformation",
+            "MemoryPurgeStandbyList",
+            "MemoryFlushModifiedList",
+            "SetSystemFileCacheSize"
+        ]
+
+        for fname in os.listdir(steward_dir):
+            if fname.endswith(".py"):
+                fpath = os.path.join(steward_dir, fname)
+                with open(fpath, "r", encoding="utf-8") as f:
+                    code = f.read()
+
+                tree = ast.parse(code, filename=fpath)
+                for node in ast.walk(tree):
+                    # Check function calls
+                    if isinstance(node, ast.Call):
+                        # direct call
+                        if isinstance(node.func, ast.Name):
+                            for forb in forbidden:
+                                self.assertNotEqual(node.func.id, forb, f"Forbidden call {forb} in {fname}")
+                        # attribute call e.g. ctypes.windll.psapi.EmptyWorkingSet
+                        elif isinstance(node.func, ast.Attribute):
+                            for forb in forbidden:
+                                self.assertNotEqual(node.func.attr, forb, f"Forbidden attribute call {forb} in {fname}")
+                    # Check imports
+                    elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                        for forb in forbidden:
+                            if isinstance(node, ast.ImportFrom) and node.module:
+                                self.assertNotIn(forb, node.module, f"Forbidden import {forb} in {fname}")
+                            for alias in node.names:
+                                self.assertNotEqual(alias.name, forb, f"Forbidden import alias {forb} in {fname}")
+
+    def test_33_preflight_auto_reclaim_integration(self):
+        """Verifies ResourceSteward run_preflight integrates AMR and still fails-closed if RAM < 10 GiB."""
+        steward = ResourceSteward(self.policy)
+        # Mock monitor to return 9.5 GiB (Constrained)
+        steward.monitor.get_system_memory = MagicMock(return_value=self._make_healthy_ram(avail_gib=9.5))
+        steward.monitor.get_gpu_telemetry = MagicMock(return_value=self._make_healthy_gpu())
+        steward.monitor.get_disk_space = MagicMock(return_value=self._make_healthy_disk())
+        steward.monitor.list_top_processes = MagicMock(return_value=[])
+
+        report = steward.run_preflight()
+        # Even with auto-reclaim evaluated, if available RAM remains 9.5 GiB < 10.0 GiB, preflight MUST fail
+        self.assertFalse(report.passed)
+        self.assertFalse(report.gates["avail_ram"].passed)
 
 if __name__ == "__main__":
     unittest.main()

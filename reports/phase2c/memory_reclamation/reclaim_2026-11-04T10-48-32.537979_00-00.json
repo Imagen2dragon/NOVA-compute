@@ -1,0 +1,28 @@
+{
+  "timestamp_utc": "2026-11-04T10:48:32.537979+00:00",
+  "trigger_reason": "Preflight admission check",
+  "pressure_level": "CONSTRAINED",
+  "ram_available_before_gib": 9.5,
+  "ram_available_after_gib": 9.5,
+  "ram_delta_gib": 0.0,
+  "commit_before_pct": 40.0,
+  "commit_after_pct": 40.0,
+  "actions_attempted": [
+    "python_gc_collect"
+  ],
+  "actions_completed": [
+    "python_gc_collect (freed 276 unreachable objects)"
+  ],
+  "actions_failed": [],
+  "reclamation_duration_seconds": 0.0,
+  "cooldown_applied": false,
+  "overall_status": "NO_MEASURABLE_IMPROVEMENT",
+  "safety_notes": [
+    "Policy: SAFE_AUTO (Strictly NOVA-owned resources only).",
+    "Zero system-wide standby/modified list purging.",
+    "Zero foreign process working-set trimming.",
+    "Zero unprivileged/privileged system modifications."
+  ],
+  "paging_activity_before": null,
+  "paging_activity_after": null
+}

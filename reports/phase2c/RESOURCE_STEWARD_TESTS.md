@@ -4,22 +4,22 @@
 **Date:** 2026-11-04  
 **Author:** Antigravity (Implementation Engineer)  
 **Governance:** Implementation submitted; **Awaiting Lead Architect (ChatGPT) & Project Owner Review**  
-**Status:** ALL 19 TESTS PASSING (19/19)  
+**Status:** ALL 33 TESTS PASSING (33/33)  
 
 ---
 
 ## 1. Test Suite Overview
 
-An expanded, automated test suite was implemented in [`tests/test_resource_steward.py`](file:///c:/Users/abdal/OneDrive/Desktop/nova_compute_antigravity_starter/tests/test_resource_steward.py) to validate the final stabilization of the Resource Steward.
+An expanded, automated test suite was implemented in [`tests/test_resource_steward.py`](file:///c:/Users/abdal/OneDrive/Desktop/nova_compute_antigravity_starter/tests/test_resource_steward.py) to validate the final stabilization of the Resource Steward and the Adaptive Memory Reclaimer (AMR).
 
 The test suite validates:
 1. **CLI Execution & Mutual Exclusivity (Section A):** Verifies that default invocation and `--dry-run` never spawn child processes, conflicting flags are rejected, and preflight gate failures immediately block `Popen`.
 2. **Hardened Preflight Commit Gate (Section B):** Tests 90% commit threshold and fail-closed handling on missing telemetry, zero limit, NaN, infinity, negative counters, and contradictory metrics.
 3. **Integrated Supervisor Tests (Section C):** Exercises the real production `supervise_child_process` engine with deterministic fake clocks and queues, testing RAM/GPU failures, stale timeouts, duplicate/missing sample IDs, timer resets on recovered RAM, sustained 5s low-RAM aborts, quiet stdout, and CUDA OOM interception.
-4. **Recovery Verification & Real Windows Fixtures (Section D):** Tests strict recovery verification (VRAM leaks > 100 MiB and thread timeouts fail recovery), along with two real, owned Windows subprocess fixtures:
-   - **Fixture A (`graceful_child.py`):** Spawns in `CREATE_NEW_PROCESS_GROUP`, registers `SIGBREAK` handler, writes acknowledgement marker file upon receiving `CTRL_BREAK_EVENT`, and exits cleanly.
-   - **Fixture B (`stubborn_child.py`):** Spawns in `CREATE_NEW_PROCESS_GROUP`, ignores `SIGBREAK`, times out grace period, and forcefully escalates to `proc.kill()`.
-5. **Inference Outcome Verification (Section E):** Tests the `verify_inference_success` validator across `SUCCESS`, `UNVERIFIED`, `FAILED`, and `ABORTED` outcomes.
+4. **Recovery Verification & Real Windows Fixtures (Section D):** Tests strict recovery verification (VRAM leaks > 100 MiB and thread timeouts fail recovery), along with two real, owned Windows subprocess fixtures (`graceful_child.py` and `stubborn_child.py`).
+5. **Inference Outcome Verification (Section E):** Tests the `verify_inference_success` validator across `SUCCESS`, `UNVERIFIED`, `FAILED`, and `ABORTED` outcomes, ensuring 0-run prompt evals are rejected.
+6. **Timestamp, Sample & Commit Consistency Validation (Section F):** Validates future timestamps (`> now + 0.1`), backward timestamps, non-int sample IDs, non-finite metrics, and commit counter/percentage consistency.
+7. **Adaptive Memory Reclaimer (AMR) & Static Safety (Section G):** Validates pressure tier classification, cooldown throttling, safe runtime garbage collection, before/after delta calculation, JSON audit reporting, static AST verification of forbidden API absence, and admission control integration.
 
 ---
 
@@ -32,7 +32,7 @@ python -m unittest discover -s tests -p "test_*.py"
 ### Execution Log
 
 ```
-Ran 19 tests in 4.950s
+Ran 33 tests in 4.895s
 
 OK
 [MODE] EXECUTE AUTHORIZED INFERENCE
@@ -40,7 +40,7 @@ OK
 Running fresh preflight check immediately prior to launch...
 ========================================================================
 NOVA Compute — Preflight Hardware Qualification Audit
-Timestamp (UTC): 2026-11-04T09:57:16.541698+00:00
+Timestamp (UTC): 2026-11-04T10:48:29.816032+00:00
 ========================================================================
   [PASS] telemetry_integrity   : Healthy (Req: All sensors SUCCESS)
   [FAIL] avail_ram             : 8.500 GiB (Req: >= 10.0 GiB)

@@ -15,6 +15,7 @@ EXECUTION MODES:
 import os
 import sys
 import time
+import re
 import argparse
 import subprocess
 import json
@@ -215,16 +216,17 @@ def run_memory_report(steward: ResourceSteward) -> int:
         print(f"  {p.name:<30} WS: {p.working_set_mb:>7.1f} MB  Priv: {priv_str:<17}  [{cat}] (Instances: {p.instances_measured}/{p.instances_total})")
     return 0 if report.passed else 1
 
-def start_output_reader(pipe, out_queue: queue.Queue, stop_event: threading.Event) -> threading.Thread:
+def start_output_reader(pipe, out_queue: queue.Queue, stop_event: Optional[threading.Event] = None) -> threading.Thread:
     """Dedicated background thread reading child stdout to prevent blocking the supervisor."""
     def _reader():
         try:
             for line in iter(pipe.readline, ''):
-                if stop_event.is_set():
-                    break
                 out_queue.put(line)
         except Exception:
             pass
+        finally:
+            if stop_event is not None:
+                stop_event.set()
 
     t = threading.Thread(target=_reader, daemon=True)
     t.start()
@@ -238,7 +240,7 @@ def verify_inference_success(
     Strictly verifies inference smoke test outcome against:
       - Exit code zero
       - No safety abort
-      - Confirmed generated-token/evaluation evidence
+      - Confirmed generated-token/evaluation evidence (eval time = ... / X runs with X >= 1, not just prompt eval)
       - Valid execution telemetry
       - Successful required recovery verification
     """
@@ -250,14 +252,30 @@ def verify_inference_success(
     if supervisor_res.exit_code != 0:
         return InferenceOutcome.FAILED, f"Child process exited with non-zero code {supervisor_res.exit_code}"
 
-    # Verify generated token / evaluation evidence in output
-    has_token_gen = any(
-        marker in raw_output
-        for marker in ["eval time =", "prompt eval time =", "sample time =", "tokens generated"]
-    ) and ("print_timings" in raw_output or "load time =" in raw_output)
+    # Verify positive generated token evidence in output
+    eval_match = re.search(r"(?<!prompt )eval time\s*=\s*[\d\.]+\s*ms(?:\s*/\s*(\d+)\s*(?:runs|tokens))?", raw_output)
+    token_gen_match = re.search(r"tokens generated\s*:\s*(\d+)", raw_output, re.IGNORECASE)
+
+    has_positive_eval = False
+    generated_count = 0
+    if eval_match:
+        runs_group = eval_match.group(1)
+        if runs_group is not None:
+            generated_count = int(runs_group)
+            has_positive_eval = (generated_count >= 1)
+        else:
+            has_positive_eval = True
+            generated_count = 1
+    elif token_gen_match:
+        generated_count = int(token_gen_match.group(1))
+        has_positive_eval = (generated_count >= 1)
+
+    has_token_gen = has_positive_eval and ("print_timings" in raw_output or "load time =" in raw_output)
 
     if not has_token_gen:
-        return InferenceOutcome.UNVERIFIED, "Inference output lacks verified token generation / evaluation timing markers."
+        if "prompt eval time =" in raw_output and not has_positive_eval:
+            return InferenceOutcome.UNVERIFIED, "Inference executed prompt evaluation only (0 generated tokens evaluated)."
+        return InferenceOutcome.UNVERIFIED, "Inference output lacks verified token generation / evaluation timing markers (eval runs >= 1)."
 
     if supervisor_res.processed_samples_count == 0:
         return InferenceOutcome.UNVERIFIED, "Execution telemetry lacks valid processed samples."
@@ -265,7 +283,7 @@ def verify_inference_success(
     if not recovery_report.recovery_successful:
         return InferenceOutcome.UNVERIFIED, "Full resource recovery could not be verified (residual resources, telemetry failure, or unverified thread shutdown)."
 
-    return InferenceOutcome.SUCCESS, "Inference smoke test succeeded: token generated, telemetry valid, and clean recovery verified."
+    return InferenceOutcome.SUCCESS, f"Inference smoke test succeeded: token generated ({generated_count} run(s)), telemetry valid, and clean recovery verified."
 
 def execute_inference(steward: ResourceSteward):
     """Executes inference ONLY after a fresh live preflight confirms all safety gates pass."""

@@ -49,9 +49,10 @@ The governing principles are:
   - Inspecting post-run GPU telemetry. If the GPU query fails, report `gpu_verification_status = "FAILED"`, `residual_vram_leak_mib = None`, and `recovery_successful = False`.
   - Checking residual processes via exact PID matching in `tasklist`. If the check fails, report `process_verification_status = "UNKNOWN"` and `recovery_successful = False`.
   - Enforcing VRAM recovery tolerance ($\le 100\text{ MiB}$). If residual VRAM exceeds $100\text{ MiB}$, fail recovery.
-- **User-Centric Memory Advising:**
+- **User-Centric Memory Advising & Adaptive Reclamation (`SAFE_AUTO`):**
   - Inspecting resident memory of user-mode processes in read-only mode via `tasklist` and `GetProcessMemoryInfo`.
   - Computing the RAM deficit against the $\ge 10.0\text{ GiB}$ gate.
+  - Executing `AdaptiveMemoryController.evaluate_and_reclaim()` under `SAFE_AUTO` (Python `gc.collect(2)` and NOVA internal buffer evictions only).
   - Listing candidate applications, observed working sets, and measurement coverage (`instances_measured / instances_total`).
   - Explicitly documenting that observed working set is an indicator and does not guarantee an equivalent release of physical RAM.
 

@@ -8,6 +8,9 @@ from .models import (
     TelemetryStatus,
     ExecutionMode,
     InferenceOutcome,
+    MemoryPressureLevel,
+    ReclamationStatus,
+    MemoryReclaimReport,
     SystemMemorySnapshot,
     ProcessResourceSnapshot,
     GPUSnapshot,
@@ -47,8 +50,15 @@ from .supervisor import (
     supervise_child_process
 )
 
+from .adaptive_memory import (
+    MemoryPressureDetector,
+    ReclamationCooldownManager,
+    SafeMemoryReclaimer,
+    AdaptiveMemoryController
+)
+
 class ResourceSteward:
-    """Unified coordinator for resource diagnostics, preflight auditing, and safe reclamation."""
+    """Unified coordinator for resource diagnostics, preflight auditing, safe reclamation, and adaptive memory control."""
 
     def __init__(self, policy: ResourcePolicy = None):
         self.policy = policy or DEFAULT_POLICY
@@ -56,9 +66,17 @@ class ResourceSteward:
         self.monitor = ResourceMonitor()
         self.advisor = MemoryAdvisor()
         self.reclamation = SafeReclamationManager()
+        self.adaptive_reclaimer = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=self.monitor
+        )
 
-    def run_preflight(self) -> PreflightReport:
+    def run_preflight(self, run_auto_reclaim: bool = True) -> PreflightReport:
         """Collects fresh hardware metrics and runs fail-closed preflight evaluation."""
+        if run_auto_reclaim and self.policy.auto_reclaim_enabled:
+            # Run SAFE_AUTO admission check before final preflight gates
+            self.adaptive_reclaimer.evaluate_and_reclaim(trigger_reason="Preflight admission check")
+
         ram = self.monitor.get_system_memory()
         gpu = self.monitor.get_gpu_telemetry()
         disk = self.monitor.get_disk_space("C:\\")

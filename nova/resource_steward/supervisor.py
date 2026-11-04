@@ -6,6 +6,7 @@ Decoupled and testable with mock/injected clocks, queues, and child handles.
 """
 
 import time
+import math
 import queue
 import subprocess
 from typing import Optional, List, Dict, Any, Callable
@@ -76,9 +77,9 @@ def supervise_child_process(
                 break
 
             sample_id = sample.get("sample_id")
-            if sample_id is None:
+            if sample_id is None or not isinstance(sample_id, int) or isinstance(sample_id, bool):
                 abort_triggered = True
-                abort_reason = "CRITICAL ABORT: Telemetry sample missing sample_id. Fail-closed."
+                abort_reason = f"CRITICAL ABORT: Telemetry sample has invalid sample_id {sample_id!r} (must be int). Fail-closed."
                 if abort_callback:
                     abort_callback(abort_reason)
                 break
@@ -101,9 +102,38 @@ def supervise_child_process(
                     abort_callback(abort_reason)
                 break
 
+            sample_mono = sample.get("timestamp_monotonic")
+            if sample_mono is None or not isinstance(sample_mono, (int, float)) or not math.isfinite(sample_mono):
+                abort_triggered = True
+                abort_reason = f"CRITICAL ABORT: Telemetry sample has invalid timestamp_monotonic {sample_mono!r}. Fail-closed."
+                if abort_callback:
+                    abort_callback(abort_reason)
+                break
+
+            # Reject future timestamps
+            if sample_mono > now + 0.1:
+                abort_triggered = True
+                abort_reason = (
+                    f"CRITICAL ABORT: Telemetry sample timestamp is in the future "
+                    f"({sample_mono:.4f} > clock {now:.4f} + 0.1). Fail-closed."
+                )
+                if abort_callback:
+                    abort_callback(abort_reason)
+                break
+
+            # Reject backward timestamps
+            if processed_samples_count > 0 and sample_mono < (last_sample_monotonic - 1e-6):
+                abort_triggered = True
+                abort_reason = (
+                    f"CRITICAL ABORT: Telemetry sample timestamp moved backward "
+                    f"({sample_mono:.4f} < previous {last_sample_monotonic:.4f}). Fail-closed."
+                )
+                if abort_callback:
+                    abort_callback(abort_reason)
+                break
+
             expected_sample_id += 1
             processed_samples_count += 1
-            sample_mono = sample.get("timestamp_monotonic", now)
             last_sample_monotonic = sample_mono
 
             s_ram = sample.get("system_ram", {})
@@ -124,10 +154,22 @@ def supervise_child_process(
                     abort_callback(abort_reason)
                 break
 
-            cur_ram = s_ram.get("avail_phys_gib", 0.0)
-            cur_vram_free = s_gpu.get("vram_free_mib", 0.0)
+            cur_ram = s_ram.get("avail_phys_gib")
+            cur_vram_free = s_gpu.get("vram_free_mib")
             cur_vram_used = s_gpu.get("vram_used_mib", 0.0)
-            commit_pct = s_ram.get("commit_pct", 0.0)
+            commit_pct = s_ram.get("commit_pct")
+
+            if (cur_ram is None or not isinstance(cur_ram, (int, float)) or not math.isfinite(cur_ram) or cur_ram < 0 or
+                cur_vram_free is None or not isinstance(cur_vram_free, (int, float)) or not math.isfinite(cur_vram_free) or cur_vram_free < 0 or
+                commit_pct is None or not isinstance(commit_pct, (int, float)) or not math.isfinite(commit_pct) or not (0.0 <= commit_pct <= 100.0)):
+                abort_triggered = True
+                abort_reason = (
+                    f"CRITICAL ABORT: Telemetry sample contains invalid, negative, or non-finite metrics "
+                    f"(RAM={cur_ram}, VRAM_free={cur_vram_free}, commit_pct={commit_pct}). Fail-closed."
+                )
+                if abort_callback:
+                    abort_callback(abort_reason)
+                break
 
             if cur_ram < peak_ram_gib:
                 peak_ram_gib = cur_ram

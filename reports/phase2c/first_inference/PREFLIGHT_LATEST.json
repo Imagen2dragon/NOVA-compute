@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-11-04T09:59:28.189208+00:00",
+  "timestamp_utc": "2026-11-04T10:52:53.470672+00:00",
   "all_gates_passed": false,
   "gates": {
     "telemetry_integrity": {
@@ -11,19 +11,19 @@
     "avail_ram": {
       "passed": false,
       "required": ">= 10.0 GiB",
-      "measured": "7.598 GiB",
-      "failure_reason": "Available RAM deficit: 2.402 GiB below required 10.0 GiB"
+      "measured": "8.500 GiB",
+      "failure_reason": "Available RAM deficit: 1.500 GiB below required 10.0 GiB"
     },
     "system_commit": {
       "passed": true,
       "required": "< 90.0%",
-      "measured": "32.7%",
+      "measured": "40.0%",
       "failure_reason": null
     },
     "avail_vram": {
       "passed": true,
       "required": ">= 5500 MiB",
-      "measured": "5920.0 MiB",
+      "measured": "5900.0 MiB",
       "failure_reason": null
     },
     "no_competing_gpu": {
@@ -35,31 +35,31 @@
     "disk_free": {
       "passed": true,
       "required": ">= 25.0 GB",
-      "measured": "118.45 GB",
+      "measured": "100.00 GB",
       "failure_reason": null
     }
   },
   "system_ram": {
-    "avail_phys_gib": 7.598,
-    "total_phys_gib": 15.649,
-    "committed_gib": 13.282,
-    "commit_total_gib": 40.649,
-    "commit_pct": 32.7,
-    "memory_load_pct": 51,
-    "system_cache_bytes": 8993710080,
-    "pages_input_per_sec": 0.0,
-    "pages_output_per_sec": 0.0,
+    "avail_phys_gib": 8.5,
+    "total_phys_gib": 16.0,
+    "committed_gib": 16.0,
+    "commit_total_gib": 40.0,
+    "commit_pct": 40.0,
+    "memory_load_pct": 30,
+    "system_cache_bytes": null,
+    "pages_input_per_sec": null,
+    "pages_output_per_sec": null,
     "status": "SUCCESS",
     "error": null
   },
   "gpu": {
     "name": "NVIDIA GeForce RTX 4050 Laptop GPU",
     "vram_total_mib": 6141.0,
-    "vram_free_mib": 5920.0,
-    "vram_used_mib": 0.0,
+    "vram_free_mib": 5900.0,
+    "vram_used_mib": 241.0,
     "utilization_pct": 0.0,
-    "temperature_c": 37.0,
-    "power_draw_w": 12.62,
+    "temperature_c": 35.0,
+    "power_draw_w": 15.0,
     "driver_version": "592.82",
     "active_compute_apps": 0,
     "status": "SUCCESS",
@@ -67,505 +67,11 @@
   },
   "disk": {
     "drive": "C:\\",
-    "free_gb": 118.45,
-    "total_gb": 952.57,
+    "free_gb": 100.0,
+    "total_gb": 950.0,
     "status": "SUCCESS",
     "error": null
   },
-  "top_processes": [
-    {
-      "pid": 7828,
-      "name": "msedge.exe",
-      "pids": [
-        7828,
-        3180,
-        12656,
-        20152,
-        17144,
-        19708,
-        20196,
-        17544,
-        8272,
-        19104,
-        5468,
-        4076,
-        3096,
-        10316,
-        22300,
-        8132,
-        12072,
-        18892,
-        15680,
-        11452,
-        7328,
-        14648,
-        22988,
-        23988,
-        17824,
-        16028
-      ],
-      "working_set_mb": 2012.0,
-      "private_commit_mb": 2620.7,
-      "instances_total": 26,
-      "instances_measured": 26,
-      "is_partial_private_commit": false,
-      "is_user_app": true,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 7028,
-      "name": "Antigravity.exe",
-      "pids": [
-        7028,
-        22096,
-        7644,
-        21792,
-        20920,
-        15776,
-        13200,
-        7940,
-        8316,
-        18884,
-        5828,
-        3192,
-        19396,
-        23944
-      ],
-      "working_set_mb": 652.2,
-      "private_commit_mb": 1005.2,
-      "instances_total": 14,
-      "instances_measured": 14,
-      "is_partial_private_commit": false,
-      "is_user_app": true,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 1908,
-      "name": "svchost.exe",
-      "pids": [
-        1908,
-        612,
-        2056,
-        2092,
-        2100,
-        2108,
-        2124,
-        2272,
-        2420,
-        2508,
-        2648,
-        2828,
-        2880,
-        2928,
-        3436,
-        3664,
-        3676,
-        3880,
-        4152,
-        4248,
-        4280,
-        4328,
-        4716,
-        4624,
-        5940,
-        7620,
-        8924,
-        9212,
-        7224,
-        10056,
-        1352,
-        1820,
-        9596,
-        10276,
-        10288,
-        10360,
-        11524,
-        11412,
-        7848,
-        17532,
-        17780,
-        20776,
-        1692,
-        15096,
-        20428,
-        15172,
-        15832,
-        13468
-      ],
-      "working_set_mb": 599.4,
-      "private_commit_mb": 41.2,
-      "instances_total": 48,
-      "instances_measured": 7,
-      "is_partial_private_commit": true,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 4628,
-      "name": "MsMpEng.exe",
-      "pids": [
-        4628
-      ],
-      "working_set_mb": 350.3,
-      "private_commit_mb": null,
-      "instances_total": 1,
-      "instances_measured": 0,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 8512,
-      "name": "language_server.exe",
-      "pids": [
-        8512
-      ],
-      "working_set_mb": 284.9,
-      "private_commit_mb": 353.3,
-      "instances_total": 1,
-      "instances_measured": 1,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 11160,
-      "name": "explorer.exe",
-      "pids": [
-        11160
-      ],
-      "working_set_mb": 159.4,
-      "private_commit_mb": 246.6,
-      "instances_total": 1,
-      "instances_measured": 1,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 19344,
-      "name": "python.exe",
-      "pids": [
-        19344,
-        16948,
-        19876
-      ],
-      "working_set_mb": 151.5,
-      "private_commit_mb": 150.7,
-      "instances_total": 3,
-      "instances_measured": 3,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 19008,
-      "name": "powershell.exe",
-      "pids": [
-        19008
-      ],
-      "working_set_mb": 131.0,
-      "private_commit_mb": 116.6,
-      "instances_total": 1,
-      "instances_measured": 1,
-      "is_partial_private_commit": false,
-      "is_user_app": true,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 7956,
-      "name": "WmiPrvSE.exe",
-      "pids": [
-        7956,
-        8236
-      ],
-      "working_set_mb": 85.6,
-      "private_commit_mb": null,
-      "instances_total": 2,
-      "instances_measured": 0,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 12272,
-      "name": "NVIDIA Overlay.exe",
-      "pids": [
-        12272,
-        14112,
-        13608,
-        13516,
-        14600
-      ],
-      "working_set_mb": 78.7,
-      "private_commit_mb": 326.4,
-      "instances_total": 5,
-      "instances_measured": 5,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 12948,
-      "name": "msedgewebview2.exe",
-      "pids": [
-        12948,
-        5200,
-        13676,
-        13684,
-        13856,
-        14312
-      ],
-      "working_set_mb": 75.5,
-      "private_commit_mb": 201.2,
-      "instances_total": 6,
-      "instances_measured": 6,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 20860,
-      "name": "sqlservr.exe",
-      "pids": [
-        20860
-      ],
-      "working_set_mb": 74.2,
-      "private_commit_mb": null,
-      "instances_total": 1,
-      "instances_measured": 0,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 4960,
-      "name": "MoUsoCoreWorker.exe",
-      "pids": [
-        4960
-      ],
-      "working_set_mb": 65.8,
-      "private_commit_mb": null,
-      "instances_total": 1,
-      "instances_measured": 0,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 1712,
-      "name": "dwm.exe",
-      "pids": [
-        1712
-      ],
-      "working_set_mb": 56.9,
-      "private_commit_mb": null,
-      "instances_total": 1,
-      "instances_measured": 0,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    },
-    {
-      "pid": 16268,
-      "name": "ShellExperienceHost.exe",
-      "pids": [
-        16268
-      ],
-      "working_set_mb": 54.4,
-      "private_commit_mb": 40.5,
-      "instances_total": 1,
-      "instances_measured": 1,
-      "is_partial_private_commit": false,
-      "is_user_app": false,
-      "status": "SUCCESS"
-    }
-  ],
-  "recommendations": [
-    {
-      "process_name": "msedge.exe",
-      "pids": [
-        3096,
-        3180,
-        4076,
-        5468,
-        7328,
-        7828,
-        8132,
-        8272,
-        10316,
-        11452,
-        12072,
-        12656,
-        14648,
-        15680,
-        16028,
-        17144,
-        17544,
-        17824,
-        18892,
-        19104,
-        19708,
-        20152,
-        20196,
-        22300,
-        22988,
-        23988
-      ],
-      "observed_working_set_mb": 2012.0,
-      "total_private_commit_mb": 2620.7,
-      "instances_total": 26,
-      "instances_measured": 26,
-      "is_partial": false,
-      "is_user_facing": true,
-      "unverified_heuristic_reclaim_mb": 2316.3,
-      "recommendation_text": "[Browser] Microsoft Edge Browser observed resident working set: ~2012 MB across 26 process instance(s), ~2621 MB private commit. Action: Save work and close active tabs or exit unused browser windows. (Note: Observed working set is an indicator; actual RAM released depends on OS standby caching)."
-    },
-    {
-      "process_name": "antigravity.exe",
-      "pids": [
-        3192,
-        5828,
-        7028,
-        7644,
-        7940,
-        8316,
-        13200,
-        15776,
-        18884,
-        19396,
-        20920,
-        21792,
-        22096,
-        23944
-      ],
-      "observed_working_set_mb": 652.2,
-      "total_private_commit_mb": 1005.2,
-      "instances_total": 14,
-      "instances_measured": 14,
-      "is_partial": false,
-      "is_user_facing": false,
-      "unverified_heuristic_reclaim_mb": 828.7,
-      "recommendation_text": "Background process 'antigravity.exe' observed resident working set: ~652 MB across 14 instance(s), ~1005 MB private commit. If this is an active tool, consider closing it through its normal interface."
-    },
-    {
-      "process_name": "svchost.exe",
-      "pids": [
-        612,
-        1352,
-        1692,
-        1820,
-        1908,
-        2056,
-        2092,
-        2100,
-        2108,
-        2124,
-        2272,
-        2420,
-        2508,
-        2648,
-        2828,
-        2880,
-        2928,
-        3436,
-        3664,
-        3676,
-        3880,
-        4152,
-        4248,
-        4280,
-        4328,
-        4624,
-        4716,
-        5940,
-        7224,
-        7620,
-        7848,
-        8924,
-        9212,
-        9596,
-        10056,
-        10276,
-        10288,
-        10360,
-        11412,
-        11524,
-        13468,
-        15096,
-        15172,
-        15832,
-        17532,
-        17780,
-        20428,
-        20776
-      ],
-      "observed_working_set_mb": 599.4,
-      "total_private_commit_mb": 41.2,
-      "instances_total": 48,
-      "instances_measured": 7,
-      "is_partial": true,
-      "is_user_facing": false,
-      "unverified_heuristic_reclaim_mb": 320.3,
-      "recommendation_text": "Background process 'svchost.exe' observed resident working set: ~599 MB across 48 instance(s), ~41 MB private commit (7/48 measured). If this is an active tool, consider closing it through its normal interface."
-    },
-    {
-      "process_name": "msmpeng.exe",
-      "pids": [
-        4628
-      ],
-      "observed_working_set_mb": 350.3,
-      "total_private_commit_mb": null,
-      "instances_total": 1,
-      "instances_measured": 0,
-      "is_partial": false,
-      "is_user_facing": false,
-      "unverified_heuristic_reclaim_mb": null,
-      "recommendation_text": "Background process 'msmpeng.exe' observed resident working set: ~350 MB across 1 instance(s). If this is an active tool, consider closing it through its normal interface."
-    },
-    {
-      "process_name": "language_server.exe",
-      "pids": [
-        8512
-      ],
-      "observed_working_set_mb": 284.9,
-      "total_private_commit_mb": 353.3,
-      "instances_total": 1,
-      "instances_measured": 1,
-      "is_partial": false,
-      "is_user_facing": false,
-      "unverified_heuristic_reclaim_mb": 319.1,
-      "recommendation_text": "Background process 'language_server.exe' observed resident working set: ~285 MB across 1 instance(s), ~353 MB private commit. If this is an active tool, consider closing it through its normal interface."
-    },
-    {
-      "process_name": "explorer.exe",
-      "pids": [
-        11160
-      ],
-      "observed_working_set_mb": 159.4,
-      "total_private_commit_mb": 246.6,
-      "instances_total": 1,
-      "instances_measured": 1,
-      "is_partial": false,
-      "is_user_facing": false,
-      "unverified_heuristic_reclaim_mb": 203.0,
-      "recommendation_text": "Background process 'explorer.exe' observed resident working set: ~159 MB across 1 instance(s), ~247 MB private commit. If this is an active tool, consider closing it through its normal interface."
-    },
-    {
-      "process_name": "python.exe",
-      "pids": [
-        16948,
-        19344,
-        19876
-      ],
-      "observed_working_set_mb": 151.5,
-      "total_private_commit_mb": 150.7,
-      "instances_total": 3,
-      "instances_measured": 3,
-      "is_partial": false,
-      "is_user_facing": false,
-      "unverified_heuristic_reclaim_mb": 151.1,
-      "recommendation_text": "Background process 'python.exe' observed resident working set: ~152 MB across 3 instance(s), ~151 MB private commit. If this is an active tool, consider closing it through its normal interface."
-    }
-  ]
+  "top_processes": [],
+  "recommendations": []
 }

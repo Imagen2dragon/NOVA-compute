@@ -25,6 +25,13 @@ class ResourcePolicy:
     critical_vram_free_mib: float = 512.0
     child_termination_grace_period_seconds: float = 5.0
     execution_mode: ExecutionMode = ExecutionMode.WORKSPACE_SAFE
+    # Adaptive Memory Reclaimer (AMR) configurations
+    reclamation_cooldown_seconds: float = 30.0
+    min_reclamation_delta_mb: float = 10.0
+    ram_pressure_optimization_gib: float = 12.0
+    ram_pressure_constrained_gib: float = 10.0
+    ram_pressure_critical_gib: float = 2.0
+    auto_reclaim_enabled: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)

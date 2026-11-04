@@ -1,7 +1,7 @@
 """
 NOVA Compute — Resource Steward Data Models
 Defines immutable data containers and dataclasses for system telemetry,
-process diagnostics, GPU state, safety policies, supervisor state, and audit reports.
+process diagnostics, GPU state, safety policies, supervisor state, memory reclamation, and audit reports.
 """
 
 from dataclasses import dataclass, field
@@ -23,6 +23,20 @@ class InferenceOutcome(str, Enum):
     UNVERIFIED = "UNVERIFIED"
     FAILED = "FAILED"
     ABORTED = "ABORTED"
+
+class MemoryPressureLevel(str, Enum):
+    NORMAL = "NORMAL"              # RAM >= 12.0 GiB: no reclamation needed
+    OPTIMIZATION = "OPTIMIZATION"  # 10.0 GiB <= RAM < 12.0 GiB: safe pass against NOVA resources
+    CONSTRAINED = "CONSTRAINED"    # RAM < 10.0 GiB: run safe cleanup; block inference if still < 10 GiB
+    CRITICAL = "CRITICAL"          # RAM < 2.0 GiB sustained: trigger critical abort
+
+class ReclamationStatus(str, Enum):
+    NO_ACTION_REQUIRED = "NO_ACTION_REQUIRED"
+    NO_RECLAIMABLE_NOVA_MEMORY = "NO_RECLAIMABLE_NOVA_MEMORY"
+    RECLAMATION_COMPLETED = "RECLAMATION_COMPLETED"
+    NO_MEASURABLE_IMPROVEMENT = "NO_MEASURABLE_IMPROVEMENT"
+    RECLAMATION_FAILED = "RECLAMATION_FAILED"
+    RECLAMATION_UNVERIFIED = "RECLAMATION_UNVERIFIED"
 
 def current_iso_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -183,3 +197,44 @@ class SupervisorResult:
     processed_samples_count: int
     duration_seconds: float
     output_lines: List[str] = field(default_factory=list)
+
+@dataclass
+class MemoryReclaimReport:
+    timestamp_utc: str
+    trigger_reason: str
+    pressure_level: MemoryPressureLevel
+    ram_available_before_gib: float
+    ram_available_after_gib: float
+    ram_delta_gib: float
+    commit_before_pct: float
+    commit_after_pct: float
+    actions_attempted: List[str]
+    actions_completed: List[str]
+    actions_failed: List[str]
+    reclamation_duration_seconds: float
+    cooldown_applied: bool
+    overall_status: ReclamationStatus
+    safety_notes: List[str]
+    paging_activity_before: Optional[Dict[str, Any]] = None
+    paging_activity_after: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "timestamp_utc": self.timestamp_utc,
+            "trigger_reason": self.trigger_reason,
+            "pressure_level": self.pressure_level.value,
+            "ram_available_before_gib": self.ram_available_before_gib,
+            "ram_available_after_gib": self.ram_available_after_gib,
+            "ram_delta_gib": self.ram_delta_gib,
+            "commit_before_pct": self.commit_before_pct,
+            "commit_after_pct": self.commit_after_pct,
+            "actions_attempted": self.actions_attempted,
+            "actions_completed": self.actions_completed,
+            "actions_failed": self.actions_failed,
+            "reclamation_duration_seconds": self.reclamation_duration_seconds,
+            "cooldown_applied": self.cooldown_applied,
+            "overall_status": self.overall_status.value,
+            "safety_notes": self.safety_notes,
+            "paging_activity_before": self.paging_activity_before,
+            "paging_activity_after": self.paging_activity_after
+        }

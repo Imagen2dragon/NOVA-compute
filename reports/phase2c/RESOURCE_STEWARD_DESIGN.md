@@ -107,6 +107,20 @@ Preflight evaluates system commit with rigorous validation:
   - If VRAM leak exceeds $100.0\text{ MiB}$, `recovery_successful = False`.
   - Child termination success (`child_terminated_successfully`) is separated from full recovery success (`recovery_successful`).
 
+### 3.5 Adaptive Memory Reclaimer (`adaptive_memory.py`)
+
+- **Multi-Tier Pressure Detection**: Evaluates physical memory and commit ratios to classify pressure into `NORMAL` ($\ge 12.0\text{ GiB}$), `OPTIMIZATION` ($10.0-12.0\text{ GiB}$), `CONSTRAINED` ($< 10.0\text{ GiB}$), and `CRITICAL` ($< 2.0\text{ GiB}$).
+- **`SAFE_AUTO` Reclamation**: Strictly bounded to NOVA's Python runtime garbage collection (`gc.collect(2)`) and registered internal buffers.
+- **Strictly Prohibits Destructive System APIs**: Zero calls to `EmptyWorkingSet`, `NtSetSystemInformation` (`MemoryPurgeStandbyList`), or `SetSystemFileCacheSize`.
+- **Cooldown Throttling**: Enforces a 30.0-second cooldown between reclamation passes to prevent CPU churn and memory allocator thrashing.
+- **Verified Telemetry Accounting**: Measures before and after snapshots; delta must reach $\ge 10\text{ MB}$ to qualify as `RECLAMATION_COMPLETED`.
+- **Audit Logging**: Persists detailed reports to `reports/phase2c/memory_reclamation/reclaim_latest.json`.
+
+### 3.6 Output Reader Lifecycle & Token Generation Verification
+
+- **Reader Thread Draining**: Dedicated background thread reads `iter(pipe.readline, '')` until true EOF. Reader thread does not break early on stop events, guaranteeing full stdout capture.
+- **Token Generation Verification**: `verify_inference_success` requires verified positive evaluation runs (`eval time = ... / X runs` where $X \ge 1$) to distinguish actual token generation from prompt evaluation. Outputs with 0 runs are strictly classified as `UNVERIFIED`.
+
 ---
 
 ## 4. Execution Harness Modes (`run_inference_with_telemetry.py`)

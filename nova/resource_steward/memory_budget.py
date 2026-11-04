@@ -94,7 +94,26 @@ class MemoryBudgetManager:
         elif not (0.0 <= system_ram.commit_pct <= 100.0):
             commit_invalid_reason = f"Commit percentage out of range [0, 100]: {system_ram.commit_pct}%."
         else:
-            commit_valid = True
+            # Consistency check 1: committed_bytes + commit_avail_bytes == commit_total_bytes within 1 MiB / 0.1% tolerance
+            byte_sum = system_ram.committed_bytes + system_ram.commit_avail_bytes
+            sum_diff = abs(byte_sum - system_ram.commit_total_bytes)
+            allowed_tolerance = max(1024 * 1024, int(0.001 * system_ram.commit_total_bytes))
+            if sum_diff > allowed_tolerance:
+                commit_invalid_reason = (
+                    f"Contradictory commit metrics: committed + avail ({byte_sum}) != "
+                    f"total ({system_ram.commit_total_bytes}), delta={sum_diff} bytes > allowed tolerance ({allowed_tolerance} bytes)."
+                )
+            else:
+                # Consistency check 2: commit_pct agrees with calculated byte percentage within 1.0%
+                calc_pct = (system_ram.committed_bytes / system_ram.commit_total_bytes) * 100.0
+                pct_diff = abs(system_ram.commit_pct - calc_pct)
+                if pct_diff > 1.0:
+                    commit_invalid_reason = (
+                        f"Contradictory commit percentage: reported {system_ram.commit_pct:.2f}% "
+                        f"disagrees with calculated {calc_pct:.2f}% (delta={pct_diff:.2f}% > allowed 1.0%)."
+                    )
+                else:
+                    commit_valid = True
 
         if not commit_valid:
             commit_passed = False
