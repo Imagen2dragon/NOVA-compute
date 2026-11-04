@@ -1,11 +1,11 @@
 # NOVA Compute — Antigravity-ready Starter Pack
 
-**Status:** Phase 0 (Hardware Qualification) & Phase 1 (Small-Model Runtime Baseline) Complete | Phase 2B (Q4_K_M Primary Model Acquisition) Authorized
+**Status:** Phase 0 (Hardware Qualification), Phase 1 (Small-Model Runtime Baseline), & Phase 2B (Q4_K_M Acquisition) Complete | Phase 2C-B Remediation (Resource Steward & Memory Preservation) Implemented (Model Inference Gated)
 
 NOVA Compute is a resource-aware local inference platform for MoE LLMs and small domain-specialist models. The first reported target machine is an NVIDIA RTX 4050 Laptop GPU (6 GB VRAM) with 16 GB system RAM.
 
-### Active Model Selection (Phase 2B)
-- **Primary Generalist:** `Qwen3-30B-A3B` in **`Q4_K_M`** quantization (18.63 GB, repository: `bartowski/Qwen_Qwen3-30B-A3B-GGUF`, pinned revision: `fb6ccf61e476d3077e10333e98e794f960ceea2a`). Supersedes prior Q3_K_M candidate per Phase 2B authorization. *(Status: Acquisition authorized; uninitialized)*.
+### Active Model Selection (Phase 2B / Phase 2C)
+- **Primary Generalist:** `Qwen3-30B-A3B` in **`Q4_K_M`** quantization (18.63 GB, repository: `bartowski/Qwen_Qwen3-30B-A3B-GGUF`, pinned revision: `fb6ccf61e476d3077e10333e98e794f960ceea2a`). Verified SHA256 integrity. Controlled single-token inference under Configuration D is staged behind the Resource Steward safety gates.
 - **Specialist Base:** `Qwen3-1.7B` in `Q8_0` quantization (1.83 GB, verified in Phase 1 at 83.6 t/s on CUDA).
 
 ## Team workflow
@@ -36,12 +36,15 @@ Antigravity should load `AGENTS.md` as persistent workspace rules. Start with `d
 ## Folder structure
 
 - `AGENTS.md` — persistent Antigravity project rules and safety constraints
+- `nova/` — core NOVA platform subsystems (including `resource_steward`)
+- `tests/` — automated unit and safety verification test suites
 - `docs/ANTIGRAVITY_FIRST_TASK.md` — first builder task (hardware qualification only)
 - `docs/architecture.md` — system design and decisions
 - `docs/experiments.md` — benchmark protocol and result template
 - `configs/models.yaml` — candidate models and expected roles
 - `scripts/windows/collect-hardware.ps1` — Windows inventory script
 - `scripts/linux/collect-hardware.sh` — Linux/WSL inventory script
+- `scripts/run_inference_with_telemetry.py` — gated execution harness with fail-closed telemetry
 
 ## First action
 

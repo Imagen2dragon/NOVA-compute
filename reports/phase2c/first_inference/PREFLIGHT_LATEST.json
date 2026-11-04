@@ -1,0 +1,226 @@
+{
+  "timestamp_utc": "2026-11-04T09:12:10.484113+00:00",
+  "all_gates_passed": false,
+  "gates": {
+    "telemetry_integrity": {
+      "passed": true,
+      "required": "All sensors SUCCESS",
+      "measured": "Healthy",
+      "failure_reason": null
+    },
+    "avail_ram": {
+      "passed": false,
+      "required": ">= 10.0 GiB",
+      "measured": "8.665 GiB",
+      "failure_reason": "Available RAM deficit: 1.335 GiB below required 10.0 GiB"
+    },
+    "avail_vram": {
+      "passed": true,
+      "required": ">= 5500 MiB",
+      "measured": "5920.0 MiB",
+      "failure_reason": null
+    },
+    "no_competing_gpu": {
+      "passed": true,
+      "required": "0 competing compute apps",
+      "measured": "0 active apps",
+      "failure_reason": null
+    },
+    "disk_free": {
+      "passed": true,
+      "required": ">= 25.0 GB",
+      "measured": "119.94 GB",
+      "failure_reason": null
+    }
+  },
+  "system_ram": {
+    "avail_phys_gib": 8.665,
+    "total_phys_gib": 15.649,
+    "committed_gib": 12.742,
+    "commit_total_gib": 40.649,
+    "commit_pct": 31.3,
+    "memory_load_pct": 44,
+    "system_cache_bytes": 7440506880,
+    "pages_input_per_sec": 0.0,
+    "pages_output_per_sec": 0.0,
+    "status": "SUCCESS",
+    "error": null
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "vram_total_mib": 6141.0,
+    "vram_free_mib": 5920.0,
+    "vram_used_mib": 0.0,
+    "utilization_pct": 0.0,
+    "temperature_c": 35.0,
+    "power_draw_w": 12.6,
+    "driver_version": "592.82",
+    "compute_processes": [],
+    "status": "SUCCESS",
+    "error": null
+  },
+  "disk": {
+    "drive": "C:\\",
+    "free_gb": 119.94,
+    "total_gb": 952.57,
+    "status": "SUCCESS",
+    "error": null
+  },
+  "top_processes": [
+    {
+      "pid": 0,
+      "name": "msedge.exe",
+      "working_set_mb": 1614.3,
+      "private_commit_mb": 1614.3,
+      "is_user_app": true
+    },
+    {
+      "pid": 0,
+      "name": "Antigravity.exe",
+      "working_set_mb": 536.5,
+      "private_commit_mb": 536.5,
+      "is_user_app": false
+    },
+    {
+      "pid": 0,
+      "name": "svchost.exe",
+      "working_set_mb": 453.3,
+      "private_commit_mb": 453.3,
+      "is_user_app": false
+    },
+    {
+      "pid": 8512,
+      "name": "language_server.exe",
+      "working_set_mb": 292.4,
+      "private_commit_mb": 292.4,
+      "is_user_app": false
+    },
+    {
+      "pid": 4628,
+      "name": "MsMpEng.exe",
+      "working_set_mb": 191.1,
+      "private_commit_mb": 191.1,
+      "is_user_app": false
+    },
+    {
+      "pid": 0,
+      "name": "python.exe",
+      "working_set_mb": 153.0,
+      "private_commit_mb": 153.0,
+      "is_user_app": false
+    },
+    {
+      "pid": 16312,
+      "name": "powershell.exe",
+      "working_set_mb": 130.9,
+      "private_commit_mb": 130.9,
+      "is_user_app": true
+    },
+    {
+      "pid": 11160,
+      "name": "explorer.exe",
+      "working_set_mb": 110.0,
+      "private_commit_mb": 110.0,
+      "is_user_app": false
+    },
+    {
+      "pid": 20860,
+      "name": "sqlservr.exe",
+      "working_set_mb": 82.0,
+      "private_commit_mb": 82.0,
+      "is_user_app": false
+    },
+    {
+      "pid": 0,
+      "name": "NVIDIA Overlay.exe",
+      "working_set_mb": 80.6,
+      "private_commit_mb": 80.6,
+      "is_user_app": false
+    },
+    {
+      "pid": 15416,
+      "name": "OmenCommandCenterBackground.exe",
+      "working_set_mb": 74.2,
+      "private_commit_mb": 74.2,
+      "is_user_app": false
+    },
+    {
+      "pid": 0,
+      "name": "WmiPrvSE.exe",
+      "working_set_mb": 70.1,
+      "private_commit_mb": 70.1,
+      "is_user_app": false
+    },
+    {
+      "pid": 0,
+      "name": "msedgewebview2.exe",
+      "working_set_mb": 53.8,
+      "private_commit_mb": 53.8,
+      "is_user_app": false
+    },
+    {
+      "pid": 0,
+      "name": "nvcontainer.exe",
+      "working_set_mb": 52.0,
+      "private_commit_mb": 52.0,
+      "is_user_app": false
+    },
+    {
+      "pid": 1712,
+      "name": "dwm.exe",
+      "working_set_mb": 51.5,
+      "private_commit_mb": 51.5,
+      "is_user_app": false
+    }
+  ],
+  "recommendations": [
+    {
+      "process": "msedge.exe",
+      "working_set_mb": 1614.3,
+      "private_commit_mb": 1614.3,
+      "is_user_facing": true,
+      "estimated_reclaimable_mb": 1452.9,
+      "text": "[Browser] Microsoft Edge Browser is currently consuming ~1614 MB resident RAM (1614 MB private commit across 1 process instance(s)). Action: Save work and close active tabs or exit unused browser windows."
+    },
+    {
+      "process": "antigravity.exe",
+      "working_set_mb": 536.5,
+      "private_commit_mb": 536.5,
+      "is_user_facing": false,
+      "estimated_reclaimable_mb": 482.9,
+      "text": "Background process 'antigravity.exe' is consuming ~536 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+    },
+    {
+      "process": "svchost.exe",
+      "working_set_mb": 453.3,
+      "private_commit_mb": 453.3,
+      "is_user_facing": false,
+      "estimated_reclaimable_mb": 408.0,
+      "text": "Background process 'svchost.exe' is consuming ~453 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+    },
+    {
+      "process": "language_server.exe",
+      "working_set_mb": 292.4,
+      "private_commit_mb": 292.4,
+      "is_user_facing": false,
+      "estimated_reclaimable_mb": 263.2,
+      "text": "Background process 'language_server.exe' is consuming ~292 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+    },
+    {
+      "process": "msmpeng.exe",
+      "working_set_mb": 191.1,
+      "private_commit_mb": 191.1,
+      "is_user_facing": false,
+      "estimated_reclaimable_mb": 172.0,
+      "text": "Background process 'msmpeng.exe' is consuming ~191 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+    },
+    {
+      "process": "python.exe",
+      "working_set_mb": 153.0,
+      "private_commit_mb": 153.0,
+      "is_user_facing": false,
+      "estimated_reclaimable_mb": 137.7,
+      "text": "Background process 'python.exe' is consuming ~153 MB resident RAM. If this is an active tool, consider closing it through its normal interface."
+    }
+  ]
+}
