@@ -227,7 +227,8 @@ def run_memory_report(steward: ResourceSteward) -> int:
 
     print("\n--- Detailed Process Working Set & Private Commit Inventory ---")
     for p in report.top_processes:
-        cat_enum = p.category or MemoryAdvisor.classify_process(p.name)
+        # Canonical classification is strictly authoritative and overrides any conflicting snapshot category
+        cat_enum = MemoryAdvisor.classify_process(p.name)
         if cat_enum == ProcessCategory.PROTECTED_SYSTEM:
             cat_label = "Protected System"
         elif cat_enum == ProcessCategory.USER_APPLICATION:

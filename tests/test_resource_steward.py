@@ -2201,31 +2201,42 @@ class TestResourceSteward(unittest.TestCase):
         score_no_priv = MemoryAdvisor.compute_ranking_score(ws_mb=1000.0, priv_mb=None)
         self.assertEqual(score_no_priv, 1000.0) # 1000 + 0.0
 
-        # Candidate prioritization test
-        # Process 1: User App (msedge.exe): ws=500 MB, priv=400 MB -> score = 600.0
-        # Process 2: Background App (onedrive.exe): ws=1200 MB, priv=1000 MB -> score = 1450.0
-        # Process 3: User App (code.exe): ws=800 MB, priv=800 MB -> score = 1000.0
+        # Candidate prioritization test:
+        # Process 1: Large Background App (onedrive.exe): ws=1200 MB, priv=1000 MB
+        # Process 2: Medium User App (code.exe): ws=800 MB, priv=900 MB
+        # Process 3: Medium Background App (steamwebhelper.exe): ws=800 MB, priv=900 MB
+        # Process 4: Medium User App with lower priv (pycharm64.exe): ws=800 MB, priv=300 MB
+        # Process 5: Small User App (msedge.exe): ws=500 MB, priv=400 MB
         procs = [
-            ProcessResourceSnapshot(pid=3001, name="msedge.exe", working_set_bytes=500 * 1024 * 1024,
-                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
-            ProcessResourceSnapshot(pid=3002, name="onedrive.exe", working_set_bytes=1200 * 1024 * 1024,
+            ProcessResourceSnapshot(pid=3001, name="onedrive.exe", working_set_bytes=1200 * 1024 * 1024,
                                     private_commit_bytes=1000 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
-            ProcessResourceSnapshot(pid=3003, name="code.exe", working_set_bytes=800 * 1024 * 1024,
-                                    private_commit_bytes=800 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+            ProcessResourceSnapshot(pid=3002, name="code.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=900 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=3003, name="steamwebhelper.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=900 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=3004, name="pycharm64.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=300 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=3005, name="msedge.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
         ]
         recs = MemoryAdvisor.analyze_processes(procs)
-        self.assertEqual(len(recs), 3)
+        rec_names = [r.process_name for r in recs]
 
-        # Expected order:
-        # 1. code.exe (User App, score=1000.0)
-        # 2. msedge.exe (User App, score=600.0)
-        # 3. onedrive.exe (Background App, score=1450.0 - user apps take tier priority)
-        self.assertEqual(recs[0].process_name, "code.exe")
-        self.assertEqual(recs[0].ranking_score, 1000.0)
-        self.assertEqual(recs[1].process_name, "msedge.exe")
-        self.assertEqual(recs[1].ranking_score, 600.0)
-        self.assertEqual(recs[2].process_name, "onedrive.exe")
-        self.assertEqual(recs[2].ranking_score, 1450.0)
+        # 1. Primary consideration is physical working set:
+        #    onedrive.exe (1200 MB) ranks first ahead of 800 MB and 500 MB candidates.
+        self.assertEqual(rec_names[0], "onedrive.exe")
+
+        # 2. Secondary consideration is category priority when working set is tied (800 MB):
+        #    code.exe (User App) ranks ahead of steamwebhelper.exe (Background App).
+        self.assertEqual(rec_names[1], "code.exe")
+
+        # 3. Secondary consideration is private commit when working set and category tie (800 MB User Apps):
+        #    code.exe (900 MB priv) ranks ahead of pycharm64.exe (300 MB priv).
+        self.assertEqual(rec_names[2], "pycharm64.exe")
+        self.assertEqual(rec_names[3], "steamwebhelper.exe")
+
+        # 4. Smallest physical working set ranks last:
+        self.assertEqual(rec_names[4], "msedge.exe")
 
         # Verified unverified_heuristic_reclaim_mb is None (no false reclaim promise)
         for r in recs:
@@ -2234,8 +2245,9 @@ class TestResourceSteward(unittest.TestCase):
     def test_63_remeasure_memory_full_admission_gate_preservation(self):
         """
         Proves that steward.remeasure_memory strictly reuses the full MemoryBudgetManager gate suite:
+        - Fresh telemetry is always queried directly from monitor (no caller snapshot injection).
         - Passing RAM threshold alone CANNOT produce a passed preflight if another gate fails.
-        - Tested failure modes: VRAM deficit, competing GPU processes, commit >= 90%, disk space deficit.
+        - Tested failure modes: VRAM deficit, competing GPU processes, commit >= 90%, disk space deficit, sensor failures.
         """
         steward = ResourceSteward()
         mock_monitor = MagicMock()
@@ -2246,12 +2258,9 @@ class TestResourceSteward(unittest.TestCase):
         mock_monitor.get_system_memory.return_value = healthy_ram
 
         # 1. Failure Mode: Insufficient VRAM (4000 MiB < 5500 MiB)
-        bad_vram_gpu = self._make_healthy_gpu(free_mib=4000.0)
-        snap, summary = steward.remeasure_memory(
-            baseline_ram=baseline,
-            gpu_snapshot=bad_vram_gpu,
-            disk_snapshot=self._make_healthy_disk()
-        )
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=4000.0)
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
         self.assertTrue(summary["ram_gate_passed"]) # RAM gate passed
         self.assertFalse(summary["admission_gate_passed"]) # But admission fails closed!
         self.assertIn("avail_vram", summary["failed_gates"])
@@ -2259,45 +2268,52 @@ class TestResourceSteward(unittest.TestCase):
         # 2. Failure Mode: Competing GPU compute workloads (1 active app)
         comp_gpu = self._make_healthy_gpu(free_mib=5800.0)
         comp_gpu.compute_processes = [GPUProcessInfo(pid=999, process_name="other_ai.exe", used_memory_mib=1000.0)]
-        snap, summary = steward.remeasure_memory(
-            baseline_ram=baseline,
-            gpu_snapshot=comp_gpu,
-            disk_snapshot=self._make_healthy_disk()
-        )
+        mock_monitor.get_gpu_telemetry.return_value = comp_gpu
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
         self.assertTrue(summary["ram_gate_passed"])
         self.assertFalse(summary["admission_gate_passed"])
         self.assertIn("no_competing_gpu", summary["failed_gates"])
 
         # 3. Failure Mode: Excessive system commit (92% >= 90%)
-        high_commit_ram = self._make_healthy_ram(avail_gib=12.0, commit_pct=92.0)
-        mock_monitor.get_system_memory.return_value = high_commit_ram
-        snap, summary = steward.remeasure_memory(
-            baseline_ram=baseline,
-            gpu_snapshot=self._make_healthy_gpu(),
-            disk_snapshot=self._make_healthy_disk()
-        )
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.0, commit_pct=92.0)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu()
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
         self.assertTrue(summary["ram_gate_passed"])
         self.assertFalse(summary["admission_gate_passed"])
         self.assertIn("system_commit", summary["failed_gates"])
 
         # 4. Failure Mode: Insufficient free disk (15 GB < 25 GB)
         mock_monitor.get_system_memory.return_value = healthy_ram
-        low_disk = self._make_healthy_disk(free_gb=15.0)
-        snap, summary = steward.remeasure_memory(
-            baseline_ram=baseline,
-            gpu_snapshot=self._make_healthy_gpu(),
-            disk_snapshot=low_disk
-        )
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=15.0)
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
         self.assertTrue(summary["ram_gate_passed"])
         self.assertFalse(summary["admission_gate_passed"])
         self.assertIn("disk_free", summary["failed_gates"])
 
-        # 5. Success Mode: All gates pass
-        snap, summary = steward.remeasure_memory(
-            baseline_ram=baseline,
-            gpu_snapshot=self._make_healthy_gpu(),
-            disk_snapshot=self._make_healthy_disk()
+        # 5. Failure Mode: GPU sensor failure (status=FAILED)
+        mock_monitor.get_gpu_telemetry.return_value = GPUSnapshot(
+            name="NVIDIA GeForce RTX 4050", vram_total_mib=6144.0, vram_free_mib=0.0,
+            vram_used_mib=0.0, utilization_pct=0.0, temperature_c=0.0, power_draw_w=0.0,
+            driver_version="Unknown", status=TelemetryStatus.FAILED, error_message="NVML unavailable"
         )
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
+        self.assertTrue(summary["ram_gate_passed"])
+        self.assertFalse(summary["admission_gate_passed"])
+
+        # 6. Failure Mode: Disk sensor failure (status=FAILED)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu()
+        mock_monitor.get_disk_space.return_value = DiskSnapshot(
+            drive="C:\\", free_bytes=0, total_bytes=0, free_gb=0.0, total_gb=0.0,
+            status=TelemetryStatus.FAILED, error_message="Disk query failed"
+        )
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
+        self.assertTrue(summary["ram_gate_passed"])
+        self.assertFalse(summary["admission_gate_passed"])
+
+        # 7. Success Mode: All gates pass
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
+        snap, summary = steward.remeasure_memory(baseline_ram=baseline)
         self.assertTrue(summary["ram_gate_passed"])
         self.assertTrue(summary["admission_gate_passed"])
         self.assertEqual(len(summary["failed_gates"]), 0)
@@ -2336,6 +2352,152 @@ class TestResourceSteward(unittest.TestCase):
         self.assertIn("private commit reflects virtual commit charge", r.recommendation_text)
         self.assertIn("does NOT guarantee immediate physical RAM recovery", r.private_commit_interpretation)
         self.assertIn("Actual physical RAM freed must be verified via re-measurement telemetry", r.recommendation_text)
+
+    def test_65_process_counter_validation_and_partial_fidelity(self):
+        """
+        Proves that MemoryAdvisor.analyze_processes strictly validates process telemetry counters:
+        - Failed process snapshots (status != SUCCESS) are never aggregated into totals.
+        - Negative counters are rejected.
+        - Boolean values (subclass of int in Python) are rejected.
+        - Missing working-set values are rejected.
+        - Missing private-commit values do not contribute to private commit total.
+        - Zero measured instances out of several expected instances is NEVER treated as complete.
+        - Mixed valid and invalid process measurements safely preserve verified totals and expected instances.
+        """
+        # Scenario A: Negative and boolean counters
+        invalid_procs = [
+            ProcessResourceSnapshot(pid=5001, name="chrome.exe", working_set_bytes=-1000 * 1024 * 1024, # negative WS
+                                    private_commit_bytes=500 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=5002, name="firefox.exe", working_set_bytes=True, # boolean WS
+                                    private_commit_bytes=500 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=5003, name="brave.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=-200 * 1024 * 1024, status=TelemetryStatus.SUCCESS), # negative priv
+            ProcessResourceSnapshot(pid=5004, name="opera.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=False, status=TelemetryStatus.SUCCESS), # boolean priv
+            ProcessResourceSnapshot(pid=5005, name="slack.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=500 * 1024 * 1024, status=TelemetryStatus.FAILED) # failed snapshot
+        ]
+        recs = MemoryAdvisor.analyze_processes(invalid_procs)
+        rec_map = {r.process_name: r for r in recs}
+
+        # chrome and firefox had invalid WS -> valid WS was 0 (< 100 MB threshold) -> excluded
+        self.assertNotIn("chrome.exe", rec_map)
+        self.assertNotIn("firefox.exe", rec_map)
+        # slack had status=FAILED -> excluded
+        self.assertNotIn("slack.exe", rec_map)
+
+        # brave had valid WS (500 MB) but negative priv commit -> priv commit is None (not aggregated)
+        self.assertIn("brave.exe", rec_map)
+        self.assertEqual(rec_map["brave.exe"].observed_working_set_mb, 500.0)
+        self.assertIsNone(rec_map["brave.exe"].total_private_commit_mb)
+
+        # opera had valid WS (500 MB) but boolean priv commit -> priv commit is None (not aggregated)
+        self.assertIn("opera.exe", rec_map)
+        self.assertEqual(rec_map["opera.exe"].observed_working_set_mb, 500.0)
+        self.assertIsNone(rec_map["opera.exe"].total_private_commit_mb)
+
+        # Scenario B: Zero measured instances out of positive total
+        zero_meas_procs = [
+            ProcessResourceSnapshot(
+                pid=6001,
+                name="msedge.exe",
+                working_set_bytes=600 * 1024 * 1024,
+                private_commit_bytes=None,
+                pids=[6001, 6002, 6003, 6004],
+                instances_total=4,
+                instances_measured=0,
+                status=TelemetryStatus.SUCCESS
+            )
+        ]
+        recs_zero = MemoryAdvisor.analyze_processes(zero_meas_procs)
+        self.assertEqual(len(recs_zero), 1)
+        r_zero = recs_zero[0]
+        self.assertEqual(r_zero.instances_total, 4)
+        self.assertEqual(r_zero.instances_measured, 0)
+        self.assertTrue(r_zero.is_partial) # CANNOT be treated as complete!
+        self.assertIsNone(r_zero.total_private_commit_mb)
+        self.assertIn("unavailable", r_zero.private_commit_interpretation)
+        self.assertIn("0/4", r_zero.private_commit_interpretation)
+
+        # Scenario C: Mixed valid and invalid snapshots for the same application
+        mixed_procs = [
+            # Instance 1: Valid (300 MB WS, 200 MB Priv)
+            ProcessResourceSnapshot(pid=7001, name="code.exe", working_set_bytes=300 * 1024 * 1024,
+                                    private_commit_bytes=200 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            # Instance 2: Failed telemetry (must be excluded from total)
+            ProcessResourceSnapshot(pid=7002, name="code.exe", working_set_bytes=400 * 1024 * 1024,
+                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.FAILED),
+            # Instance 3: Valid WS (200 MB), but negative priv commit
+            ProcessResourceSnapshot(pid=7003, name="code.exe", working_set_bytes=200 * 1024 * 1024,
+                                    private_commit_bytes=-100, status=TelemetryStatus.SUCCESS)
+        ]
+        recs_mixed = MemoryAdvisor.analyze_processes(mixed_procs)
+        self.assertEqual(len(recs_mixed), 1)
+        r_mixed = recs_mixed[0]
+        # Valid WS: 300 + 200 = 500 MB (instance 2 excluded)
+        self.assertEqual(r_mixed.observed_working_set_mb, 500.0)
+        # Valid Priv: 200 MB (instance 2 and 3 excluded)
+        self.assertEqual(r_mixed.total_private_commit_mb, 200.0)
+        # Expected instances preserved (3 total, 1 measured for priv commit)
+        self.assertEqual(r_mixed.instances_total, 3)
+        self.assertEqual(r_mixed.instances_measured, 1)
+        self.assertTrue(r_mixed.is_partial)
+
+    def test_66_conflicting_process_category_canonical_override(self):
+        """
+        Proves that canonical classification is strictly authoritative:
+        - A protected executable (e.g. svchost.exe) with category incorrectly set to USER_APPLICATION
+          is still canonically classified as PROTECTED_SYSTEM.
+        - It is strictly excluded from closure recommendations.
+        - In CLI inventory, it is displayed as [Protected System], never [User Application].
+        """
+        conflicting_snapshot = ProcessResourceSnapshot(
+            pid=8001,
+            name="svchost.exe",
+            working_set_bytes=2000 * 1024 * 1024,
+            private_commit_bytes=1500 * 1024 * 1024,
+            category=ProcessCategory.USER_APPLICATION, # Intentionally conflicting stored category
+            status=TelemetryStatus.SUCCESS
+        )
+
+        # 1. Recommendation engine exclusion
+        recs = MemoryAdvisor.analyze_processes([conflicting_snapshot])
+        self.assertEqual(len(recs), 0, "Protected process with conflicting category was not excluded!")
+
+        # 2. Canonical classification check
+        canonical = MemoryAdvisor.classify_process(conflicting_snapshot.name)
+        self.assertEqual(canonical, ProcessCategory.PROTECTED_SYSTEM)
+
+    def test_67_remeasure_memory_no_caller_snapshot_injection(self):
+        """
+        Proves that the public remeasure_memory API does not accept caller-supplied snapshot injection:
+        - Passing gpu_snapshot or disk_snapshot kwarg raises TypeError.
+        - Fresh telemetry is always queried directly from monitor.
+        """
+        steward = ResourceSteward()
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=11.0)
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu()
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
+        steward.monitor = mock_monitor
+
+        # Verify parameter rejection on steward.remeasure_memory
+        with self.assertRaises(TypeError):
+            steward.remeasure_memory(gpu_snapshot=self._make_healthy_gpu()) # type: ignore
+
+        with self.assertRaises(TypeError):
+            steward.remeasure_memory(disk_snapshot=self._make_healthy_disk()) # type: ignore
+
+        # Verify parameter rejection on MemoryAdvisor.remeasure_memory
+        with self.assertRaises(TypeError):
+            MemoryAdvisor.remeasure_memory(mock_monitor, gpu_snapshot=self._make_healthy_gpu()) # type: ignore
+
+        # Normal call succeeds and invokes monitor queries
+        fresh, summary = steward.remeasure_memory()
+        self.assertTrue(summary["admission_gate_passed"])
+        mock_monitor.get_system_memory.assert_called()
+        mock_monitor.get_gpu_telemetry.assert_called()
+        mock_monitor.get_disk_space.assert_called_with("C:\\")
 
 if __name__ == "__main__":
     unittest.main()

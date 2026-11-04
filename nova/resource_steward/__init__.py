@@ -111,21 +111,15 @@ class ResourceSteward:
 
     def remeasure_memory(
         self,
-        baseline_ram: Optional[SystemMemorySnapshot] = None,
-        gpu_snapshot: Optional[GPUSnapshot] = None,
-        disk_snapshot: Optional[DiskSnapshot] = None
+        baseline_ram: Optional[SystemMemorySnapshot] = None
     ) -> Tuple[SystemMemorySnapshot, Dict[str, Any]]:
         """
         Re-measures system memory telemetry and evaluates full admission gates.
-        Queries fresh RAM, GPU, and disk telemetry to ensure admission eligibility
-        requires passing all system gates (RAM, commit, VRAM, competing GPU apps, disk).
+        Always obtains fresh RAM, GPU, and disk telemetry directly from the monitor to ensure
+        admission eligibility requires passing all system gates without stale snapshot injection.
         """
-        gpu = gpu_snapshot if gpu_snapshot is not None else self.monitor.get_gpu_telemetry()
-        disk = disk_snapshot if disk_snapshot is not None else self.monitor.get_disk_space("C:\\")
         return self.advisor.remeasure_memory(
             self.monitor,
             baseline_ram=baseline_ram,
-            budget_manager=self.budget_mgr,
-            gpu_snapshot=gpu,
-            disk_snapshot=disk
+            budget_manager=self.budget_mgr
         )

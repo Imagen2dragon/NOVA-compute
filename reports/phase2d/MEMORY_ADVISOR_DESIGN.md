@@ -3,7 +3,7 @@
 **Project:** NOVA Compute  
 **Subsystem:** Intelligent Memory Advisor (`nova/resource_steward/advisor.py`)  
 **Roles:** User = Project Owner; ChatGPT = Lead Architect; Antigravity = Implementation Engineer  
-**Status:** IMPLEMENTED & VERIFIED (64 Automated Tests Passing; Model Inference Gated)
+**Status:** IMPLEMENTED & VERIFIED (67 Automated Tests Passing; Model Inference Gated)
 
 ---
 
@@ -78,31 +78,38 @@ The Advisor avoids misleading claims regarding reclaimable memory:
 
 ---
 
-## 4. Transparent Memory Ranking Methodology
+## 4. Transparent Memory Ranking & Telemetry Validation Methodology
+
+### Telemetry Validation Before Aggregation
+To prevent corrupted or failed process counters from skewing recommendations:
+1. **Working Set Validation:** Each process snapshot must have `status == TelemetryStatus.SUCCESS`, `working_set_bytes` as a non-boolean integer (`isinstance(val, int) and not isinstance(val, bool)`), and `working_set_bytes >= 0`. Failed, negative, or boolean counters are strictly excluded from aggregates.
+2. **Private Commit Validation:** When present, `private_commit_bytes` must be a non-boolean, non-negative integer. Missing or failed values never contribute to verified totals.
+3. **Instance Accounting & Partial Coverage:** Total expected instances (`instances_total`) and measured instances (`instances_measured`) are tracked truthfully. Zero measured instances out of a positive total is never treated as complete; it is explicitly marked as unavailable/partial.
 
 ### Mathematical Distinction: Why Summing WS and Private Commit is Invalid
 A process's working set represents physical RAM pages currently mapped into its page table. Private commit represents virtual address space pages committed exclusively by the process (backed either by RAM or the paging file). Because resident private pages reside **simultaneously in both the working set and private commit**, summing them directly ($WS + PC$) counts resident private memory twice and creates a mathematically false metric.
 
-### Transparent Ranking Heuristic Score Algorithm
-The Advisor implements a transparent prioritization score purely for candidate ordering:
+### Candidate Ordering: Working Set as Primary Consideration
+Because NOVA Compute is constrained primarily by physical RAM residency for MoE weight paging, candidates holding $\ge 100\text{ MB}$ memory are ordered with physical working set as the primary factor:
 
-$$\text{RankingScore} = \text{WS}_{\text{MB}} + 0.25 \times (\text{PrivateCommit}_{\text{MB}} \text{ if available else } 0.0)$$
+1. **Primary Consideration ($WS_{\text{MB}}$):** Processes holding the largest resident physical working set are placed first to surface the greatest potential relief for physical RAM admission.
+2. **Secondary Consideration (Category Priority):** When physical footprints are equal or comparable, interactive User Applications (Category A) are prioritized over Background Applications (Category B) because closing interactive user software is safer than stopping system background daemons.
+3. **Tertiary Consideration (Private Commit):** Dedicated private virtual commit charge serves as the final tie-breaker, favoring processes whose closure also relieves system commit pressure.
 
-**Algorithm Rationale:**
-1. **Physical Residency Weight ($1.0 \times \text{WS}_{\text{MB}}$):** Resident physical pages occupy the scarce physical RAM required for MoE inference and are the primary consideration.
-2. **Commit Relief Factor ($0.25 \times \text{PrivateCommit}_{\text{MB}}$):** Accounts for system commit pressure relief as a secondary factor without treating virtual commit charge as physical RAM.
-3. **Missing Telemetry Handling:** If private commit is inaccessible (`None`), the score cleanly defaults to pure physical working set without penalty or synthetic inflation.
-4. **Advisory Disclaimer:** The ranking score is strictly a unitless prioritization index. It does **not** represent recoverable physical RAM.
+$$\text{SortKey} = (\text{WS}_{\text{MB}}, \text{Priority}_{\text{category}}, \text{PrivateCommit}_{\text{MB}})$$
 
-### Multi-Tier Candidate Ordering
-Candidates holding $\ge 100\text{ MB}$ working set or private commit are sorted deterministically:
-1. **Tier Priority:** Category A (User Applications) are prioritized over Category B (Background) and Unknown applications, ensuring interactive user applications are evaluated first.
-2. **Ranking Heuristic Score:** Ordered descending by `RankingScore`.
-3. **Physical Working Set:** Ordered descending by `ws_mb` as the final tie-breaker.
+### Advisory Ranking Heuristic Score
+The Advisor computes an advisory prioritization index:
+
+$$\text{RankingScore} = \text{WS}_{\text{MB}} + \text{Bonus}_{\text{category}} + 0.05 \times (\text{PrivateCommit}_{\text{MB}} \text{ if available else } 0.0)$$
+
+where $\text{Bonus}_{\text{category}} = 2.0$ for User Applications and $0.0$ otherwise.
+
+**Advisory Disclaimer:** The ranking score is strictly a unitless prioritization index. It does **not** represent recoverable physical RAM.
 
 ---
 
-## 5. Re-Measurement & Full Admission Gate Preservation
+## 5. Re-Measurement & Fresh Telemetry Admission Enforcement
 
 ```
 [Inference Launch Attempt / CLI Request]
@@ -110,19 +117,21 @@ Candidates holding $\ge 100\text{ MB}$ working set or private commit are sorted 
                 ▼
   [1. Intelligent Memory Advisor]
         │   ├─► Read-only telemetry collection (RAM, commit, top processes)
-        │   ├─► Consistent 3-Tier Categorization (User, Background, Protected)
-        │   └─► Generate ranked recommendations with transparent scores
+        │   ├─► Strict Counter Validation (SUCCESS, non-boolean int, non-negative)
+        │   ├─► Canonical 3-Tier Categorization (Protected System Always Excluded)
+        │   └─► Candidate Ranking (Physical Working Set as Primary Consideration)
         ▼
   [2. User Manual Action]
         │   └─► User closes selected application(s) via normal Windows UI
         ▼
   [3. Fresh Re-Measurement (`remeasure_memory`)]
+        │   ├─► Strict Fresh Telemetry Enforcement (No caller snapshot injection permitted)
         │   ├─► Fresh hardware queries (RAM via GlobalMemoryStatusEx, GPU via NVML, Disk via GetDiskFreeSpaceEx)
         │   ├─► Truthful delta calculation (RAM gain, commit reduction)
         │   └─► Full Gate Suite Evaluation via MemoryBudgetManager.evaluate_gates()
         ▼
   [4. Preflight Gate Suite Evaluation]
-        ├─► Gate 1: Telemetry Integrity (SUCCESS, no NaN/inf, byte sum consistency)
+        ├─► Gate 1: Telemetry Integrity (All fresh sensors SUCCESS, no NaN/inf, byte sum consistency)
         ├─► Gate 2: Available Physical RAM >= 10.0 GiB
         ├─► Gate 3: System Commit Charge < 90.0%
         ├─► Gate 4: Available VRAM >= 5,500 MiB
@@ -131,11 +140,11 @@ Candidates holding $\ge 100\text{ MB}$ working set or private commit are sorted 
         │
         ├─► ALL GATES PASSED:
         │     └─► ADMISSION GRANTED (Inference permitted subject to user authorization)
-        └─► ANY GATE FAILS (e.g. RAM passes but VRAM or commit fails):
+        └─► ANY GATE FAILS (e.g. RAM passes but GPU or disk sensor fails):
               └─► ADMISSION GATED (Fail-closed; reaching RAM threshold alone cannot grant admission)
 ```
 
-**Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. It strictly reuses the full `MemoryBudgetManager.evaluate_gates()` suite. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
+**Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. The public API strictly prohibits injecting caller-supplied GPU or disk snapshots. It always queries fresh telemetry across all hardware tiers directly through the monitor. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
 
 ---
 
