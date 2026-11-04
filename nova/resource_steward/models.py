@@ -227,6 +227,8 @@ class MemoryReclaimReport:
     nova_process_private_bytes_after: Optional[int] = None
     nova_process_working_set_delta_bytes: Optional[int] = None
     nova_process_private_delta_bytes: Optional[int] = None
+    process_working_set_verified: bool = True
+    process_private_commit_verified: bool = True
     process_telemetry_verified: bool = True
     # Action accounting
     actions_attempted: List[str] = field(default_factory=list)
@@ -259,6 +261,8 @@ class MemoryReclaimReport:
             "nova_process_private_bytes_after": self.nova_process_private_bytes_after,
             "nova_process_working_set_delta_bytes": self.nova_process_working_set_delta_bytes,
             "nova_process_private_delta_bytes": self.nova_process_private_delta_bytes,
+            "process_working_set_verified": self.process_working_set_verified,
+            "process_private_commit_verified": self.process_private_commit_verified,
             "process_telemetry_verified": self.process_telemetry_verified,
             "actions_attempted": self.actions_attempted,
             "actions_completed": self.actions_completed,

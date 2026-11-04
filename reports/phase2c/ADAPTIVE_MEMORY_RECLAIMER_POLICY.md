@@ -1,7 +1,7 @@
 # NOVA Compute — Phase 2C-B: Adaptive Memory Reclaimer (AMR) Governance Policy
 
 **Document:** AMR Operational Policy & Safety Rules  
-**Status:** ACTIVE SPECIFICATION (Review Remediation Baseline)  
+**Status:** ACTIVE SPECIFICATION (Final Ownership & Action Integrity Baseline)  
 **Enforcement:** Programmatic (Static AST Analysis & Preflight Gating)
 
 ---
@@ -16,9 +16,12 @@
    - AMR is not an excuse to launch when memory is insufficient.
 3. **Zero Standby Cache Sabotage**:
    - In SSD/mmap-backed MoE execution, Windows file cache (standby list) is critical to performance. Purging the standby list to make "Free RAM" look higher is an anti-pattern that slows down model execution by orders of magnitude.
-4. **Process-Local Scope Boundary**:
+4. **Process-Local Scope Boundary & Ownership**:
    - Current AMR operational scope is strictly confined to NOVA's process-local allocations via generational garbage collection (`gc.collect(2)`).
+   - AMR exclusively targets NOVA's own runtime PID (`os.getpid()`). Arbitrary process ID redirection is forbidden.
    - Future architectural expansions may include internal tensor cache flushes (e.g., intermediate KV cache pools or expert weight cache manager buffers once implemented in subsequent phases). External application memory or system memory lists will remain strictly forbidden.
+5. **Action Integrity**:
+   - `RECLAMATION_COMPLETED` requires both that internal cleanup actions succeeded without failure and that private commit dropped by at least `min_reclamation_delta_mib`. Failed actions report `RECLAMATION_UNVERIFIED`.
 
 ---
 

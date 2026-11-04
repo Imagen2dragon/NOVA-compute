@@ -1673,5 +1673,126 @@ class TestResourceSteward(unittest.TestCase):
             self.assertIsNone(data_unv["nova_process_working_set_delta_bytes"])
             self.assertFalse(data_unv["process_telemetry_verified"])
 
+    def test_46_amr_default_operation_uses_nova_runtime_pid(self):
+        """Proves that default AMR operation always queries NOVA's own PID via os.getpid()."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=13.0)
+        curr_pid = os.getpid()
+        mock_proc = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                              working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+        mock_monitor.get_process_memory.return_value = mock_proc
+
+        controller = AdaptiveMemoryController(policy=self.policy, monitor=mock_monitor, reports_dir=self.amr_reports_dir)
+        self.assertEqual(controller.pid_provider(), curr_pid)
+
+        rep = controller.evaluate_and_reclaim()
+        mock_monitor.get_process_memory.assert_called_with(curr_pid)
+        self.assertTrue(rep.process_telemetry_verified)
+
+    def test_47_amr_caller_cannot_redirect_to_unrelated_pid(self):
+        """Proves that evaluate_and_reclaim does not accept arbitrary target_pid parameters."""
+        mock_monitor = MagicMock()
+        controller = AdaptiveMemoryController(policy=self.policy, monitor=mock_monitor, reports_dir=self.amr_reports_dir)
+        with self.assertRaises(TypeError):
+            # Attempting to redirect AMR to another process PID raises TypeError
+            controller.evaluate_and_reclaim(target_pid=99999)  # type: ignore
+
+    def test_48_amr_pre_snapshot_pid_mismatch_produces_unverified(self):
+        """Proves that if pre-reclamation snapshot PID does not match runtime PID, status is RECLAMATION_UNVERIFIED."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.0)
+        ]
+        curr_pid = os.getpid()
+        foreign_proc = MagicMock(pid=curr_pid + 888, status=TelemetryStatus.SUCCESS,
+                                 working_set_bytes=20 * 1024 * 1024, private_commit_bytes=12 * 1024 * 1024)
+        post_proc = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                              working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+        mock_monitor.get_process_memory.side_effect = [foreign_proc, post_proc]
+
+        controller = AdaptiveMemoryController(policy=self.policy, monitor=mock_monitor, reports_dir=self.amr_reports_dir)
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+        self.assertIsNone(rep.nova_process_private_delta_bytes)
+        self.assertFalse(rep.process_telemetry_verified)
+
+    def test_49_amr_gc_failure_with_private_commit_drop_produces_unverified(self):
+        """
+        Proves that if gc.collect(2) fails / raises an exception, RECLAMATION_COMPLETED
+        is NEVER reported, even if before/after private-commit snapshots show a drop > 1 MiB.
+        Status must be RECLAMATION_UNVERIFIED.
+        """
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.0)
+        ]
+        curr_pid = os.getpid()
+        pre_proc = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                             working_set_bytes=30 * 1024 * 1024, private_commit_bytes=25 * 1024 * 1024)
+        # 5 MiB private commit drop
+        post_proc = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                              working_set_bytes=25 * 1024 * 1024, private_commit_bytes=20 * 1024 * 1024)
+        mock_monitor.get_process_memory.side_effect = [pre_proc, post_proc]
+
+        # Mock reclaimer to simulate gc.collect failure
+        mock_reclaimer = MagicMock()
+        mock_reclaimer.reclaim.return_value = (
+            ["python_gc_collect"],
+            [],
+            ["python_gc_collect: Simulated RuntimeError during GC"],
+            0.005
+        )
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reclaimer=mock_reclaimer,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+        self.assertNotEqual(rep.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
+        self.assertIn("python_gc_collect: Simulated RuntimeError during GC", rep.actions_failed)
+
+    def test_50_amr_normal_and_cooldown_telemetry_verified_flag_accuracy(self):
+        """
+        Proves that in normal and cooldown paths, process_telemetry_verified requires
+        both valid working set AND valid private commit counters.
+        """
+        mock_monitor = MagicMock()
+        curr_pid = os.getpid()
+
+        # 1. Normal path with missing private_commit_bytes -> process_telemetry_verified is False
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=13.0)
+        proc_missing_priv = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                      working_set_bytes=20 * 1024 * 1024, private_commit_bytes=None)
+        mock_monitor.get_process_memory.return_value = proc_missing_priv
+
+        controller = AdaptiveMemoryController(policy=self.policy, monitor=mock_monitor, reports_dir=self.amr_reports_dir)
+        rep_norm_missing = controller.evaluate_and_reclaim()
+        self.assertTrue(rep_norm_missing.process_working_set_verified)
+        self.assertFalse(rep_norm_missing.process_private_commit_verified)
+        self.assertFalse(rep_norm_missing.process_telemetry_verified)
+
+        # 2. Normal path with complete valid counters -> process_telemetry_verified is True
+        proc_complete = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                  working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+        mock_monitor.get_process_memory.return_value = proc_complete
+        rep_norm_ok = controller.evaluate_and_reclaim()
+        self.assertTrue(rep_norm_ok.process_working_set_verified)
+        self.assertTrue(rep_norm_ok.process_private_commit_verified)
+        self.assertTrue(rep_norm_ok.process_telemetry_verified)
+
+        # 3. Cooldown path with missing private commit -> process_telemetry_verified is False
+        controller.cooldown_mgr.record_reclamation()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=11.0)
+        mock_monitor.get_process_memory.return_value = proc_missing_priv
+        rep_cd_missing = controller.evaluate_and_reclaim()
+        self.assertTrue(rep_cd_missing.cooldown_applied)
+        self.assertFalse(rep_cd_missing.process_private_commit_verified)
+        self.assertFalse(rep_cd_missing.process_telemetry_verified)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # NOVA Compute — Phase 2C-B: Adaptive Memory Reclaimer (AMR) Architecture Design
 
-**Reference:** Phase 2C-B Final Review Micro-Fix  
+**Reference:** Phase 2C-B Final Ownership & Action Integrity Fix  
 **Author:** Antigravity (Implementation Engineer)  
 **Governance:** User (Project Owner) & ChatGPT (Lead Architect / Technical Reviewer)  
 **Status:** IMPLEMENTED & VERIFIED (Software Only — Model Inference Not Launched)
@@ -53,6 +53,8 @@ AMR operates exclusively under the **`SAFE_AUTO`** execution policy. The operati
    - Executes `gc.collect(2)` to reclaim cyclical references and orphaned telemetry/diagnostics objects across all Python runtime generations.
 2. **Strictly Process-Local Ownership**:
    - `SafeMemoryReclaimer` does not invoke or register arbitrary cleaners. It is bounded solely to NOVA process runtime memory.
+   - Production operations exclusively query `os.getpid()` (via a constructor `pid_provider` defaulting to `os.getpid`).
+   - Callers cannot pass arbitrary target PIDs to `evaluate_and_reclaim()`, preventing accidental or malicious targeting of foreign processes.
    - External application memory, system caches, and file standby lists are completely untouched.
 3. **Zero Host Side-Effects**:
    - Never calls `OpenProcess` with modifying rights against non-NOVA PIDs.
@@ -129,14 +131,18 @@ Every AMR execution follows a strict transactional flow:
      - `process_telemetry_verified = False`
      - `overall_status = RECLAMATION_UNVERIFIED`
      *(Zero default fields from failed snapshots are never interpreted as valid measurements).*
-5. **Private Commit vs. Working Set Status Semantics**:
+5. **Action Integrity & Status Semantics**:
    - **Working Set Delta**: $\text{ws}_{\text{pre}} - \text{ws}_{\text{post}}$ is retained for diagnostics. Working set measures physical memory residency; it can decline because Windows trims working sets or pages memory, so **working set reduction alone NEVER classifies `RECLAMATION_COMPLETED`**.
+   - **Action Success Required**: Completion strictly requires internal reclamation action success (`len(failed) == 0 and len(completed) > 0`). If `gc.collect(2)` fails or encounters an exception, it is recorded in `actions_failed` and reports `RECLAMATION_UNVERIFIED` even if private commit dropped due to concurrent factors.
    - **Private Commit Delta**: $\text{priv}_{\text{pre}} - \text{priv}_{\text{post}}$ is the required causal indicator.
-   - If $\Delta_{\text{priv}} \ge 1\text{ MiB}$ ($1,048,576\text{ bytes}$) and both measurements are verified:
+   - If action succeeded and $\Delta_{\text{priv}} \ge 1\text{ MiB}$ ($1,048,576\text{ bytes}$) with both snapshots verified:
      `overall_status = RECLAMATION_COMPLETED`.
-     *(Note: Concurrent process activity may also affect counters; no exclusive causality by GC is claimed).*
-   - If $\Delta_{\text{priv}} < 1\text{ MiB}$:
+   - If action succeeded but $\Delta_{\text{priv}} < 1\text{ MiB}$:
      `overall_status = NO_MEASURABLE_IMPROVEMENT`.
+   - **Explicit Verification Flags**: `MemoryReclaimReport` records distinct boolean flags:
+     - `process_working_set_verified`: True if working-set measurement succeeded and matches PID.
+     - `process_private_commit_verified`: True if private-commit counter succeeded and matches PID.
+     - `process_telemetry_verified`: True only if BOTH working-set and private-commit measurements are verified. In normal and cooldown paths, `process_telemetry_verified` requires both counters to be verified.
 6. **Atomic Audit Logging**:
    - Every outcome (`RECLAMATION_COMPLETED`, `NO_ACTION_REQUIRED`, `NO_MEASURABLE_IMPROVEMENT`, `RECLAMATION_FAILED`, `RECLAMATION_UNVERIFIED`) writes `MemoryReclaimReport` atomically to disk using a temporary `.tmp` file, `fsync()`, and `os.replace()`.
    - Respects `NOVA_AMR_REPORT_DIR` environment variable to ensure test runs do not pollute tracked project reports.
