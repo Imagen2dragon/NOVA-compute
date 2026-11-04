@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-11-04T11:31:03",
+  "ram": {
+    "total_phys_gb": 15.65,
+    "avail_phys_gb": 10.49,
+    "avail_phys_mb": 10739.3,
+    "total_pagefile_gb": 40.65,
+    "avail_pagefile_gb": 28.57,
+    "memory_load_pct": 32
+  },
+  "ssd_c": {
+    "free_gb": 121.23,
+    "total_gb": 952.57
+  },
+  "gpu": {
+    "name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "memory_total_mib": 6141,
+    "memory_free_mib": 5920,
+    "memory_used_mib": 0,
+    "temperature_c": 31,
+    "utilization_pct": 0,
+    "driver_version": "592.82"
+  },
+  "gpu_compute_procs": [],
+  "cpu_util_pct": 5.9,
+  "top_processes": [
+    {
+      "name": "msedge.exe",
+      "working_set_kb": 935872,
+      "working_set_mb": 913.9
+    },
+    {
+      "name": "Antigravity.exe",
+      "working_set_kb": 335696,
+      "working_set_mb": 327.8
+    },
+    {
+      "name": "svchost.exe",
+      "working_set_kb": 293216,
+      "working_set_mb": 286.3
+    },
+    {
+      "name": "language_server.exe",
+      "working_set_kb": 266908,
+      "working_set_mb": 260.7
+    },
+    {
+      "name": "MsMpEng.exe",
+      "working_set_kb": 200212,
+      "working_set_mb": 195.5
+    },
+    {
+      "name": "node.exe",
+      "working_set_kb": 163208,
+      "working_set_mb": 159.4
+    },
+    {
+      "name": "powershell.exe",
+      "working_set_kb": 133424,
+      "working_set_mb": 130.3
+    },
+    {
+      "name": "explorer.exe",
+      "working_set_kb": 81928,
+      "working_set_mb": 80.0
+    },
+    {
+      "name": "ShellExperienceHost.exe",
+      "working_set_kb": 69568,
+      "working_set_mb": 67.9
+    },
+    {
+      "name": "OmenCommandCenterBackground.exe",
+      "working_set_kb": 60240,
+      "working_set_mb": 58.8
+    },
+    {
+      "name": "NVIDIA Overlay.exe",
+      "working_set_kb": 48924,
+      "working_set_mb": 47.8
+    },
+    {
+      "name": "sqlservr.exe",
+      "working_set_kb": 43592,
+      "working_set_mb": 42.6
+    },
+    {
+      "name": "dwm.exe",
+      "working_set_kb": 40552,
+      "working_set_mb": 39.6
+    },
+    {
+      "name": "RuntimeBroker.exe",
+      "working_set_kb": 39704,
+      "working_set_mb": 38.8
+    },
+    {
+      "name": "python.exe",
+      "working_set_kb": 38264,
+      "working_set_mb": 37.4
+    }
+  ],
+  "qualification_gates": {
+    "avail_ram": {
+      "required_gb": 11.5,
+      "measured_gb": 10.49,
+      "pass": false
+    },
+    "avail_vram": {
+      "required_mib": 5325,
+      "measured_mib": 5920,
+      "pass": true
+    },
+    "ssd_space": {
+      "required_gb": 25.0,
+      "measured_gb": 121.23,
+      "pass": true
+    },
+    "no_gpu_workload": {
+      "competing_procs": 0,
+      "pass": true
+    }
+  },
+  "all_gates_pass": false
+}

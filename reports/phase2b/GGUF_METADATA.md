@@ -92,7 +92,9 @@ Extracted directly from GGUF key-value metadata block:
 | Total tensors | ~310–600 | 579 | ✅ |
 
 > [!NOTE]
-> The tensor count (579) is higher than the 1.7B reference model (310) due to 128×48 = 6,144 expert weight tensors, each stored individually.
+> **On the tensor count (579):** The GGUF contains **579 top-level tensor records** — not 6,144. Expert weights are stored as 3-dimensional stacked tensors, one record per (layer, matrix_type). Each stacked record's third dimension (size 128) indexes all 128 experts within that layer. At runtime llama.cpp selects 8 experts by computing row offsets into the stacked array.
+>
+> Breakdown: 48 layers × 3 expert matrix types (gate_exps, up_exps, down_exps) = **144 expert tensor records** total. Combined with 48×5 attention tensors + 48×4 norm/router tensors + 3 global tensors = 579. No GGUF record corresponds to a single expert in isolation. See `reports/phase2c/TENSOR_INVENTORY.md` for the corrected explanation.
 
 ---
 

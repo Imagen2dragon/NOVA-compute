@@ -1,0 +1,8777 @@
+{
+  "file": "Qwen_Qwen3-30B-A3B-Q4_K_M.gguf",
+  "file_size_bytes": 18632184480,
+  "data_offset": 5970592,
+  "tensor_count": 579,
+  "total_parameters": 30532122624,
+  "total_storage_bytes": 18626213888,
+  "actual_data_bytes": 18626213888,
+  "alignment_padding": 0,
+  "validation_issues": [],
+  "type_stats": {
+    "Q6_K": {
+      "count": 49,
+      "params": 5168168960,
+      "bytes": 4239513600
+    },
+    "F32": {
+      "count": 241,
+      "params": 12793856,
+      "bytes": 51175424
+    },
+    "Q4_K": {
+      "count": 193,
+      "params": 24898174976,
+      "bytes": 14005223424
+    },
+    "Q8_0": {
+      "count": 48,
+      "params": 50331648,
+      "bytes": 53477376
+    },
+    "Q5_K": {
+      "count": 48,
+      "params": 402653184,
+      "bytes": 276824064
+    }
+  },
+  "category_stats": {
+    "output_head": {
+      "count": 1,
+      "params": 311164928,
+      "bytes": 255252480,
+      "layers": []
+    },
+    "output_norm": {
+      "count": 1,
+      "params": 2048,
+      "bytes": 8192,
+      "layers": []
+    },
+    "embedding": {
+      "count": 1,
+      "params": 311164928,
+      "bytes": 175030272,
+      "layers": []
+    },
+    "attention_k_proj": {
+      "count": 48,
+      "params": 50331648,
+      "bytes": 53477376,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "attention_k_norm": {
+      "count": 48,
+      "params": 6144,
+      "bytes": 24576,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "attention_norm": {
+      "count": 48,
+      "params": 98304,
+      "bytes": 393216,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "attention_out_proj": {
+      "count": 48,
+      "params": 402653184,
+      "bytes": 276824064,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "attention_q_proj": {
+      "count": 48,
+      "params": 402653184,
+      "bytes": 226492416,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "attention_q_norm": {
+      "count": 48,
+      "params": 6144,
+      "bytes": 24576,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "attention_v_proj": {
+      "count": 48,
+      "params": 50331648,
+      "bytes": 34799616,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "expert_down_stacked": {
+      "count": 48,
+      "params": 9663676416,
+      "bytes": 6681526272,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "expert_gate_stacked": {
+      "count": 48,
+      "params": 9663676416,
+      "bytes": 5435817984,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "router_gate": {
+      "count": 48,
+      "params": 12582912,
+      "bytes": 50331648,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "ffn_norm": {
+      "count": 48,
+      "params": 98304,
+      "bytes": 393216,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    },
+    "expert_up_stacked": {
+      "count": 48,
+      "params": 9663676416,
+      "bytes": 5435817984,
+      "layers": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47
+      ]
+    }
+  },
+  "tensors": [
+    {
+      "name": "output.weight",
+      "dims": [
+        2048,
+        151936
+      ],
+      "type": "Q6_K",
+      "num_elements": 311164928,
+      "storage_bytes": 255252480,
+      "gguf_offset": 0,
+      "abs_offset": 5970592,
+      "layer_idx": null,
+      "category": "output_head"
+    },
+    {
+      "name": "output_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 255252480,
+      "abs_offset": 261223072,
+      "layer_idx": null,
+      "category": "output_norm"
+    },
+    {
+      "name": "token_embd.weight",
+      "dims": [
+        2048,
+        151936
+      ],
+      "type": "Q4_K",
+      "num_elements": 311164928,
+      "storage_bytes": 175030272,
+      "gguf_offset": 255260672,
+      "abs_offset": 261231264,
+      "layer_idx": null,
+      "category": "embedding"
+    },
+    {
+      "name": "blk.0.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 430290944,
+      "abs_offset": 436261536,
+      "layer_idx": 0,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.0.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 431405056,
+      "abs_offset": 437375648,
+      "layer_idx": 0,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.0.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 431405568,
+      "abs_offset": 437376160,
+      "layer_idx": 0,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.0.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 431413760,
+      "abs_offset": 437384352,
+      "layer_idx": 0,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.0.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 437180928,
+      "abs_offset": 443151520,
+      "layer_idx": 0,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.0.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 441899520,
+      "abs_offset": 447870112,
+      "layer_idx": 0,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.0.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 441900032,
+      "abs_offset": 447870624,
+      "layer_idx": 0,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.0.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 442760192,
+      "abs_offset": 448730784,
+      "layer_idx": 0,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.0.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 607910912,
+      "abs_offset": 613881504,
+      "layer_idx": 0,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.0.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 721157120,
+      "abs_offset": 727127712,
+      "layer_idx": 0,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.0.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 722205696,
+      "abs_offset": 728176288,
+      "layer_idx": 0,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.0.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 722213888,
+      "abs_offset": 728184480,
+      "layer_idx": 0,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.1.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 835460096,
+      "abs_offset": 841430688,
+      "layer_idx": 1,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.1.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 836574208,
+      "abs_offset": 842544800,
+      "layer_idx": 1,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.1.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 836574720,
+      "abs_offset": 842545312,
+      "layer_idx": 1,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.1.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 836582912,
+      "abs_offset": 842553504,
+      "layer_idx": 1,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.1.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 842350080,
+      "abs_offset": 848320672,
+      "layer_idx": 1,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.1.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 847068672,
+      "abs_offset": 853039264,
+      "layer_idx": 1,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.1.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 847069184,
+      "abs_offset": 853039776,
+      "layer_idx": 1,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.1.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 847929344,
+      "abs_offset": 853899936,
+      "layer_idx": 1,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.1.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 1013080064,
+      "abs_offset": 1019050656,
+      "layer_idx": 1,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.1.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 1126326272,
+      "abs_offset": 1132296864,
+      "layer_idx": 1,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.1.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 1127374848,
+      "abs_offset": 1133345440,
+      "layer_idx": 1,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.1.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 1127383040,
+      "abs_offset": 1133353632,
+      "layer_idx": 1,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.2.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 1240629248,
+      "abs_offset": 1246599840,
+      "layer_idx": 2,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.2.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 1241743360,
+      "abs_offset": 1247713952,
+      "layer_idx": 2,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.2.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 1241743872,
+      "abs_offset": 1247714464,
+      "layer_idx": 2,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.2.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 1241752064,
+      "abs_offset": 1247722656,
+      "layer_idx": 2,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.2.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 1247519232,
+      "abs_offset": 1253489824,
+      "layer_idx": 2,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.2.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 1252237824,
+      "abs_offset": 1258208416,
+      "layer_idx": 2,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.2.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 1252238336,
+      "abs_offset": 1258208928,
+      "layer_idx": 2,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.2.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 1253098496,
+      "abs_offset": 1259069088,
+      "layer_idx": 2,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.2.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 1418249216,
+      "abs_offset": 1424219808,
+      "layer_idx": 2,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.2.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 1531495424,
+      "abs_offset": 1537466016,
+      "layer_idx": 2,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.2.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 1532544000,
+      "abs_offset": 1538514592,
+      "layer_idx": 2,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.2.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 1532552192,
+      "abs_offset": 1538522784,
+      "layer_idx": 2,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.3.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 1645798400,
+      "abs_offset": 1651768992,
+      "layer_idx": 3,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.3.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 1646912512,
+      "abs_offset": 1652883104,
+      "layer_idx": 3,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.3.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 1646913024,
+      "abs_offset": 1652883616,
+      "layer_idx": 3,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.3.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 1646921216,
+      "abs_offset": 1652891808,
+      "layer_idx": 3,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.3.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 1652688384,
+      "abs_offset": 1658658976,
+      "layer_idx": 3,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.3.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 1657406976,
+      "abs_offset": 1663377568,
+      "layer_idx": 3,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.3.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 1657407488,
+      "abs_offset": 1663378080,
+      "layer_idx": 3,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.3.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 1658267648,
+      "abs_offset": 1664238240,
+      "layer_idx": 3,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.3.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 1823418368,
+      "abs_offset": 1829388960,
+      "layer_idx": 3,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.3.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 1936664576,
+      "abs_offset": 1942635168,
+      "layer_idx": 3,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.3.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 1937713152,
+      "abs_offset": 1943683744,
+      "layer_idx": 3,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.3.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 1937721344,
+      "abs_offset": 1943691936,
+      "layer_idx": 3,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.4.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 2050967552,
+      "abs_offset": 2056938144,
+      "layer_idx": 4,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.4.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 2052081664,
+      "abs_offset": 2058052256,
+      "layer_idx": 4,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.4.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 2052082176,
+      "abs_offset": 2058052768,
+      "layer_idx": 4,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.4.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 2052090368,
+      "abs_offset": 2058060960,
+      "layer_idx": 4,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.4.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 2057857536,
+      "abs_offset": 2063828128,
+      "layer_idx": 4,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.4.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 2062576128,
+      "abs_offset": 2068546720,
+      "layer_idx": 4,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.4.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 2062576640,
+      "abs_offset": 2068547232,
+      "layer_idx": 4,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.4.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 2063436800,
+      "abs_offset": 2069407392,
+      "layer_idx": 4,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.4.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 2228587520,
+      "abs_offset": 2234558112,
+      "layer_idx": 4,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.4.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 2341833728,
+      "abs_offset": 2347804320,
+      "layer_idx": 4,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.4.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 2342882304,
+      "abs_offset": 2348852896,
+      "layer_idx": 4,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.4.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 2342890496,
+      "abs_offset": 2348861088,
+      "layer_idx": 4,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.5.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 2456136704,
+      "abs_offset": 2462107296,
+      "layer_idx": 5,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.5.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 2457250816,
+      "abs_offset": 2463221408,
+      "layer_idx": 5,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.5.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 2457251328,
+      "abs_offset": 2463221920,
+      "layer_idx": 5,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.5.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 2457259520,
+      "abs_offset": 2463230112,
+      "layer_idx": 5,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.5.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 2463026688,
+      "abs_offset": 2468997280,
+      "layer_idx": 5,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.5.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 2467745280,
+      "abs_offset": 2473715872,
+      "layer_idx": 5,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.5.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 2467745792,
+      "abs_offset": 2473716384,
+      "layer_idx": 5,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.5.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 2468605952,
+      "abs_offset": 2474576544,
+      "layer_idx": 5,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.5.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 2633756672,
+      "abs_offset": 2639727264,
+      "layer_idx": 5,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.5.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 2747002880,
+      "abs_offset": 2752973472,
+      "layer_idx": 5,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.5.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 2748051456,
+      "abs_offset": 2754022048,
+      "layer_idx": 5,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.5.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 2748059648,
+      "abs_offset": 2754030240,
+      "layer_idx": 5,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.6.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 2861305856,
+      "abs_offset": 2867276448,
+      "layer_idx": 6,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.6.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 2862419968,
+      "abs_offset": 2868390560,
+      "layer_idx": 6,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.6.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 2862420480,
+      "abs_offset": 2868391072,
+      "layer_idx": 6,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.6.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 2862428672,
+      "abs_offset": 2868399264,
+      "layer_idx": 6,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.6.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 2868195840,
+      "abs_offset": 2874166432,
+      "layer_idx": 6,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.6.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 2872914432,
+      "abs_offset": 2878885024,
+      "layer_idx": 6,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.6.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 2872914944,
+      "abs_offset": 2878885536,
+      "layer_idx": 6,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.6.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 2873504768,
+      "abs_offset": 2879475360,
+      "layer_idx": 6,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.6.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 2986750976,
+      "abs_offset": 2992721568,
+      "layer_idx": 6,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.6.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 3099997184,
+      "abs_offset": 3105967776,
+      "layer_idx": 6,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.6.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 3101045760,
+      "abs_offset": 3107016352,
+      "layer_idx": 6,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.6.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3101053952,
+      "abs_offset": 3107024544,
+      "layer_idx": 6,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.7.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 3214300160,
+      "abs_offset": 3220270752,
+      "layer_idx": 7,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.7.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 3215414272,
+      "abs_offset": 3221384864,
+      "layer_idx": 7,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.7.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 3215414784,
+      "abs_offset": 3221385376,
+      "layer_idx": 7,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.7.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 3215422976,
+      "abs_offset": 3221393568,
+      "layer_idx": 7,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.7.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 3221190144,
+      "abs_offset": 3227160736,
+      "layer_idx": 7,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.7.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 3225908736,
+      "abs_offset": 3231879328,
+      "layer_idx": 7,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.7.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 3225909248,
+      "abs_offset": 3231879840,
+      "layer_idx": 7,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.7.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3226499072,
+      "abs_offset": 3232469664,
+      "layer_idx": 7,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.7.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3339745280,
+      "abs_offset": 3345715872,
+      "layer_idx": 7,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.7.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 3452991488,
+      "abs_offset": 3458962080,
+      "layer_idx": 7,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.7.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 3454040064,
+      "abs_offset": 3460010656,
+      "layer_idx": 7,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.7.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3454048256,
+      "abs_offset": 3460018848,
+      "layer_idx": 7,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.8.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 3567294464,
+      "abs_offset": 3573265056,
+      "layer_idx": 8,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.8.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 3568408576,
+      "abs_offset": 3574379168,
+      "layer_idx": 8,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.8.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 3568409088,
+      "abs_offset": 3574379680,
+      "layer_idx": 8,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.8.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 3568417280,
+      "abs_offset": 3574387872,
+      "layer_idx": 8,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.8.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 3574184448,
+      "abs_offset": 3580155040,
+      "layer_idx": 8,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.8.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 3578903040,
+      "abs_offset": 3584873632,
+      "layer_idx": 8,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.8.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 3578903552,
+      "abs_offset": 3584874144,
+      "layer_idx": 8,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.8.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 3579763712,
+      "abs_offset": 3585734304,
+      "layer_idx": 8,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.8.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3744914432,
+      "abs_offset": 3750885024,
+      "layer_idx": 8,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.8.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 3858160640,
+      "abs_offset": 3864131232,
+      "layer_idx": 8,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.8.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 3859209216,
+      "abs_offset": 3865179808,
+      "layer_idx": 8,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.8.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3859217408,
+      "abs_offset": 3865188000,
+      "layer_idx": 8,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.9.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 3972463616,
+      "abs_offset": 3978434208,
+      "layer_idx": 9,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.9.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 3973577728,
+      "abs_offset": 3979548320,
+      "layer_idx": 9,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.9.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 3973578240,
+      "abs_offset": 3979548832,
+      "layer_idx": 9,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.9.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 3973586432,
+      "abs_offset": 3979557024,
+      "layer_idx": 9,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.9.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 3979353600,
+      "abs_offset": 3985324192,
+      "layer_idx": 9,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.9.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 3984072192,
+      "abs_offset": 3990042784,
+      "layer_idx": 9,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.9.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 3984072704,
+      "abs_offset": 3990043296,
+      "layer_idx": 9,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.9.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 3984662528,
+      "abs_offset": 3990633120,
+      "layer_idx": 9,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.9.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4097908736,
+      "abs_offset": 4103879328,
+      "layer_idx": 9,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.9.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 4211154944,
+      "abs_offset": 4217125536,
+      "layer_idx": 9,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.9.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 4212203520,
+      "abs_offset": 4218174112,
+      "layer_idx": 9,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.9.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4212211712,
+      "abs_offset": 4218182304,
+      "layer_idx": 9,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.10.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 4325457920,
+      "abs_offset": 4331428512,
+      "layer_idx": 10,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.10.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 4326572032,
+      "abs_offset": 4332542624,
+      "layer_idx": 10,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.10.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 4326572544,
+      "abs_offset": 4332543136,
+      "layer_idx": 10,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.10.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 4326580736,
+      "abs_offset": 4332551328,
+      "layer_idx": 10,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.10.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 4332347904,
+      "abs_offset": 4338318496,
+      "layer_idx": 10,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.10.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 4337066496,
+      "abs_offset": 4343037088,
+      "layer_idx": 10,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.10.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 4337067008,
+      "abs_offset": 4343037600,
+      "layer_idx": 10,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.10.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4337656832,
+      "abs_offset": 4343627424,
+      "layer_idx": 10,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.10.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4450903040,
+      "abs_offset": 4456873632,
+      "layer_idx": 10,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.10.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 4564149248,
+      "abs_offset": 4570119840,
+      "layer_idx": 10,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.10.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 4565197824,
+      "abs_offset": 4571168416,
+      "layer_idx": 10,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.10.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4565206016,
+      "abs_offset": 4571176608,
+      "layer_idx": 10,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.11.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 4678452224,
+      "abs_offset": 4684422816,
+      "layer_idx": 11,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.11.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 4679566336,
+      "abs_offset": 4685536928,
+      "layer_idx": 11,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.11.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 4679566848,
+      "abs_offset": 4685537440,
+      "layer_idx": 11,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.11.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 4679575040,
+      "abs_offset": 4685545632,
+      "layer_idx": 11,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.11.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 4685342208,
+      "abs_offset": 4691312800,
+      "layer_idx": 11,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.11.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 4690060800,
+      "abs_offset": 4696031392,
+      "layer_idx": 11,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.11.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 4690061312,
+      "abs_offset": 4696031904,
+      "layer_idx": 11,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.11.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 4690921472,
+      "abs_offset": 4696892064,
+      "layer_idx": 11,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.11.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4856072192,
+      "abs_offset": 4862042784,
+      "layer_idx": 11,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.11.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 4969318400,
+      "abs_offset": 4975288992,
+      "layer_idx": 11,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.11.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 4970366976,
+      "abs_offset": 4976337568,
+      "layer_idx": 11,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.11.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 4970375168,
+      "abs_offset": 4976345760,
+      "layer_idx": 11,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.12.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 5083621376,
+      "abs_offset": 5089591968,
+      "layer_idx": 12,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.12.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 5084735488,
+      "abs_offset": 5090706080,
+      "layer_idx": 12,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.12.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 5084736000,
+      "abs_offset": 5090706592,
+      "layer_idx": 12,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.12.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 5084744192,
+      "abs_offset": 5090714784,
+      "layer_idx": 12,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.12.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 5090511360,
+      "abs_offset": 5096481952,
+      "layer_idx": 12,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.12.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 5095229952,
+      "abs_offset": 5101200544,
+      "layer_idx": 12,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.12.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 5095230464,
+      "abs_offset": 5101201056,
+      "layer_idx": 12,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.12.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5095820288,
+      "abs_offset": 5101790880,
+      "layer_idx": 12,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.12.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5209066496,
+      "abs_offset": 5215037088,
+      "layer_idx": 12,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.12.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 5322312704,
+      "abs_offset": 5328283296,
+      "layer_idx": 12,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.12.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 5323361280,
+      "abs_offset": 5329331872,
+      "layer_idx": 12,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.12.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5323369472,
+      "abs_offset": 5329340064,
+      "layer_idx": 12,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.13.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 5436615680,
+      "abs_offset": 5442586272,
+      "layer_idx": 13,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.13.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 5437729792,
+      "abs_offset": 5443700384,
+      "layer_idx": 13,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.13.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 5437730304,
+      "abs_offset": 5443700896,
+      "layer_idx": 13,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.13.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 5437738496,
+      "abs_offset": 5443709088,
+      "layer_idx": 13,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.13.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 5443505664,
+      "abs_offset": 5449476256,
+      "layer_idx": 13,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.13.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 5448224256,
+      "abs_offset": 5454194848,
+      "layer_idx": 13,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.13.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 5448224768,
+      "abs_offset": 5454195360,
+      "layer_idx": 13,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.13.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5448814592,
+      "abs_offset": 5454785184,
+      "layer_idx": 13,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.13.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5562060800,
+      "abs_offset": 5568031392,
+      "layer_idx": 13,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.13.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 5675307008,
+      "abs_offset": 5681277600,
+      "layer_idx": 13,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.13.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 5676355584,
+      "abs_offset": 5682326176,
+      "layer_idx": 13,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.13.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5676363776,
+      "abs_offset": 5682334368,
+      "layer_idx": 13,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.14.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 5789609984,
+      "abs_offset": 5795580576,
+      "layer_idx": 14,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.14.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 5790724096,
+      "abs_offset": 5796694688,
+      "layer_idx": 14,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.14.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 5790724608,
+      "abs_offset": 5796695200,
+      "layer_idx": 14,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.14.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 5790732800,
+      "abs_offset": 5796703392,
+      "layer_idx": 14,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.14.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 5796499968,
+      "abs_offset": 5802470560,
+      "layer_idx": 14,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.14.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 5801218560,
+      "abs_offset": 5807189152,
+      "layer_idx": 14,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.14.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 5801219072,
+      "abs_offset": 5807189664,
+      "layer_idx": 14,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.14.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 5802079232,
+      "abs_offset": 5808049824,
+      "layer_idx": 14,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.14.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 5967229952,
+      "abs_offset": 5973200544,
+      "layer_idx": 14,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.14.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 6080476160,
+      "abs_offset": 6086446752,
+      "layer_idx": 14,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.14.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 6081524736,
+      "abs_offset": 6087495328,
+      "layer_idx": 14,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.14.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6081532928,
+      "abs_offset": 6087503520,
+      "layer_idx": 14,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.15.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 6194779136,
+      "abs_offset": 6200749728,
+      "layer_idx": 15,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.15.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 6195893248,
+      "abs_offset": 6201863840,
+      "layer_idx": 15,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.15.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 6195893760,
+      "abs_offset": 6201864352,
+      "layer_idx": 15,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.15.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 6195901952,
+      "abs_offset": 6201872544,
+      "layer_idx": 15,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.15.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 6201669120,
+      "abs_offset": 6207639712,
+      "layer_idx": 15,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.15.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 6206387712,
+      "abs_offset": 6212358304,
+      "layer_idx": 15,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.15.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 6206388224,
+      "abs_offset": 6212358816,
+      "layer_idx": 15,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.15.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6206978048,
+      "abs_offset": 6212948640,
+      "layer_idx": 15,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.15.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6320224256,
+      "abs_offset": 6326194848,
+      "layer_idx": 15,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.15.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 6433470464,
+      "abs_offset": 6439441056,
+      "layer_idx": 15,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.15.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 6434519040,
+      "abs_offset": 6440489632,
+      "layer_idx": 15,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.15.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6434527232,
+      "abs_offset": 6440497824,
+      "layer_idx": 15,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.16.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 6547773440,
+      "abs_offset": 6553744032,
+      "layer_idx": 16,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.16.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 6548887552,
+      "abs_offset": 6554858144,
+      "layer_idx": 16,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.16.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 6548888064,
+      "abs_offset": 6554858656,
+      "layer_idx": 16,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.16.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 6548896256,
+      "abs_offset": 6554866848,
+      "layer_idx": 16,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.16.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 6554663424,
+      "abs_offset": 6560634016,
+      "layer_idx": 16,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.16.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 6559382016,
+      "abs_offset": 6565352608,
+      "layer_idx": 16,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.16.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 6559382528,
+      "abs_offset": 6565353120,
+      "layer_idx": 16,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.16.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6559972352,
+      "abs_offset": 6565942944,
+      "layer_idx": 16,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.16.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6673218560,
+      "abs_offset": 6679189152,
+      "layer_idx": 16,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.16.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 6786464768,
+      "abs_offset": 6792435360,
+      "layer_idx": 16,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.16.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 6787513344,
+      "abs_offset": 6793483936,
+      "layer_idx": 16,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.16.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 6787521536,
+      "abs_offset": 6793492128,
+      "layer_idx": 16,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.17.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 6900767744,
+      "abs_offset": 6906738336,
+      "layer_idx": 17,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.17.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 6901881856,
+      "abs_offset": 6907852448,
+      "layer_idx": 17,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.17.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 6901882368,
+      "abs_offset": 6907852960,
+      "layer_idx": 17,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.17.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 6901890560,
+      "abs_offset": 6907861152,
+      "layer_idx": 17,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.17.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 6907657728,
+      "abs_offset": 6913628320,
+      "layer_idx": 17,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.17.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 6912376320,
+      "abs_offset": 6918346912,
+      "layer_idx": 17,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.17.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 6912376832,
+      "abs_offset": 6918347424,
+      "layer_idx": 17,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.17.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 6913236992,
+      "abs_offset": 6919207584,
+      "layer_idx": 17,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.17.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7078387712,
+      "abs_offset": 7084358304,
+      "layer_idx": 17,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.17.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 7191633920,
+      "abs_offset": 7197604512,
+      "layer_idx": 17,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.17.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 7192682496,
+      "abs_offset": 7198653088,
+      "layer_idx": 17,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.17.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7192690688,
+      "abs_offset": 7198661280,
+      "layer_idx": 17,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.18.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 7305936896,
+      "abs_offset": 7311907488,
+      "layer_idx": 18,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.18.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 7307051008,
+      "abs_offset": 7313021600,
+      "layer_idx": 18,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.18.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 7307051520,
+      "abs_offset": 7313022112,
+      "layer_idx": 18,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.18.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 7307059712,
+      "abs_offset": 7313030304,
+      "layer_idx": 18,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.18.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 7312826880,
+      "abs_offset": 7318797472,
+      "layer_idx": 18,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.18.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 7317545472,
+      "abs_offset": 7323516064,
+      "layer_idx": 18,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.18.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 7317545984,
+      "abs_offset": 7323516576,
+      "layer_idx": 18,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.18.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7318135808,
+      "abs_offset": 7324106400,
+      "layer_idx": 18,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.18.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7431382016,
+      "abs_offset": 7437352608,
+      "layer_idx": 18,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.18.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 7544628224,
+      "abs_offset": 7550598816,
+      "layer_idx": 18,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.18.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 7545676800,
+      "abs_offset": 7551647392,
+      "layer_idx": 18,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.18.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7545684992,
+      "abs_offset": 7551655584,
+      "layer_idx": 18,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.19.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 7658931200,
+      "abs_offset": 7664901792,
+      "layer_idx": 19,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.19.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 7660045312,
+      "abs_offset": 7666015904,
+      "layer_idx": 19,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.19.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 7660045824,
+      "abs_offset": 7666016416,
+      "layer_idx": 19,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.19.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 7660054016,
+      "abs_offset": 7666024608,
+      "layer_idx": 19,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.19.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 7665821184,
+      "abs_offset": 7671791776,
+      "layer_idx": 19,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.19.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 7670539776,
+      "abs_offset": 7676510368,
+      "layer_idx": 19,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.19.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 7670540288,
+      "abs_offset": 7676510880,
+      "layer_idx": 19,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.19.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7671130112,
+      "abs_offset": 7677100704,
+      "layer_idx": 19,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.19.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7784376320,
+      "abs_offset": 7790346912,
+      "layer_idx": 19,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.19.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 7897622528,
+      "abs_offset": 7903593120,
+      "layer_idx": 19,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.19.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 7898671104,
+      "abs_offset": 7904641696,
+      "layer_idx": 19,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.19.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 7898679296,
+      "abs_offset": 7904649888,
+      "layer_idx": 19,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.20.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 8011925504,
+      "abs_offset": 8017896096,
+      "layer_idx": 20,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.20.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 8013039616,
+      "abs_offset": 8019010208,
+      "layer_idx": 20,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.20.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 8013040128,
+      "abs_offset": 8019010720,
+      "layer_idx": 20,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.20.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 8013048320,
+      "abs_offset": 8019018912,
+      "layer_idx": 20,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.20.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 8018815488,
+      "abs_offset": 8024786080,
+      "layer_idx": 20,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.20.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 8023534080,
+      "abs_offset": 8029504672,
+      "layer_idx": 20,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.20.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 8023534592,
+      "abs_offset": 8029505184,
+      "layer_idx": 20,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.20.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 8024394752,
+      "abs_offset": 8030365344,
+      "layer_idx": 20,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.20.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8189545472,
+      "abs_offset": 8195516064,
+      "layer_idx": 20,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.20.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 8302791680,
+      "abs_offset": 8308762272,
+      "layer_idx": 20,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.20.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 8303840256,
+      "abs_offset": 8309810848,
+      "layer_idx": 20,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.20.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8303848448,
+      "abs_offset": 8309819040,
+      "layer_idx": 20,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.21.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 8417094656,
+      "abs_offset": 8423065248,
+      "layer_idx": 21,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.21.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 8418208768,
+      "abs_offset": 8424179360,
+      "layer_idx": 21,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.21.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 8418209280,
+      "abs_offset": 8424179872,
+      "layer_idx": 21,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.21.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 8418217472,
+      "abs_offset": 8424188064,
+      "layer_idx": 21,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.21.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 8423984640,
+      "abs_offset": 8429955232,
+      "layer_idx": 21,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.21.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 8428703232,
+      "abs_offset": 8434673824,
+      "layer_idx": 21,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.21.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 8428703744,
+      "abs_offset": 8434674336,
+      "layer_idx": 21,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.21.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8429293568,
+      "abs_offset": 8435264160,
+      "layer_idx": 21,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.21.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8542539776,
+      "abs_offset": 8548510368,
+      "layer_idx": 21,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.21.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 8655785984,
+      "abs_offset": 8661756576,
+      "layer_idx": 21,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.21.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 8656834560,
+      "abs_offset": 8662805152,
+      "layer_idx": 21,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.21.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8656842752,
+      "abs_offset": 8662813344,
+      "layer_idx": 21,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.22.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 8770088960,
+      "abs_offset": 8776059552,
+      "layer_idx": 22,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.22.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 8771203072,
+      "abs_offset": 8777173664,
+      "layer_idx": 22,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.22.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 8771203584,
+      "abs_offset": 8777174176,
+      "layer_idx": 22,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.22.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 8771211776,
+      "abs_offset": 8777182368,
+      "layer_idx": 22,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.22.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 8776978944,
+      "abs_offset": 8782949536,
+      "layer_idx": 22,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.22.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 8781697536,
+      "abs_offset": 8787668128,
+      "layer_idx": 22,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.22.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 8781698048,
+      "abs_offset": 8787668640,
+      "layer_idx": 22,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.22.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8782287872,
+      "abs_offset": 8788258464,
+      "layer_idx": 22,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.22.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 8895534080,
+      "abs_offset": 8901504672,
+      "layer_idx": 22,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.22.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 9008780288,
+      "abs_offset": 9014750880,
+      "layer_idx": 22,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.22.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 9009828864,
+      "abs_offset": 9015799456,
+      "layer_idx": 22,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.22.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9009837056,
+      "abs_offset": 9015807648,
+      "layer_idx": 22,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.23.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 9123083264,
+      "abs_offset": 9129053856,
+      "layer_idx": 23,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.23.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 9124197376,
+      "abs_offset": 9130167968,
+      "layer_idx": 23,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.23.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 9124197888,
+      "abs_offset": 9130168480,
+      "layer_idx": 23,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.23.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 9124206080,
+      "abs_offset": 9130176672,
+      "layer_idx": 23,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.23.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 9129973248,
+      "abs_offset": 9135943840,
+      "layer_idx": 23,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.23.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 9134691840,
+      "abs_offset": 9140662432,
+      "layer_idx": 23,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.23.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 9134692352,
+      "abs_offset": 9140662944,
+      "layer_idx": 23,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.23.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 9135552512,
+      "abs_offset": 9141523104,
+      "layer_idx": 23,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.23.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9300703232,
+      "abs_offset": 9306673824,
+      "layer_idx": 23,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.23.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 9413949440,
+      "abs_offset": 9419920032,
+      "layer_idx": 23,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.23.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 9414998016,
+      "abs_offset": 9420968608,
+      "layer_idx": 23,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.23.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9415006208,
+      "abs_offset": 9420976800,
+      "layer_idx": 23,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.24.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 9528252416,
+      "abs_offset": 9534223008,
+      "layer_idx": 24,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.24.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 9529366528,
+      "abs_offset": 9535337120,
+      "layer_idx": 24,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.24.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 9529367040,
+      "abs_offset": 9535337632,
+      "layer_idx": 24,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.24.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 9529375232,
+      "abs_offset": 9535345824,
+      "layer_idx": 24,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.24.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 9535142400,
+      "abs_offset": 9541112992,
+      "layer_idx": 24,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.24.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 9539860992,
+      "abs_offset": 9545831584,
+      "layer_idx": 24,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.24.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 9539861504,
+      "abs_offset": 9545832096,
+      "layer_idx": 24,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.24.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9540451328,
+      "abs_offset": 9546421920,
+      "layer_idx": 24,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.24.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9653697536,
+      "abs_offset": 9659668128,
+      "layer_idx": 24,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.24.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 9766943744,
+      "abs_offset": 9772914336,
+      "layer_idx": 24,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.24.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 9767992320,
+      "abs_offset": 9773962912,
+      "layer_idx": 24,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.24.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9768000512,
+      "abs_offset": 9773971104,
+      "layer_idx": 24,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.25.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 9881246720,
+      "abs_offset": 9887217312,
+      "layer_idx": 25,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.25.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 9882360832,
+      "abs_offset": 9888331424,
+      "layer_idx": 25,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.25.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 9882361344,
+      "abs_offset": 9888331936,
+      "layer_idx": 25,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.25.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 9882369536,
+      "abs_offset": 9888340128,
+      "layer_idx": 25,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.25.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 9888136704,
+      "abs_offset": 9894107296,
+      "layer_idx": 25,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.25.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 9892855296,
+      "abs_offset": 9898825888,
+      "layer_idx": 25,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.25.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 9892855808,
+      "abs_offset": 9898826400,
+      "layer_idx": 25,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.25.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 9893445632,
+      "abs_offset": 9899416224,
+      "layer_idx": 25,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.25.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10006691840,
+      "abs_offset": 10012662432,
+      "layer_idx": 25,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.25.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 10119938048,
+      "abs_offset": 10125908640,
+      "layer_idx": 25,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.25.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 10120986624,
+      "abs_offset": 10126957216,
+      "layer_idx": 25,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.25.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10120994816,
+      "abs_offset": 10126965408,
+      "layer_idx": 25,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.26.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 10234241024,
+      "abs_offset": 10240211616,
+      "layer_idx": 26,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.26.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 10235355136,
+      "abs_offset": 10241325728,
+      "layer_idx": 26,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.26.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 10235355648,
+      "abs_offset": 10241326240,
+      "layer_idx": 26,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.26.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 10235363840,
+      "abs_offset": 10241334432,
+      "layer_idx": 26,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.26.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 10241131008,
+      "abs_offset": 10247101600,
+      "layer_idx": 26,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.26.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 10245849600,
+      "abs_offset": 10251820192,
+      "layer_idx": 26,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.26.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 10245850112,
+      "abs_offset": 10251820704,
+      "layer_idx": 26,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.26.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 10246710272,
+      "abs_offset": 10252680864,
+      "layer_idx": 26,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.26.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10411860992,
+      "abs_offset": 10417831584,
+      "layer_idx": 26,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.26.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 10525107200,
+      "abs_offset": 10531077792,
+      "layer_idx": 26,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.26.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 10526155776,
+      "abs_offset": 10532126368,
+      "layer_idx": 26,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.26.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10526163968,
+      "abs_offset": 10532134560,
+      "layer_idx": 26,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.27.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 10639410176,
+      "abs_offset": 10645380768,
+      "layer_idx": 27,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.27.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 10640524288,
+      "abs_offset": 10646494880,
+      "layer_idx": 27,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.27.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 10640524800,
+      "abs_offset": 10646495392,
+      "layer_idx": 27,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.27.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 10640532992,
+      "abs_offset": 10646503584,
+      "layer_idx": 27,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.27.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 10646300160,
+      "abs_offset": 10652270752,
+      "layer_idx": 27,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.27.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 10651018752,
+      "abs_offset": 10656989344,
+      "layer_idx": 27,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.27.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 10651019264,
+      "abs_offset": 10656989856,
+      "layer_idx": 27,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.27.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10651609088,
+      "abs_offset": 10657579680,
+      "layer_idx": 27,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.27.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10764855296,
+      "abs_offset": 10770825888,
+      "layer_idx": 27,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.27.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 10878101504,
+      "abs_offset": 10884072096,
+      "layer_idx": 27,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.27.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 10879150080,
+      "abs_offset": 10885120672,
+      "layer_idx": 27,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.27.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 10879158272,
+      "abs_offset": 10885128864,
+      "layer_idx": 27,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.28.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 10992404480,
+      "abs_offset": 10998375072,
+      "layer_idx": 28,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.28.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 10993518592,
+      "abs_offset": 10999489184,
+      "layer_idx": 28,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.28.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 10993519104,
+      "abs_offset": 10999489696,
+      "layer_idx": 28,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.28.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 10993527296,
+      "abs_offset": 10999497888,
+      "layer_idx": 28,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.28.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 10999294464,
+      "abs_offset": 11005265056,
+      "layer_idx": 28,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.28.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 11004013056,
+      "abs_offset": 11009983648,
+      "layer_idx": 28,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.28.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 11004013568,
+      "abs_offset": 11009984160,
+      "layer_idx": 28,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.28.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11004603392,
+      "abs_offset": 11010573984,
+      "layer_idx": 28,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.28.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11117849600,
+      "abs_offset": 11123820192,
+      "layer_idx": 28,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.28.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 11231095808,
+      "abs_offset": 11237066400,
+      "layer_idx": 28,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.28.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 11232144384,
+      "abs_offset": 11238114976,
+      "layer_idx": 28,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.28.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11232152576,
+      "abs_offset": 11238123168,
+      "layer_idx": 28,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.29.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 11345398784,
+      "abs_offset": 11351369376,
+      "layer_idx": 29,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.29.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 11346512896,
+      "abs_offset": 11352483488,
+      "layer_idx": 29,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.29.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 11346513408,
+      "abs_offset": 11352484000,
+      "layer_idx": 29,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.29.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 11346521600,
+      "abs_offset": 11352492192,
+      "layer_idx": 29,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.29.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 11352288768,
+      "abs_offset": 11358259360,
+      "layer_idx": 29,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.29.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 11357007360,
+      "abs_offset": 11362977952,
+      "layer_idx": 29,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.29.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 11357007872,
+      "abs_offset": 11362978464,
+      "layer_idx": 29,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.29.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 11357868032,
+      "abs_offset": 11363838624,
+      "layer_idx": 29,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.29.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11523018752,
+      "abs_offset": 11528989344,
+      "layer_idx": 29,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.29.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 11636264960,
+      "abs_offset": 11642235552,
+      "layer_idx": 29,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.29.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 11637313536,
+      "abs_offset": 11643284128,
+      "layer_idx": 29,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.29.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11637321728,
+      "abs_offset": 11643292320,
+      "layer_idx": 29,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.30.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 11750567936,
+      "abs_offset": 11756538528,
+      "layer_idx": 30,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.30.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 11751682048,
+      "abs_offset": 11757652640,
+      "layer_idx": 30,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.30.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 11751682560,
+      "abs_offset": 11757653152,
+      "layer_idx": 30,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.30.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 11751690752,
+      "abs_offset": 11757661344,
+      "layer_idx": 30,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.30.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 11757457920,
+      "abs_offset": 11763428512,
+      "layer_idx": 30,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.30.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 11762176512,
+      "abs_offset": 11768147104,
+      "layer_idx": 30,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.30.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 11762177024,
+      "abs_offset": 11768147616,
+      "layer_idx": 30,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.30.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11762766848,
+      "abs_offset": 11768737440,
+      "layer_idx": 30,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.30.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11876013056,
+      "abs_offset": 11881983648,
+      "layer_idx": 30,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.30.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 11989259264,
+      "abs_offset": 11995229856,
+      "layer_idx": 30,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.30.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 11990307840,
+      "abs_offset": 11996278432,
+      "layer_idx": 30,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.30.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 11990316032,
+      "abs_offset": 11996286624,
+      "layer_idx": 30,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.31.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 12103562240,
+      "abs_offset": 12109532832,
+      "layer_idx": 31,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.31.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 12104676352,
+      "abs_offset": 12110646944,
+      "layer_idx": 31,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.31.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 12104676864,
+      "abs_offset": 12110647456,
+      "layer_idx": 31,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.31.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 12104685056,
+      "abs_offset": 12110655648,
+      "layer_idx": 31,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.31.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 12110452224,
+      "abs_offset": 12116422816,
+      "layer_idx": 31,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.31.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 12115170816,
+      "abs_offset": 12121141408,
+      "layer_idx": 31,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.31.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 12115171328,
+      "abs_offset": 12121141920,
+      "layer_idx": 31,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.31.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12115761152,
+      "abs_offset": 12121731744,
+      "layer_idx": 31,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.31.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12229007360,
+      "abs_offset": 12234977952,
+      "layer_idx": 31,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.31.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 12342253568,
+      "abs_offset": 12348224160,
+      "layer_idx": 31,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.31.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 12343302144,
+      "abs_offset": 12349272736,
+      "layer_idx": 31,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.31.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12343310336,
+      "abs_offset": 12349280928,
+      "layer_idx": 31,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.32.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 12456556544,
+      "abs_offset": 12462527136,
+      "layer_idx": 32,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.32.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 12457670656,
+      "abs_offset": 12463641248,
+      "layer_idx": 32,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.32.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 12457671168,
+      "abs_offset": 12463641760,
+      "layer_idx": 32,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.32.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 12457679360,
+      "abs_offset": 12463649952,
+      "layer_idx": 32,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.32.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 12463446528,
+      "abs_offset": 12469417120,
+      "layer_idx": 32,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.32.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 12468165120,
+      "abs_offset": 12474135712,
+      "layer_idx": 32,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.32.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 12468165632,
+      "abs_offset": 12474136224,
+      "layer_idx": 32,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.32.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 12469025792,
+      "abs_offset": 12474996384,
+      "layer_idx": 32,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.32.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12634176512,
+      "abs_offset": 12640147104,
+      "layer_idx": 32,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.32.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 12747422720,
+      "abs_offset": 12753393312,
+      "layer_idx": 32,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.32.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 12748471296,
+      "abs_offset": 12754441888,
+      "layer_idx": 32,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.32.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12748479488,
+      "abs_offset": 12754450080,
+      "layer_idx": 32,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.33.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 12861725696,
+      "abs_offset": 12867696288,
+      "layer_idx": 33,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.33.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 12862839808,
+      "abs_offset": 12868810400,
+      "layer_idx": 33,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.33.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 12862840320,
+      "abs_offset": 12868810912,
+      "layer_idx": 33,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.33.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 12862848512,
+      "abs_offset": 12868819104,
+      "layer_idx": 33,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.33.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 12868615680,
+      "abs_offset": 12874586272,
+      "layer_idx": 33,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.33.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 12873334272,
+      "abs_offset": 12879304864,
+      "layer_idx": 33,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.33.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 12873334784,
+      "abs_offset": 12879305376,
+      "layer_idx": 33,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.33.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12873924608,
+      "abs_offset": 12879895200,
+      "layer_idx": 33,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.33.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 12987170816,
+      "abs_offset": 12993141408,
+      "layer_idx": 33,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.33.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 13100417024,
+      "abs_offset": 13106387616,
+      "layer_idx": 33,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.33.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 13101465600,
+      "abs_offset": 13107436192,
+      "layer_idx": 33,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.33.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13101473792,
+      "abs_offset": 13107444384,
+      "layer_idx": 33,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.34.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 13214720000,
+      "abs_offset": 13220690592,
+      "layer_idx": 34,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.34.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 13215834112,
+      "abs_offset": 13221804704,
+      "layer_idx": 34,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.34.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 13215834624,
+      "abs_offset": 13221805216,
+      "layer_idx": 34,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.34.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 13215842816,
+      "abs_offset": 13221813408,
+      "layer_idx": 34,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.34.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 13221609984,
+      "abs_offset": 13227580576,
+      "layer_idx": 34,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.34.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 13226328576,
+      "abs_offset": 13232299168,
+      "layer_idx": 34,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.34.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 13226329088,
+      "abs_offset": 13232299680,
+      "layer_idx": 34,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.34.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13226918912,
+      "abs_offset": 13232889504,
+      "layer_idx": 34,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.34.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13340165120,
+      "abs_offset": 13346135712,
+      "layer_idx": 34,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.34.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 13453411328,
+      "abs_offset": 13459381920,
+      "layer_idx": 34,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.34.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 13454459904,
+      "abs_offset": 13460430496,
+      "layer_idx": 34,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.34.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13454468096,
+      "abs_offset": 13460438688,
+      "layer_idx": 34,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.35.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 13567714304,
+      "abs_offset": 13573684896,
+      "layer_idx": 35,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.35.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 13568828416,
+      "abs_offset": 13574799008,
+      "layer_idx": 35,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.35.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 13568828928,
+      "abs_offset": 13574799520,
+      "layer_idx": 35,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.35.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 13568837120,
+      "abs_offset": 13574807712,
+      "layer_idx": 35,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.35.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 13574604288,
+      "abs_offset": 13580574880,
+      "layer_idx": 35,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.35.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 13579322880,
+      "abs_offset": 13585293472,
+      "layer_idx": 35,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.35.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 13579323392,
+      "abs_offset": 13585293984,
+      "layer_idx": 35,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.35.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 13580183552,
+      "abs_offset": 13586154144,
+      "layer_idx": 35,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.35.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13745334272,
+      "abs_offset": 13751304864,
+      "layer_idx": 35,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.35.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 13858580480,
+      "abs_offset": 13864551072,
+      "layer_idx": 35,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.35.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 13859629056,
+      "abs_offset": 13865599648,
+      "layer_idx": 35,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.35.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13859637248,
+      "abs_offset": 13865607840,
+      "layer_idx": 35,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.36.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 13972883456,
+      "abs_offset": 13978854048,
+      "layer_idx": 36,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.36.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 13973997568,
+      "abs_offset": 13979968160,
+      "layer_idx": 36,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.36.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 13973998080,
+      "abs_offset": 13979968672,
+      "layer_idx": 36,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.36.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 13974006272,
+      "abs_offset": 13979976864,
+      "layer_idx": 36,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.36.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 13979773440,
+      "abs_offset": 13985744032,
+      "layer_idx": 36,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.36.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 13984492032,
+      "abs_offset": 13990462624,
+      "layer_idx": 36,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.36.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 13984492544,
+      "abs_offset": 13990463136,
+      "layer_idx": 36,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.36.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 13985082368,
+      "abs_offset": 13991052960,
+      "layer_idx": 36,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.36.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14098328576,
+      "abs_offset": 14104299168,
+      "layer_idx": 36,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.36.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 14211574784,
+      "abs_offset": 14217545376,
+      "layer_idx": 36,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.36.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 14212623360,
+      "abs_offset": 14218593952,
+      "layer_idx": 36,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.36.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14212631552,
+      "abs_offset": 14218602144,
+      "layer_idx": 36,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.37.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 14325877760,
+      "abs_offset": 14331848352,
+      "layer_idx": 37,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.37.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 14326991872,
+      "abs_offset": 14332962464,
+      "layer_idx": 37,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.37.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 14326992384,
+      "abs_offset": 14332962976,
+      "layer_idx": 37,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.37.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 14327000576,
+      "abs_offset": 14332971168,
+      "layer_idx": 37,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.37.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 14332767744,
+      "abs_offset": 14338738336,
+      "layer_idx": 37,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.37.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 14337486336,
+      "abs_offset": 14343456928,
+      "layer_idx": 37,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.37.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 14337486848,
+      "abs_offset": 14343457440,
+      "layer_idx": 37,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.37.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14338076672,
+      "abs_offset": 14344047264,
+      "layer_idx": 37,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.37.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14451322880,
+      "abs_offset": 14457293472,
+      "layer_idx": 37,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.37.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 14564569088,
+      "abs_offset": 14570539680,
+      "layer_idx": 37,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.37.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 14565617664,
+      "abs_offset": 14571588256,
+      "layer_idx": 37,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.37.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14565625856,
+      "abs_offset": 14571596448,
+      "layer_idx": 37,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.38.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 14678872064,
+      "abs_offset": 14684842656,
+      "layer_idx": 38,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.38.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 14679986176,
+      "abs_offset": 14685956768,
+      "layer_idx": 38,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.38.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 14679986688,
+      "abs_offset": 14685957280,
+      "layer_idx": 38,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.38.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 14679994880,
+      "abs_offset": 14685965472,
+      "layer_idx": 38,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.38.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 14685762048,
+      "abs_offset": 14691732640,
+      "layer_idx": 38,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.38.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 14690480640,
+      "abs_offset": 14696451232,
+      "layer_idx": 38,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.38.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 14690481152,
+      "abs_offset": 14696451744,
+      "layer_idx": 38,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.38.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 14691341312,
+      "abs_offset": 14697311904,
+      "layer_idx": 38,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.38.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14856492032,
+      "abs_offset": 14862462624,
+      "layer_idx": 38,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.38.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 14969738240,
+      "abs_offset": 14975708832,
+      "layer_idx": 38,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.38.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 14970786816,
+      "abs_offset": 14976757408,
+      "layer_idx": 38,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.38.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 14970795008,
+      "abs_offset": 14976765600,
+      "layer_idx": 38,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.39.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 15084041216,
+      "abs_offset": 15090011808,
+      "layer_idx": 39,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.39.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 15085155328,
+      "abs_offset": 15091125920,
+      "layer_idx": 39,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.39.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 15085155840,
+      "abs_offset": 15091126432,
+      "layer_idx": 39,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.39.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 15085164032,
+      "abs_offset": 15091134624,
+      "layer_idx": 39,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.39.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 15090931200,
+      "abs_offset": 15096901792,
+      "layer_idx": 39,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.39.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 15095649792,
+      "abs_offset": 15101620384,
+      "layer_idx": 39,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.39.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 15095650304,
+      "abs_offset": 15101620896,
+      "layer_idx": 39,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.39.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15096240128,
+      "abs_offset": 15102210720,
+      "layer_idx": 39,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.39.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15209486336,
+      "abs_offset": 15215456928,
+      "layer_idx": 39,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.39.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 15322732544,
+      "abs_offset": 15328703136,
+      "layer_idx": 39,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.39.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 15323781120,
+      "abs_offset": 15329751712,
+      "layer_idx": 39,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.39.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15323789312,
+      "abs_offset": 15329759904,
+      "layer_idx": 39,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.40.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 15437035520,
+      "abs_offset": 15443006112,
+      "layer_idx": 40,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.40.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 15438149632,
+      "abs_offset": 15444120224,
+      "layer_idx": 40,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.40.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 15438150144,
+      "abs_offset": 15444120736,
+      "layer_idx": 40,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.40.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 15438158336,
+      "abs_offset": 15444128928,
+      "layer_idx": 40,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.40.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 15443925504,
+      "abs_offset": 15449896096,
+      "layer_idx": 40,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.40.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 15448644096,
+      "abs_offset": 15454614688,
+      "layer_idx": 40,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.40.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q4_K",
+      "num_elements": 1048576,
+      "storage_bytes": 589824,
+      "gguf_offset": 15448644608,
+      "abs_offset": 15454615200,
+      "layer_idx": 40,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.40.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15449234432,
+      "abs_offset": 15455205024,
+      "layer_idx": 40,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.40.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15562480640,
+      "abs_offset": 15568451232,
+      "layer_idx": 40,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.40.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 15675726848,
+      "abs_offset": 15681697440,
+      "layer_idx": 40,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.40.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 15676775424,
+      "abs_offset": 15682746016,
+      "layer_idx": 40,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.40.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15676783616,
+      "abs_offset": 15682754208,
+      "layer_idx": 40,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.41.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 15790029824,
+      "abs_offset": 15796000416,
+      "layer_idx": 41,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.41.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 15791143936,
+      "abs_offset": 15797114528,
+      "layer_idx": 41,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.41.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 15791144448,
+      "abs_offset": 15797115040,
+      "layer_idx": 41,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.41.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 15791152640,
+      "abs_offset": 15797123232,
+      "layer_idx": 41,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.41.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 15796919808,
+      "abs_offset": 15802890400,
+      "layer_idx": 41,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.41.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 15801638400,
+      "abs_offset": 15807608992,
+      "layer_idx": 41,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.41.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 15801638912,
+      "abs_offset": 15807609504,
+      "layer_idx": 41,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.41.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 15802499072,
+      "abs_offset": 15808469664,
+      "layer_idx": 41,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.41.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 15967649792,
+      "abs_offset": 15973620384,
+      "layer_idx": 41,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.41.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 16080896000,
+      "abs_offset": 16086866592,
+      "layer_idx": 41,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.41.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 16081944576,
+      "abs_offset": 16087915168,
+      "layer_idx": 41,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.41.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 16081952768,
+      "abs_offset": 16087923360,
+      "layer_idx": 41,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.42.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 16195198976,
+      "abs_offset": 16201169568,
+      "layer_idx": 42,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.42.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 16196313088,
+      "abs_offset": 16202283680,
+      "layer_idx": 42,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.42.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 16196313600,
+      "abs_offset": 16202284192,
+      "layer_idx": 42,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.42.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 16196321792,
+      "abs_offset": 16202292384,
+      "layer_idx": 42,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.42.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 16202088960,
+      "abs_offset": 16208059552,
+      "layer_idx": 42,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.42.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 16206807552,
+      "abs_offset": 16212778144,
+      "layer_idx": 42,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.42.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 16206808064,
+      "abs_offset": 16212778656,
+      "layer_idx": 42,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.42.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 16207668224,
+      "abs_offset": 16213638816,
+      "layer_idx": 42,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.42.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 16372818944,
+      "abs_offset": 16378789536,
+      "layer_idx": 42,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.42.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 16486065152,
+      "abs_offset": 16492035744,
+      "layer_idx": 42,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.42.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 16487113728,
+      "abs_offset": 16493084320,
+      "layer_idx": 42,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.42.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 16487121920,
+      "abs_offset": 16493092512,
+      "layer_idx": 42,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.43.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 16600368128,
+      "abs_offset": 16606338720,
+      "layer_idx": 43,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.43.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 16601482240,
+      "abs_offset": 16607452832,
+      "layer_idx": 43,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.43.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 16601482752,
+      "abs_offset": 16607453344,
+      "layer_idx": 43,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.43.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 16601490944,
+      "abs_offset": 16607461536,
+      "layer_idx": 43,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.43.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 16607258112,
+      "abs_offset": 16613228704,
+      "layer_idx": 43,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.43.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 16611976704,
+      "abs_offset": 16617947296,
+      "layer_idx": 43,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.43.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 16611977216,
+      "abs_offset": 16617947808,
+      "layer_idx": 43,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.43.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 16612837376,
+      "abs_offset": 16618807968,
+      "layer_idx": 43,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.43.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 16777988096,
+      "abs_offset": 16783958688,
+      "layer_idx": 43,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.43.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 16891234304,
+      "abs_offset": 16897204896,
+      "layer_idx": 43,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.43.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 16892282880,
+      "abs_offset": 16898253472,
+      "layer_idx": 43,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.43.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 16892291072,
+      "abs_offset": 16898261664,
+      "layer_idx": 43,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.44.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 17005537280,
+      "abs_offset": 17011507872,
+      "layer_idx": 44,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.44.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 17006651392,
+      "abs_offset": 17012621984,
+      "layer_idx": 44,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.44.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 17006651904,
+      "abs_offset": 17012622496,
+      "layer_idx": 44,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.44.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 17006660096,
+      "abs_offset": 17012630688,
+      "layer_idx": 44,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.44.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 17012427264,
+      "abs_offset": 17018397856,
+      "layer_idx": 44,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.44.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 17017145856,
+      "abs_offset": 17023116448,
+      "layer_idx": 44,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.44.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 17017146368,
+      "abs_offset": 17023116960,
+      "layer_idx": 44,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.44.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 17018006528,
+      "abs_offset": 17023977120,
+      "layer_idx": 44,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.44.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 17183157248,
+      "abs_offset": 17189127840,
+      "layer_idx": 44,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.44.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 17296403456,
+      "abs_offset": 17302374048,
+      "layer_idx": 44,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.44.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 17297452032,
+      "abs_offset": 17303422624,
+      "layer_idx": 44,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.44.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 17297460224,
+      "abs_offset": 17303430816,
+      "layer_idx": 44,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.45.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 17410706432,
+      "abs_offset": 17416677024,
+      "layer_idx": 45,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.45.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 17411820544,
+      "abs_offset": 17417791136,
+      "layer_idx": 45,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.45.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 17411821056,
+      "abs_offset": 17417791648,
+      "layer_idx": 45,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.45.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 17411829248,
+      "abs_offset": 17417799840,
+      "layer_idx": 45,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.45.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 17417596416,
+      "abs_offset": 17423567008,
+      "layer_idx": 45,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.45.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 17422315008,
+      "abs_offset": 17428285600,
+      "layer_idx": 45,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.45.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 17422315520,
+      "abs_offset": 17428286112,
+      "layer_idx": 45,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.45.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 17423175680,
+      "abs_offset": 17429146272,
+      "layer_idx": 45,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.45.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 17588326400,
+      "abs_offset": 17594296992,
+      "layer_idx": 45,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.45.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 17701572608,
+      "abs_offset": 17707543200,
+      "layer_idx": 45,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.45.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 17702621184,
+      "abs_offset": 17708591776,
+      "layer_idx": 45,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.45.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 17702629376,
+      "abs_offset": 17708599968,
+      "layer_idx": 45,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.46.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 17815875584,
+      "abs_offset": 17821846176,
+      "layer_idx": 46,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.46.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 17816989696,
+      "abs_offset": 17822960288,
+      "layer_idx": 46,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.46.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 17816990208,
+      "abs_offset": 17822960800,
+      "layer_idx": 46,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.46.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 17816998400,
+      "abs_offset": 17822968992,
+      "layer_idx": 46,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.46.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 17822765568,
+      "abs_offset": 17828736160,
+      "layer_idx": 46,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.46.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 17827484160,
+      "abs_offset": 17833454752,
+      "layer_idx": 46,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.46.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 17827484672,
+      "abs_offset": 17833455264,
+      "layer_idx": 46,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.46.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 17828344832,
+      "abs_offset": 17834315424,
+      "layer_idx": 46,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.46.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 17993495552,
+      "abs_offset": 17999466144,
+      "layer_idx": 46,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.46.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 18106741760,
+      "abs_offset": 18112712352,
+      "layer_idx": 46,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.46.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 18107790336,
+      "abs_offset": 18113760928,
+      "layer_idx": 46,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.46.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 18107798528,
+      "abs_offset": 18113769120,
+      "layer_idx": 46,
+      "category": "expert_up_stacked"
+    },
+    {
+      "name": "blk.47.attn_k.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q8_0",
+      "num_elements": 1048576,
+      "storage_bytes": 1114112,
+      "gguf_offset": 18221044736,
+      "abs_offset": 18227015328,
+      "layer_idx": 47,
+      "category": "attention_k_proj"
+    },
+    {
+      "name": "blk.47.attn_k_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 18222158848,
+      "abs_offset": 18228129440,
+      "layer_idx": 47,
+      "category": "attention_k_norm"
+    },
+    {
+      "name": "blk.47.attn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 18222159360,
+      "abs_offset": 18228129952,
+      "layer_idx": 47,
+      "category": "attention_norm"
+    },
+    {
+      "name": "blk.47.attn_output.weight",
+      "dims": [
+        4096,
+        2048
+      ],
+      "type": "Q5_K",
+      "num_elements": 8388608,
+      "storage_bytes": 5767168,
+      "gguf_offset": 18222167552,
+      "abs_offset": 18228138144,
+      "layer_idx": 47,
+      "category": "attention_out_proj"
+    },
+    {
+      "name": "blk.47.attn_q.weight",
+      "dims": [
+        2048,
+        4096
+      ],
+      "type": "Q4_K",
+      "num_elements": 8388608,
+      "storage_bytes": 4718592,
+      "gguf_offset": 18227934720,
+      "abs_offset": 18233905312,
+      "layer_idx": 47,
+      "category": "attention_q_proj"
+    },
+    {
+      "name": "blk.47.attn_q_norm.weight",
+      "dims": [
+        128
+      ],
+      "type": "F32",
+      "num_elements": 128,
+      "storage_bytes": 512,
+      "gguf_offset": 18232653312,
+      "abs_offset": 18238623904,
+      "layer_idx": 47,
+      "category": "attention_q_norm"
+    },
+    {
+      "name": "blk.47.attn_v.weight",
+      "dims": [
+        2048,
+        512
+      ],
+      "type": "Q6_K",
+      "num_elements": 1048576,
+      "storage_bytes": 860160,
+      "gguf_offset": 18232653824,
+      "abs_offset": 18238624416,
+      "layer_idx": 47,
+      "category": "attention_v_proj"
+    },
+    {
+      "name": "blk.47.ffn_down_exps.weight",
+      "dims": [
+        768,
+        2048,
+        128
+      ],
+      "type": "Q6_K",
+      "num_elements": 201326592,
+      "storage_bytes": 165150720,
+      "gguf_offset": 18233513984,
+      "abs_offset": 18239484576,
+      "layer_idx": 47,
+      "category": "expert_down_stacked"
+    },
+    {
+      "name": "blk.47.ffn_gate_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 18398664704,
+      "abs_offset": 18404635296,
+      "layer_idx": 47,
+      "category": "expert_gate_stacked"
+    },
+    {
+      "name": "blk.47.ffn_gate_inp.weight",
+      "dims": [
+        2048,
+        128
+      ],
+      "type": "F32",
+      "num_elements": 262144,
+      "storage_bytes": 1048576,
+      "gguf_offset": 18511910912,
+      "abs_offset": 18517881504,
+      "layer_idx": 47,
+      "category": "router_gate"
+    },
+    {
+      "name": "blk.47.ffn_norm.weight",
+      "dims": [
+        2048
+      ],
+      "type": "F32",
+      "num_elements": 2048,
+      "storage_bytes": 8192,
+      "gguf_offset": 18512959488,
+      "abs_offset": 18518930080,
+      "layer_idx": 47,
+      "category": "ffn_norm"
+    },
+    {
+      "name": "blk.47.ffn_up_exps.weight",
+      "dims": [
+        2048,
+        768,
+        128
+      ],
+      "type": "Q4_K",
+      "num_elements": 201326592,
+      "storage_bytes": 113246208,
+      "gguf_offset": 18512967680,
+      "abs_offset": 18518938272,
+      "layer_idx": 47,
+      "category": "expert_up_stacked"
+    }
+  ]
+}
