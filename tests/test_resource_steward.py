@@ -3444,5 +3444,84 @@ class TestResourceSteward(unittest.TestCase):
         self.assertTrue(gates_25["disk_free"].passed)
         self.assertEqual(gates_25["disk_free"].required_str, ">= 25.0 GiB")
 
+    def test_76_policy_mutation_fail_closed_integration_check(self):
+        """
+        Validates that mutating exposed policy thresholds on MemoryBudgetManager post-construction
+        strictly fails closed on malformed/non-numeric input without uncaught exceptions:
+          Case A. Mutate to string: manager.policy.minimum_disk_free_gib = "invalid"
+                  -> No ValueError, all_passed == False, disk gate reports INVALID POLICY.
+          Case B. Mutate to None: manager.policy.minimum_disk_free_gib = None
+                  -> No TypeError, all_passed == False, disk gate reports INVALID POLICY.
+          Case C. Mutate to arbitrary object: manager.policy.minimum_disk_free_gib = object()
+                  -> No uncaught exception, all_passed == False, disk gate reports INVALID POLICY.
+          Case D. Confirm NaN and infinity continue to produce explicit INVALID POLICY.
+          Case E. Confirm valid stricter policy of 40 GiB still works as intended.
+        """
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+        disk_healthy = self._make_healthy_disk(free_gib=50.0)
+
+        # --- Case A: Mutate to string "invalid" ---
+        mgr_a = MemoryBudgetManager()
+        mgr_a.policy.minimum_disk_free_gib = "invalid"
+        all_passed_a, gates_a = mgr_a.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_a, "Mutated string threshold must FAIL admission")
+        self.assertFalse(gates_a["disk_free"].passed)
+        self.assertEqual(gates_a["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("Invalid non-finite or non-positive policy disk threshold: 'invalid'", gates_a["disk_free"].failure_reason)
+
+        # --- Case B: Mutate to None ---
+        mgr_b = MemoryBudgetManager()
+        mgr_b.policy.minimum_disk_free_gib = None
+        all_passed_b, gates_b = mgr_b.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_b, "Mutated None threshold must FAIL admission")
+        self.assertFalse(gates_b["disk_free"].passed)
+        self.assertEqual(gates_b["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("Invalid non-finite or non-positive policy disk threshold: None", gates_b["disk_free"].failure_reason)
+
+        # --- Case C: Mutate to arbitrary non-numeric object ---
+        mgr_c = MemoryBudgetManager()
+        dummy_obj = object()
+        mgr_c.policy.minimum_disk_free_gib = dummy_obj
+        all_passed_c, gates_c = mgr_c.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_c, "Mutated arbitrary object threshold must FAIL admission")
+        self.assertFalse(gates_c["disk_free"].passed)
+        self.assertEqual(gates_c["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn(f"Invalid non-finite or non-positive policy disk threshold: {dummy_obj!r}", gates_c["disk_free"].failure_reason)
+
+        # --- Case D: Confirm NaN and infinity continue to produce explicit invalid-policy results ---
+        mgr_d_nan = MemoryBudgetManager()
+        mgr_d_nan.policy.minimum_disk_free_gib = float("nan")
+        all_passed_d_nan, gates_d_nan = mgr_d_nan.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_d_nan)
+        self.assertFalse(gates_d_nan["disk_free"].passed)
+        self.assertEqual(gates_d_nan["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("Invalid non-finite or non-positive policy disk threshold: nan", gates_d_nan["disk_free"].failure_reason)
+
+        mgr_d_inf = MemoryBudgetManager()
+        mgr_d_inf.policy.minimum_disk_free_gib = float("inf")
+        all_passed_d_inf, gates_d_inf = mgr_d_inf.evaluate_gates(ram_healthy, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_d_inf)
+        self.assertFalse(gates_d_inf["disk_free"].passed)
+        self.assertEqual(gates_d_inf["disk_free"].required_str, "INVALID POLICY")
+        self.assertIn("Invalid non-finite or non-positive policy disk threshold: inf", gates_d_inf["disk_free"].failure_reason)
+
+        # --- Case E: Confirm valid stricter policy of 40 GiB still works ---
+        mgr_e = MemoryBudgetManager()
+        mgr_e.policy.minimum_disk_free_gib = 40.0
+        # Machine has 50 GiB free -> PASS
+        disk_50 = self._make_healthy_disk(free_gib=50.0)
+        all_passed_e1, gates_e1 = mgr_e.evaluate_gates(ram_healthy, gpu_healthy, disk_50)
+        self.assertTrue(all_passed_e1)
+        self.assertTrue(gates_e1["disk_free"].passed)
+        self.assertEqual(gates_e1["disk_free"].required_str, ">= 40.0 GiB")
+        # Machine has 35 GiB free -> FAIL
+        disk_35 = self._make_healthy_disk(free_gib=35.0)
+        all_passed_e2, gates_e2 = mgr_e.evaluate_gates(ram_healthy, gpu_healthy, disk_35)
+        self.assertFalse(all_passed_e2)
+        self.assertFalse(gates_e2["disk_free"].passed)
+        self.assertEqual(gates_e2["disk_free"].required_str, ">= 40.0 GiB")
+        self.assertIn("Disk space deficit: 5.00 GiB below required 40.0 GiB", gates_e2["disk_free"].failure_reason)
+
 if __name__ == "__main__":
     unittest.main()

@@ -59,9 +59,21 @@ class ResourcePolicy:
         self.critical_ram_gib = critical_ram_gib
         self.minimum_vram_mib = minimum_vram_mib
         if minimum_disk_free_gib is not None:
-            self.minimum_disk_free_gib = float(minimum_disk_free_gib)
+            if isinstance(minimum_disk_free_gib, bool) or not isinstance(minimum_disk_free_gib, (int, float)):
+                self.minimum_disk_free_gib = minimum_disk_free_gib
+            else:
+                try:
+                    self.minimum_disk_free_gib = float(minimum_disk_free_gib)
+                except (OverflowError, TypeError, ValueError):
+                    self.minimum_disk_free_gib = minimum_disk_free_gib
         elif minimum_disk_free_gb is not None:
-            self.minimum_disk_free_gib = float(minimum_disk_free_gb)
+            if isinstance(minimum_disk_free_gb, bool) or not isinstance(minimum_disk_free_gb, (int, float)):
+                self.minimum_disk_free_gib = minimum_disk_free_gb
+            else:
+                try:
+                    self.minimum_disk_free_gib = float(minimum_disk_free_gb)
+                except (OverflowError, TypeError, ValueError):
+                    self.minimum_disk_free_gib = minimum_disk_free_gb
         else:
             self.minimum_disk_free_gib = 25.0
 
@@ -166,28 +178,44 @@ def enforce_mandatory_admission_floors(policy: Optional[ResourcePolicy]) -> Reso
     base = policy or DEFAULT_POLICY
     clamped = copy.copy(base)
 
-    try:
-        r = float(base.minimum_inference_ram_gib)
-        clamped.minimum_inference_ram_gib = max(MANDATORY_MIN_RAM_GIB, r) if math.isfinite(r) else r
-    except (OverflowError, TypeError, ValueError):
-        clamped.minimum_inference_ram_gib = float("inf")
+    val_ram = getattr(base, "minimum_inference_ram_gib", None)
+    if isinstance(val_ram, bool) or not isinstance(val_ram, (int, float)):
+        clamped.minimum_inference_ram_gib = val_ram
+    else:
+        try:
+            r = float(val_ram)
+            clamped.minimum_inference_ram_gib = max(MANDATORY_MIN_RAM_GIB, r) if math.isfinite(r) else r
+        except (OverflowError, TypeError, ValueError):
+            clamped.minimum_inference_ram_gib = val_ram
 
-    try:
-        c = float(base.critical_commit_pct)
-        clamped.critical_commit_pct = min(MANDATORY_MAX_COMMIT_PCT, c) if math.isfinite(c) else c
-    except (OverflowError, TypeError, ValueError):
-        clamped.critical_commit_pct = 0.0
+    val_commit = getattr(base, "critical_commit_pct", None)
+    if isinstance(val_commit, bool) or not isinstance(val_commit, (int, float)):
+        clamped.critical_commit_pct = val_commit
+    else:
+        try:
+            c = float(val_commit)
+            clamped.critical_commit_pct = min(MANDATORY_MAX_COMMIT_PCT, c) if math.isfinite(c) else c
+        except (OverflowError, TypeError, ValueError):
+            clamped.critical_commit_pct = val_commit
 
-    try:
-        v = float(base.minimum_vram_mib)
-        clamped.minimum_vram_mib = max(MANDATORY_MIN_VRAM_MIB, v) if math.isfinite(v) else v
-    except (OverflowError, TypeError, ValueError):
-        clamped.minimum_vram_mib = float("inf")
+    val_vram = getattr(base, "minimum_vram_mib", None)
+    if isinstance(val_vram, bool) or not isinstance(val_vram, (int, float)):
+        clamped.minimum_vram_mib = val_vram
+    else:
+        try:
+            v = float(val_vram)
+            clamped.minimum_vram_mib = max(MANDATORY_MIN_VRAM_MIB, v) if math.isfinite(v) else v
+        except (OverflowError, TypeError, ValueError):
+            clamped.minimum_vram_mib = val_vram
 
-    try:
-        d = float(base.minimum_disk_free_gib)
-        clamped.minimum_disk_free_gib = max(MANDATORY_MIN_DISK_FREE_GIB, d) if math.isfinite(d) else d
-    except (OverflowError, TypeError, ValueError):
-        clamped.minimum_disk_free_gib = float("inf")
+    val_disk = getattr(base, "minimum_disk_free_gib", None)
+    if isinstance(val_disk, bool) or not isinstance(val_disk, (int, float)):
+        clamped.minimum_disk_free_gib = val_disk
+    else:
+        try:
+            d = float(val_disk)
+            clamped.minimum_disk_free_gib = max(MANDATORY_MIN_DISK_FREE_GIB, d) if math.isfinite(d) else d
+        except (OverflowError, TypeError, ValueError):
+            clamped.minimum_disk_free_gib = val_disk
 
     return clamped
