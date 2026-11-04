@@ -197,24 +197,38 @@ class SupervisorResult:
     processed_samples_count: int
     duration_seconds: float
     output_lines: List[str] = field(default_factory=list)
+    reader_thread_stopped: bool = True
 
 @dataclass
 class MemoryReclaimReport:
     timestamp_utc: str
     trigger_reason: str
     pressure_level: MemoryPressureLevel
+    # System-wide memory metrics (exact bytes and derived GiB)
+    system_avail_bytes_before: int
+    system_avail_bytes_after: int
+    observed_system_avail_delta_bytes: int
+    observed_system_avail_delta_mib: float
     ram_available_before_gib: float
     ram_available_after_gib: float
-    ram_delta_gib: float
+    ram_delta_gib: float # Observed system-wide delta in GiB (not attributed to AMR)
     commit_before_pct: float
     commit_after_pct: float
-    actions_attempted: List[str]
-    actions_completed: List[str]
-    actions_failed: List[str]
-    reclamation_duration_seconds: float
-    cooldown_applied: bool
-    overall_status: ReclamationStatus
-    safety_notes: List[str]
+    # NOVA process-local memory metrics (bytes)
+    nova_process_working_set_bytes_before: Optional[int] = None
+    nova_process_working_set_bytes_after: Optional[int] = None
+    nova_process_private_bytes_before: Optional[int] = None
+    nova_process_private_bytes_after: Optional[int] = None
+    nova_process_working_set_delta_bytes: Optional[int] = None
+    nova_process_private_delta_bytes: Optional[int] = None
+    # Action accounting
+    actions_attempted: List[str] = field(default_factory=list)
+    actions_completed: List[str] = field(default_factory=list)
+    actions_failed: List[str] = field(default_factory=list)
+    reclamation_duration_seconds: float = 0.0
+    cooldown_applied: bool = False
+    overall_status: ReclamationStatus = ReclamationStatus.NO_ACTION_REQUIRED
+    safety_notes: List[str] = field(default_factory=list)
     paging_activity_before: Optional[Dict[str, Any]] = None
     paging_activity_after: Optional[Dict[str, Any]] = None
 
@@ -223,11 +237,21 @@ class MemoryReclaimReport:
             "timestamp_utc": self.timestamp_utc,
             "trigger_reason": self.trigger_reason,
             "pressure_level": self.pressure_level.value,
+            "system_avail_bytes_before": self.system_avail_bytes_before,
+            "system_avail_bytes_after": self.system_avail_bytes_after,
+            "observed_system_avail_delta_bytes": self.observed_system_avail_delta_bytes,
+            "observed_system_avail_delta_mib": self.observed_system_avail_delta_mib,
             "ram_available_before_gib": self.ram_available_before_gib,
             "ram_available_after_gib": self.ram_available_after_gib,
-            "ram_delta_gib": self.ram_delta_gib,
+            "observed_system_wide_ram_delta_gib": self.ram_delta_gib,
             "commit_before_pct": self.commit_before_pct,
             "commit_after_pct": self.commit_after_pct,
+            "nova_process_working_set_bytes_before": self.nova_process_working_set_bytes_before,
+            "nova_process_working_set_bytes_after": self.nova_process_working_set_bytes_after,
+            "nova_process_private_bytes_before": self.nova_process_private_bytes_before,
+            "nova_process_private_bytes_after": self.nova_process_private_bytes_after,
+            "nova_process_working_set_delta_bytes": self.nova_process_working_set_delta_bytes,
+            "nova_process_private_delta_bytes": self.nova_process_private_delta_bytes,
             "actions_attempted": self.actions_attempted,
             "actions_completed": self.actions_completed,
             "actions_failed": self.actions_failed,

@@ -78,3 +78,10 @@ desktop.ini
 # Benchmark raw traces & logs (allow hardware reports)
 *.log
 !reports/**
+
+# Machine-specific runtime telemetry and execution logs (never commit live machine traces)
+reports/phase2c/memory_reclamation/reclaim_*.json
+reports/phase2c/memory_reclamation/reclaim_latest.json
+reports/phase2c/first_inference/RESOURCE_TELEMETRY.json
+reports/phase2c/first_inference/PREFLIGHT_LATEST.json
+reports/phase2c/first_inference/EXECUTION_LOG.txt

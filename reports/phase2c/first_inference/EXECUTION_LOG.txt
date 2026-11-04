@@ -1,3 +1,0 @@
-NOVA Compute Execution Gated at Preflight.
-Timestamp (UTC): 2026-11-04T10:52:53.470672+00:00
-Inference process was not spawned due to unmet preflight gate conditions.

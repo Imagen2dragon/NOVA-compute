@@ -28,10 +28,22 @@ class ResourcePolicy:
     # Adaptive Memory Reclaimer (AMR) configurations
     reclamation_cooldown_seconds: float = 30.0
     min_reclamation_delta_mb: float = 10.0
-    ram_pressure_optimization_gib: float = 12.0
-    ram_pressure_constrained_gib: float = 10.0
-    ram_pressure_critical_gib: float = 2.0
     auto_reclaim_enabled: bool = True
+
+    @property
+    def ram_pressure_optimization_gib(self) -> float:
+        """Threshold below which proactive AMR optimization is triggered."""
+        return self.preferred_inference_ram_gib
+
+    @property
+    def ram_pressure_constrained_gib(self) -> float:
+        """Threshold below which system is memory-constrained (fails admission gate)."""
+        return self.minimum_inference_ram_gib
+
+    @property
+    def ram_pressure_critical_gib(self) -> float:
+        """Threshold below which system is in critical memory pressure."""
+        return self.critical_ram_gib
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)

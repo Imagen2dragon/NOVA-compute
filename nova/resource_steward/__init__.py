@@ -4,6 +4,8 @@ Provides resource-aware system diagnostics, memory budget policies,
 fail-closed preflight gating, supervisor engines, and safe reclamation managers.
 """
 
+from typing import Optional
+
 from .models import (
     TelemetryStatus,
     ExecutionMode,
@@ -60,15 +62,17 @@ from .adaptive_memory import (
 class ResourceSteward:
     """Unified coordinator for resource diagnostics, preflight auditing, safe reclamation, and adaptive memory control."""
 
-    def __init__(self, policy: ResourcePolicy = None):
+    def __init__(self, policy: ResourcePolicy = None, reports_dir: Optional[str] = None):
         self.policy = policy or DEFAULT_POLICY
+        self.reports_dir = reports_dir
         self.budget_mgr = MemoryBudgetManager(self.policy)
         self.monitor = ResourceMonitor()
         self.advisor = MemoryAdvisor()
         self.reclamation = SafeReclamationManager()
         self.adaptive_reclaimer = AdaptiveMemoryController(
             policy=self.policy,
-            monitor=self.monitor
+            monitor=self.monitor,
+            reports_dir=self.reports_dir
         )
 
     def run_preflight(self, run_auto_reclaim: bool = True) -> PreflightReport:

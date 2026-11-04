@@ -19,6 +19,7 @@ import queue
 import tempfile
 import signal
 import subprocess
+import threading
 import unittest
 from typing import Optional, List, Dict, Any, Callable
 from unittest.mock import MagicMock, patch
@@ -71,6 +72,15 @@ class FakeClock:
 class TestResourceSteward(unittest.TestCase):
 
     def setUp(self):
+        # Isolate all tests to a temporary directory so tracked reports are never modified
+        self.temp_test_dir = tempfile.TemporaryDirectory()
+        self.inference_reports_dir = os.path.join(self.temp_test_dir.name, "first_inference")
+        self.amr_reports_dir = os.path.join(self.temp_test_dir.name, "memory_reclamation")
+        os.makedirs(self.inference_reports_dir, exist_ok=True)
+        os.makedirs(self.amr_reports_dir, exist_ok=True)
+        os.environ["NOVA_REPORT_DIR"] = self.inference_reports_dir
+        os.environ["NOVA_AMR_REPORT_DIR"] = self.amr_reports_dir
+
         self.policy = ResourcePolicy(
             minimum_inference_ram_gib=10.0,
             preferred_inference_ram_gib=12.0,
@@ -82,6 +92,11 @@ class TestResourceSteward(unittest.TestCase):
             low_ram_abort_duration_seconds=5.0
         )
         self.budget_mgr = MemoryBudgetManager(self.policy)
+
+    def tearDown(self):
+        os.environ.pop("NOVA_REPORT_DIR", None)
+        os.environ.pop("NOVA_AMR_REPORT_DIR", None)
+        self.temp_test_dir.cleanup()
 
     def _make_healthy_ram(self, avail_gib: float = 12.0, commit_pct: float = 40.0,
                            commit_total_bytes: int = int(40 * 1024**3),
@@ -160,13 +175,13 @@ class TestResourceSteward(unittest.TestCase):
 
     def test_01_default_invocation_never_starts_child(self):
         cmd = [sys.executable, os.path.join(PROJECT_ROOT, "scripts", "run_inference_with_telemetry.py")]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10, env=dict(os.environ))
         self.assertIn("[MODE] PREFLIGHT ONLY", res.stdout)
         self.assertNotIn("Spawning NOVA inference child process", res.stdout)
 
     def test_02_dry_run_never_starts_child(self):
         cmd = [sys.executable, os.path.join(PROJECT_ROOT, "scripts", "run_inference_with_telemetry.py"), "--dry-run"]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=10, env=dict(os.environ))
         self.assertEqual(res.returncode, 0)
         self.assertIn("[MODE] DRY RUN VALIDATION", res.stdout)
         self.assertIn("Dry run completed successfully. (No inference was started).", res.stdout)
@@ -175,7 +190,7 @@ class TestResourceSteward(unittest.TestCase):
         from scripts.run_inference_with_telemetry import execute_inference
         from nova.resource_steward import ResourceSteward
 
-        steward = ResourceSteward(self.policy)
+        steward = ResourceSteward(self.policy, reports_dir=self.amr_reports_dir)
         failing_ram = self._make_healthy_ram(avail_gib=8.5)
         failing_report = self.budget_mgr.generate_preflight_report(
             failing_ram, self._make_healthy_gpu(), self._make_healthy_disk(),
@@ -186,7 +201,7 @@ class TestResourceSteward(unittest.TestCase):
              patch("subprocess.Popen") as mock_popen, \
              patch("sys.exit", side_effect=SystemExit(1)) as mock_exit:
             with self.assertRaises(SystemExit):
-                execute_inference(steward)
+                execute_inference(steward, output_dir=self.inference_reports_dir)
             mock_popen.assert_not_called()
             mock_exit.assert_called_with(1)
 
@@ -197,7 +212,7 @@ class TestResourceSteward(unittest.TestCase):
             "--execute",
             "--dry-run"
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5, env=dict(os.environ))
         self.assertNotEqual(res.returncode, 0)
         self.assertIn("not allowed with argument", res.stderr)
 
@@ -572,7 +587,12 @@ class TestResourceSteward(unittest.TestCase):
             peak_vram_mib=4200.0,
             processed_samples_count=5,
             duration_seconds=1.2,
-            output_lines=["load time = 500 ms\n", "prompt eval time = 50 ms\n", "eval time = 20 ms\n", "print_timings: done\n"]
+            output_lines=[
+                "load time = 500.00 ms\n",
+                "prompt eval time = 50.00 ms / 10 tokens\n",
+                "eval time = 20.00 ms / 1 runs ( 20.00 ms per token, 50.00 tokens per second)\n",
+                "print_timings: done\n"
+            ]
         )
         outcome, reason = verify_inference_success(sup_ok, rec_ok)
         self.assertEqual(outcome, InferenceOutcome.SUCCESS)
@@ -774,48 +794,111 @@ class TestResourceSteward(unittest.TestCase):
         self.assertFalse(gates["system_commit"].passed)
         self.assertIn("Contradictory commit percentage", gates["system_commit"].failure_reason)
 
-    def test_26_inference_verifier_zero_runs_rejected(self):
+    def test_26_inference_verifier_zero_and_missing_runs_rejected(self):
         rec_ok = MagicMock()
         rec_ok.recovery_successful = True
+        rec_ok.reader_thread_stopped = True
 
-        # Output with 0 runs (prompt eval only)
-        sup_zero_runs = SupervisorResult(
-            abort_triggered=False,
-            abort_reason="",
-            exit_code=0,
-            peak_ram_gib=10.0,
-            peak_vram_mib=4200.0,
-            processed_samples_count=5,
-            duration_seconds=1.2,
-            output_lines=[
-                "load time = 500 ms\n",
-                "prompt eval time = 50.00 ms / 10 tokens\n",
-                "eval time = 0.00 ms / 0 runs\n",
-                "print_timings: done\n"
-            ]
-        )
+        def make_sup(output_lines):
+            return SupervisorResult(
+                abort_triggered=False,
+                abort_reason="",
+                exit_code=0,
+                peak_ram_gib=10.0,
+                peak_vram_mib=4200.0,
+                processed_samples_count=5,
+                duration_seconds=1.2,
+                output_lines=output_lines,
+                reader_thread_stopped=True
+            )
+
+        # 1. Output with 0 runs (prompt eval only) -> MUST be UNVERIFIED
+        sup_zero_runs = make_sup([
+            "load time = 500 ms\n",
+            "prompt eval time = 50.00 ms / 10 tokens\n",
+            "eval time = 0.00 ms / 0 runs\n",
+            "print_timings: done\n"
+        ])
         outcome, reason = verify_inference_success(sup_zero_runs, rec_ok)
         self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
         self.assertIn("0 generated tokens", reason)
 
-        # Output with 1 positive run
-        sup_one_run = SupervisorResult(
-            abort_triggered=False,
-            abort_reason="",
-            exit_code=0,
-            peak_ram_gib=10.0,
-            peak_vram_mib=4200.0,
-            processed_samples_count=5,
-            duration_seconds=1.2,
-            output_lines=[
-                "load time = 500 ms\n",
-                "prompt eval time = 50.00 ms / 10 tokens\n",
-                "eval time = 25.00 ms / 1 runs ( 25.00 ms per token, 40.00 tokens per second)\n",
-                "print_timings: done\n"
-            ]
-        )
+        # 2. Output with eval time without explicit run count -> MUST be UNVERIFIED
+        sup_missing_count = make_sup([
+            "load time = 500 ms\n",
+            "prompt eval time = 50.00 ms / 10 tokens\n",
+            "eval time = 25.00 ms\n",
+            "print_timings: done\n"
+        ])
+        outcome, reason = verify_inference_success(sup_missing_count, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+        self.assertIn("ambiguous eval timing without explicit run count", reason)
+
+        # 3. Output with prompt eval only (no eval time at all) -> MUST be UNVERIFIED
+        sup_prompt_only = make_sup([
+            "load time = 500 ms\n",
+            "prompt eval time = 50.00 ms / 10 tokens\n",
+            "print_timings: done\n"
+        ])
+        outcome, reason = verify_inference_success(sup_prompt_only, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+        self.assertIn("prompt evaluation only", reason)
+
+        # 4. Output with tokens generated: 0 -> MUST be UNVERIFIED
+        sup_tokens_zero = make_sup([
+            "load time = 500 ms\n",
+            "tokens generated: 0\n",
+            "print_timings: done\n"
+        ])
+        outcome, reason = verify_inference_success(sup_tokens_zero, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+
+        # 5. Output with load time or print_timings alone -> MUST be UNVERIFIED
+        sup_timings_only = make_sup([
+            "load time = 500 ms\n",
+            "print_timings: done\n"
+        ])
+        outcome, reason = verify_inference_success(sup_timings_only, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+
+        # 6. Malformed timing output -> MUST be UNVERIFIED
+        sup_malformed = make_sup([
+            "load time = 500 ms\n",
+            "eval time = invalid / runs\n",
+            "print_timings: done\n"
+        ])
+        outcome, reason = verify_inference_success(sup_malformed, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+
+        # 7. Positive generated token count (/ 1 runs) -> MUST be SUCCESS
+        sup_one_run = make_sup([
+            "load time = 500 ms\n",
+            "prompt eval time = 50.00 ms / 10 tokens\n",
+            "eval time = 25.00 ms / 1 runs ( 25.00 ms per token, 40.00 tokens per second)\n",
+            "print_timings: done\n"
+        ])
         outcome, reason = verify_inference_success(sup_one_run, rec_ok)
         self.assertEqual(outcome, InferenceOutcome.SUCCESS)
+
+        # 8. Positive tokens generated count (tokens generated: 1) -> MUST be SUCCESS
+        sup_tokens_one = make_sup([
+            "load time = 500 ms\n",
+            "tokens generated: 1\n",
+            "print_timings: done\n"
+        ])
+        outcome, reason = verify_inference_success(sup_tokens_one, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.SUCCESS)
+
+        # 9. Reader thread not stopped -> MUST be UNVERIFIED even with positive tokens
+        sup_reader_unstopped = make_sup([
+            "load time = 500 ms\n",
+            "eval time = 25.00 ms / 1 runs\n",
+            "print_timings: done\n"
+        ])
+        sup_reader_unstopped.reader_thread_stopped = False
+        outcome, reason = verify_inference_success(sup_reader_unstopped, rec_ok)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+        self.assertIn("Full resource recovery could not be verified", reason)
 
     # =======================================================================
     # SECTION G: ADAPTIVE MEMORY RECLAIMER (AMR)
@@ -846,6 +929,25 @@ class TestResourceSteward(unittest.TestCase):
         # 5. Sensor failure -> CRITICAL (Fail-Closed)
         snap_failed = self._make_healthy_ram(status=TelemetryStatus.FAILED)
         self.assertEqual(detector.evaluate_pressure(snap_failed), MemoryPressureLevel.CRITICAL)
+
+        # 6. Reject invalid input types as CRITICAL
+        for bad_val in [None, True, False, "12.0", float("nan"), float("inf"), -1.0]:
+            snap_bad = self._make_healthy_ram(avail_gib=12.0)
+            snap_bad.avail_phys_gib = bad_val
+            self.assertEqual(detector.evaluate_pressure(snap_bad), MemoryPressureLevel.CRITICAL,
+                             f"Failed to reject bad avail_phys_gib {bad_val!r}")
+
+        for bad_bytes in [None, True, False, "bytes", -100]:
+            snap_bad = self._make_healthy_ram(avail_gib=12.0)
+            snap_bad.avail_phys_bytes = bad_bytes
+            self.assertEqual(detector.evaluate_pressure(snap_bad), MemoryPressureLevel.CRITICAL,
+                             f"Failed to reject bad avail_phys_bytes {bad_bytes!r}")
+
+        for bad_commit in [True, False, "40.0", float("nan"), float("inf"), -5.0, 105.0]:
+            snap_bad = self._make_healthy_ram(avail_gib=12.0)
+            snap_bad.commit_pct = bad_commit
+            self.assertEqual(detector.evaluate_pressure(snap_bad), MemoryPressureLevel.CRITICAL,
+                             f"Failed to reject bad commit_pct {bad_commit!r}")
 
     def test_28_amr_cooldown_throttling_and_reset(self):
         clock = FakeClock(100.0)
@@ -878,15 +980,10 @@ class TestResourceSteward(unittest.TestCase):
 
     def test_29_amr_safe_reclaimer_no_exceptions(self):
         reclaimer = SafeMemoryReclaimer()
-        extra_called = []
-        def mock_cleaner():
-            extra_called.append(True)
-
-        attempted, completed, failed, dur = reclaimer.reclaim(extra_cleaners=[mock_cleaner])
+        attempted, completed, failed, dur = reclaimer.reclaim()
         self.assertIn("python_gc_collect", attempted)
         self.assertTrue(any("python_gc_collect" in c for c in completed))
         self.assertEqual(len(failed), 0)
-        self.assertTrue(extra_called[0])
         self.assertGreaterEqual(dur, 0.0)
 
     def test_30_amr_delta_measurement_and_status(self):
@@ -904,51 +1001,110 @@ class TestResourceSteward(unittest.TestCase):
             mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.5)
             rep_a = controller.evaluate_and_reclaim()
             self.assertEqual(rep_a.overall_status, ReclamationStatus.NO_ACTION_REQUIRED)
+            self.assertEqual(rep_a.observed_system_avail_delta_bytes, 0)
             self.assertEqual(rep_a.ram_delta_gib, 0.0)
 
-            # Scenario B: Optimization RAM (11.0 GiB) with positive delta (+50 MB) -> RECLAMATION_COMPLETED
+            # Scenario B: Optimization RAM with demonstrable process-local memory reduction (>= 1 MiB)
+            # -> RECLAMATION_COMPLETED
             mock_monitor.get_system_memory.side_effect = [
                 self._make_healthy_ram(avail_gib=11.00), # Pre
-                self._make_healthy_ram(avail_gib=11.05)  # Post (+50 MB >= 10 MB)
+                self._make_healthy_ram(avail_gib=11.05)  # Post
             ]
+            # Mock process memory showing 2 MB working set reduction
+            mock_proc_pre = MagicMock(working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_proc_post = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_monitor.get_process_memory.side_effect = [mock_proc_pre, mock_proc_post]
+
             rep_b = controller.evaluate_and_reclaim(force=True)
             self.assertEqual(rep_b.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
-            self.assertAlmostEqual(rep_b.ram_delta_gib, 0.05, places=3)
+            self.assertEqual(rep_b.nova_process_working_set_delta_bytes, 2 * 1024 * 1024)
+            # Exact byte delta verification from avail_phys_bytes
+            self.assertGreater(rep_b.observed_system_avail_delta_bytes, 0)
 
-            # Scenario C: Constrained RAM (9.0 GiB) with delta < 10 MB -> NO_MEASURABLE_IMPROVEMENT
+            # Scenario C: Process memory shows no measurable reduction (< 1 MiB)
+            # -> NO_MEASURABLE_IMPROVEMENT (truthful reporting: do not attribute external RAM changes to AMR)
             mock_monitor.get_system_memory.side_effect = [
                 self._make_healthy_ram(avail_gib=9.000), # Pre
-                self._make_healthy_ram(avail_gib=9.002)  # Post (+2 MB < 10 MB)
+                self._make_healthy_ram(avail_gib=9.050)  # Post (host RAM grew, but not from NOVA)
             ]
+            mock_proc_flat = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_monitor.get_process_memory.side_effect = [mock_proc_flat, mock_proc_flat]
+
             rep_c = controller.evaluate_and_reclaim(force=True)
             self.assertEqual(rep_c.overall_status, ReclamationStatus.NO_MEASURABLE_IMPROVEMENT)
+            self.assertEqual(rep_c.nova_process_working_set_delta_bytes, 0)
 
-    def test_31_amr_reports_saved_to_json(self):
+    def test_31_amr_reports_saved_to_json_across_all_outcomes(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             mock_monitor = MagicMock()
-            mock_monitor.get_system_memory.side_effect = [
-                self._make_healthy_ram(avail_gib=11.0),
-                self._make_healthy_ram(avail_gib=11.1)
-            ]
             controller = AdaptiveMemoryController(
                 policy=self.policy,
                 monitor=mock_monitor,
                 reports_dir=tmp_dir
             )
-            report = controller.evaluate_and_reclaim()
+            mock_proc_flat = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+
+            # 1. Action outcome
+            mock_monitor.get_system_memory.side_effect = [
+                self._make_healthy_ram(avail_gib=11.0),
+                self._make_healthy_ram(avail_gib=11.1)
+            ]
+            mock_proc_pre = MagicMock(working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_proc_post = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_monitor.get_process_memory.side_effect = [mock_proc_pre, mock_proc_post]
+            rep_action = controller.evaluate_and_reclaim()
             latest_path = os.path.join(tmp_dir, "reclaim_latest.json")
             self.assertTrue(os.path.exists(latest_path))
 
             with open(latest_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self.assertEqual(data["overall_status"], ReclamationStatus.RECLAMATION_COMPLETED.value)
-            self.assertIn("safety_notes", data)
-            self.assertEqual(len(data["safety_notes"]), 4)
+            self.assertIn("observed_system_avail_delta_bytes", data)
+            self.assertIn("nova_process_working_set_delta_bytes", data)
+
+            # 2. Cooldown outcome (second call within cooldown)
+            mock_monitor.get_system_memory.side_effect = None
+            mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=11.0)
+            mock_monitor.get_process_memory.side_effect = None
+            mock_monitor.get_process_memory.return_value = mock_proc_flat
+            rep_cd = controller.evaluate_and_reclaim()
+            self.assertTrue(rep_cd.cooldown_applied)
+            with open(latest_path, "r", encoding="utf-8") as f:
+                data_cd = json.load(f)
+            self.assertTrue(data_cd["cooldown_applied"])
+
+            # 3. Normal / No-action outcome
+            controller.cooldown_mgr.reset()
+            mock_monitor.get_system_memory.side_effect = None
+            mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=13.0)
+            mock_monitor.get_process_memory.side_effect = None
+            mock_monitor.get_process_memory.return_value = mock_proc_flat
+            rep_norm = controller.evaluate_and_reclaim()
+            self.assertEqual(rep_norm.overall_status, ReclamationStatus.NO_ACTION_REQUIRED)
+            with open(latest_path, "r", encoding="utf-8") as f:
+                data_norm = json.load(f)
+            self.assertEqual(data_norm["overall_status"], ReclamationStatus.NO_ACTION_REQUIRED.value)
+
+            # 4. Telemetry failure outcome
+            controller.cooldown_mgr.reset()
+            mock_monitor.get_system_memory.side_effect = None
+            mock_monitor.get_system_memory.return_value = self._make_healthy_ram(status=TelemetryStatus.FAILED)
+            rep_fail = controller.evaluate_and_reclaim()
+            self.assertEqual(rep_fail.overall_status, ReclamationStatus.RECLAMATION_FAILED)
+            with open(latest_path, "r", encoding="utf-8") as f:
+                data_fail = json.load(f)
+            self.assertEqual(data_fail["overall_status"], ReclamationStatus.RECLAMATION_FAILED.value)
 
     def test_32_static_inspection_forbidden_apis_absent(self):
-        """Static inspection: verifies forbidden Windows memory cleaner APIs are NEVER called or imported."""
+        """
+        Static inspection: verifies forbidden Windows memory cleaner APIs are NEVER called or imported
+        across all Python source code in both nova/ and scripts/.
+        """
         import ast
-        steward_dir = os.path.join(PROJECT_ROOT, "nova", "resource_steward")
+        scan_dirs = [
+            os.path.join(PROJECT_ROOT, "nova"),
+            os.path.join(PROJECT_ROOT, "scripts")
+        ]
         forbidden = [
             "EmptyWorkingSet",
             "K32EmptyWorkingSet",
@@ -958,35 +1114,39 @@ class TestResourceSteward(unittest.TestCase):
             "SetSystemFileCacheSize"
         ]
 
-        for fname in os.listdir(steward_dir):
-            if fname.endswith(".py"):
-                fpath = os.path.join(steward_dir, fname)
-                with open(fpath, "r", encoding="utf-8") as f:
-                    code = f.read()
+        scanned_files_count = 0
+        for scan_dir in scan_dirs:
+            for root, _, files in os.walk(scan_dir):
+                for fname in files:
+                    if fname.endswith(".py"):
+                        scanned_files_count += 1
+                        fpath = os.path.join(root, fname)
+                        with open(fpath, "r", encoding="utf-8") as f:
+                            code = f.read()
 
-                tree = ast.parse(code, filename=fpath)
-                for node in ast.walk(tree):
-                    # Check function calls
-                    if isinstance(node, ast.Call):
-                        # direct call
-                        if isinstance(node.func, ast.Name):
-                            for forb in forbidden:
-                                self.assertNotEqual(node.func.id, forb, f"Forbidden call {forb} in {fname}")
-                        # attribute call e.g. ctypes.windll.psapi.EmptyWorkingSet
-                        elif isinstance(node.func, ast.Attribute):
-                            for forb in forbidden:
-                                self.assertNotEqual(node.func.attr, forb, f"Forbidden attribute call {forb} in {fname}")
-                    # Check imports
-                    elif isinstance(node, (ast.Import, ast.ImportFrom)):
-                        for forb in forbidden:
-                            if isinstance(node, ast.ImportFrom) and node.module:
-                                self.assertNotIn(forb, node.module, f"Forbidden import {forb} in {fname}")
-                            for alias in node.names:
-                                self.assertNotEqual(alias.name, forb, f"Forbidden import alias {forb} in {fname}")
+                        tree = ast.parse(code, filename=fpath)
+                        for node in ast.walk(tree):
+                            # Check function calls
+                            if isinstance(node, ast.Call):
+                                if isinstance(node.func, ast.Name):
+                                    for forb in forbidden:
+                                        self.assertNotEqual(node.func.id, forb, f"Forbidden call {forb} in {fpath}")
+                                elif isinstance(node.func, ast.Attribute):
+                                    for forb in forbidden:
+                                        self.assertNotEqual(node.func.attr, forb, f"Forbidden attribute call {forb} in {fpath}")
+                            # Check imports
+                            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                                for forb in forbidden:
+                                    if isinstance(node, ast.ImportFrom) and node.module:
+                                        self.assertNotIn(forb, node.module, f"Forbidden import {forb} in {fpath}")
+                                    for alias in node.names:
+                                        self.assertNotEqual(alias.name, forb, f"Forbidden import alias {forb} in {fpath}")
+
+        self.assertGreaterEqual(scanned_files_count, 10, "Expected to scan at least 10 Python source files")
 
     def test_33_preflight_auto_reclaim_integration(self):
         """Verifies ResourceSteward run_preflight integrates AMR and still fails-closed if RAM < 10 GiB."""
-        steward = ResourceSteward(self.policy)
+        steward = ResourceSteward(self.policy, reports_dir=self.amr_reports_dir)
         # Mock monitor to return 9.5 GiB (Constrained)
         steward.monitor.get_system_memory = MagicMock(return_value=self._make_healthy_ram(avail_gib=9.5))
         steward.monitor.get_gpu_telemetry = MagicMock(return_value=self._make_healthy_gpu())
@@ -997,6 +1157,83 @@ class TestResourceSteward(unittest.TestCase):
         # Even with auto-reclaim evaluated, if available RAM remains 9.5 GiB < 10.0 GiB, preflight MUST fail
         self.assertFalse(report.passed)
         self.assertFalse(report.gates["avail_ram"].passed)
+
+    # =======================================================================
+    # SECTION H: PRODUCTION-PATH REGRESSION: DELAYED TRAILING OUTPUT & EOF
+    # =======================================================================
+
+    def test_34_supervisor_retains_trailing_output_after_child_exit_and_detects_fatal_marker(self):
+        """
+        Production-path regression test:
+        Deliberately delays final output line until process terminates.
+        Proves:
+          1. Reader thread continues until true EOF.
+          2. Trailing output line is retained in output_lines.
+          3. Fatal CUDA OOM marker in trailing output triggers abort.
+          4. Recovery verifies reader thread shutdown.
+        """
+        from scripts.run_inference_with_telemetry import start_output_reader
+
+        fixture_script = os.path.join(PROJECT_ROOT, "tests", "fixtures", "delayed_trailing_child.py")
+        cmd = [sys.executable, "-u", fixture_script]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+
+        out_queue = queue.Queue()
+        reader_stop = threading.Event()
+        reader_thread = start_output_reader(proc.stdout, out_queue, reader_stop)
+
+        # Supervise child with mock telemetry queue
+        s_queue = queue.Queue()
+        # Put initial healthy sample with current monotonic time
+        s_queue.put(self._make_sample(1, time.monotonic()))
+
+        supervisor_res = supervise_child_process(
+            proc=proc,
+            sample_queue=s_queue,
+            output_queue=out_queue,
+            policy=self.policy,
+            clock=time.monotonic,
+            poll_sleep_sec=0.01,
+            reader_thread=reader_thread,
+            reader_timeout_sec=2.0
+        )
+
+        # Ensure reader finished and close pipes
+        reader_stop.set()
+        reader_thread.join(timeout=2.0)
+        reader_stopped = not reader_thread.is_alive()
+        pipes_closed = SafeReclamationManager.close_process_pipes(proc)
+
+        # Assertions
+        self.assertTrue(reader_stopped, "Reader thread must terminate cleanly at true EOF")
+        self.assertTrue(pipes_closed, "Process pipes must close cleanly after reader completes")
+
+        # Prove trailing line was retained
+        full_output = "".join(supervisor_res.output_lines)
+        self.assertIn("line 1: model loader initialized", full_output)
+        self.assertIn("line 2: prompt eval time = 50.00 ms / 10 tokens", full_output)
+        self.assertIn("CUDA error: out of memory in trailing buffer", full_output,
+                      "Trailing output line after delay must be retained in output_lines")
+
+        # Prove fatal CUDA OOM in trailing output triggered abort
+        self.assertTrue(supervisor_res.abort_triggered,
+                        "Fatal marker in trailing output must trigger abort")
+        self.assertIn("CUDA OOM / Error detected", supervisor_res.abort_reason)
+
+        # Prove that verify_inference_success reports ABORTED
+        rec_mock = MagicMock()
+        rec_mock.recovery_successful = True
+        rec_mock.reader_thread_stopped = True
+        outcome, reason = verify_inference_success(supervisor_res, rec_mock)
+        self.assertEqual(outcome, InferenceOutcome.ABORTED)
+        self.assertIn("CUDA OOM / Error detected", reason)
 
 if __name__ == "__main__":
     unittest.main()

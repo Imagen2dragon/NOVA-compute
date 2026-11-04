@@ -46,7 +46,7 @@ from nova.resource_steward import (
 LLAMA_CLI = os.path.join(PROJECT_ROOT, "runtime", "windows", "llama-cpp", "llama-cli.exe")
 MODEL_GGUF = os.path.join(PROJECT_ROOT, "models", "qwen3-30b", "Qwen_Qwen3-30B-A3B-Q4_K_M.gguf")
 
-OUTPUT_DIR = os.path.join(PROJECT_ROOT, "reports", "phase2c", "first_inference")
+OUTPUT_DIR = os.environ.get("NOVA_REPORT_DIR", os.path.join(PROJECT_ROOT, "reports", "phase2c", "first_inference"))
 PREFLIGHT_LATEST_JSON = os.path.join(OUTPUT_DIR, "PREFLIGHT_LATEST.json")
 TELEMETRY_JSON = os.path.join(OUTPUT_DIR, "RESOURCE_TELEMETRY.json")
 EXECUTION_LOG = os.path.join(OUTPUT_DIR, "EXECUTION_LOG.txt")
@@ -155,8 +155,12 @@ def save_preflight_json(report: PreflightReport, path: str = PREFLIGHT_LATEST_JS
             for r in report.recommendations
         ]
     }
-    with open(path, "w", encoding="utf-8") as f:
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp_path, path)
 
 def print_preflight_summary(report: PreflightReport):
     print("=" * 72)
@@ -178,10 +182,11 @@ def print_preflight_summary(report: PreflightReport):
             print(f"{idx}. {rec.recommendation_text}")
         print("Note: Close applications through their normal interface. NOVA never force-terminates external apps.")
 
-def run_preflight_only(steward: ResourceSteward) -> int:
+def run_preflight_only(steward: ResourceSteward, output_dir: Optional[str] = None) -> int:
     print("[MODE] PREFLIGHT ONLY (Inference execution will NOT be launched)\n")
     report = steward.run_preflight()
-    save_preflight_json(report)
+    out_path = os.path.join(output_dir, "PREFLIGHT_LATEST.json") if output_dir else PREFLIGHT_LATEST_JSON
+    save_preflight_json(report, path=out_path)
     print_preflight_summary(report)
     return 0 if report.passed else 1
 
@@ -240,9 +245,15 @@ def verify_inference_success(
     Strictly verifies inference smoke test outcome against:
       - Exit code zero
       - No safety abort
-      - Confirmed generated-token/evaluation evidence (eval time = ... / X runs with X >= 1, not just prompt eval)
+      - Confirmed generated-token/evaluation evidence:
+          * eval time = XX ms / N runs where N >= 1
+          * eval time = XX ms / 0 runs -> UNVERIFIED
+          * eval time = XX ms without a count -> UNVERIFIED
+          * prompt eval alone -> UNVERIFIED
+          * tokens generated: N where N > 0
+          * model load time or print_timings alone -> UNVERIFIED
       - Valid execution telemetry
-      - Successful required recovery verification
+      - Successful required recovery verification (including verified reader thread shutdown)
     """
     raw_output = "".join(supervisor_res.output_lines)
 
@@ -252,27 +263,47 @@ def verify_inference_success(
     if supervisor_res.exit_code != 0:
         return InferenceOutcome.FAILED, f"Child process exited with non-zero code {supervisor_res.exit_code}"
 
-    # Verify positive generated token evidence in output
-    eval_match = re.search(r"(?<!prompt )eval time\s*=\s*[\d\.]+\s*ms(?:\s*/\s*(\d+)\s*(?:runs|tokens))?", raw_output)
-    token_gen_match = re.search(r"tokens generated\s*:\s*(\d+)", raw_output, re.IGNORECASE)
+    # Strict regex: MUST require explicit count after '/' (e.g. "eval time = 25.00 ms / 1 runs")
+    eval_match = re.search(r"(?<!prompt )eval time\s*=\s*[\d\.]+\s*ms\s*/\s*(\d+)\s*(?:runs|tokens)\b", raw_output)
+    token_gen_match = re.search(r"\btokens generated\s*:\s*(\d+)\b", raw_output, re.IGNORECASE)
+    token_gen_match_alt = re.search(r"\b(\d+)\s*tokens generated\b", raw_output, re.IGNORECASE)
 
     has_positive_eval = False
     generated_count = 0
-    if eval_match:
-        runs_group = eval_match.group(1)
-        if runs_group is not None:
-            generated_count = int(runs_group)
-            has_positive_eval = (generated_count >= 1)
-        else:
-            has_positive_eval = True
-            generated_count = 1
-    elif token_gen_match:
-        generated_count = int(token_gen_match.group(1))
-        has_positive_eval = (generated_count >= 1)
 
+    if eval_match:
+        try:
+            count = int(eval_match.group(1))
+            if count >= 1:
+                generated_count = max(generated_count, count)
+                has_positive_eval = True
+        except (ValueError, TypeError):
+            pass
+
+    if token_gen_match:
+        try:
+            count = int(token_gen_match.group(1))
+            if count >= 1:
+                generated_count = max(generated_count, count)
+                has_positive_eval = True
+        except (ValueError, TypeError):
+            pass
+
+    if token_gen_match_alt:
+        try:
+            count = int(token_gen_match_alt.group(1))
+            if count >= 1:
+                generated_count = max(generated_count, count)
+                has_positive_eval = True
+        except (ValueError, TypeError):
+            pass
+
+    # Model load time or print_timings alone must never establish token generation
     has_token_gen = has_positive_eval and ("print_timings" in raw_output or "load time =" in raw_output)
 
     if not has_token_gen:
+        if re.search(r"(?<!prompt )eval time\s*=\s*[\d\.]+\s*ms(?!\s*/\s*\d+)", raw_output):
+            return InferenceOutcome.UNVERIFIED, "Inference output has ambiguous eval timing without explicit run count."
         if "prompt eval time =" in raw_output and not has_positive_eval:
             return InferenceOutcome.UNVERIFIED, "Inference executed prompt evaluation only (0 generated tokens evaluated)."
         return InferenceOutcome.UNVERIFIED, "Inference output lacks verified token generation / evaluation timing markers (eval runs >= 1)."
@@ -280,18 +311,27 @@ def verify_inference_success(
     if supervisor_res.processed_samples_count == 0:
         return InferenceOutcome.UNVERIFIED, "Execution telemetry lacks valid processed samples."
 
-    if not recovery_report.recovery_successful:
+    # If reader thread did not stop cleanly or recovery failed, do not report success
+    reader_stopped = getattr(supervisor_res, "reader_thread_stopped", True) and recovery_report.reader_thread_stopped
+    if not recovery_report.recovery_successful or not reader_stopped:
         return InferenceOutcome.UNVERIFIED, "Full resource recovery could not be verified (residual resources, telemetry failure, or unverified thread shutdown)."
 
     return InferenceOutcome.SUCCESS, f"Inference smoke test succeeded: token generated ({generated_count} run(s)), telemetry valid, and clean recovery verified."
 
-def execute_inference(steward: ResourceSteward):
+def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None):
     """Executes inference ONLY after a fresh live preflight confirms all safety gates pass."""
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    out_dir = output_dir or OUTPUT_DIR
+    os.makedirs(out_dir, exist_ok=True)
+    load_results_path = os.path.join(out_dir, "LOAD_RESULTS.md")
+    failure_analysis_path = os.path.join(out_dir, "FAILURE_ANALYSIS.md")
+    execution_log_path = os.path.join(out_dir, "EXECUTION_LOG.txt")
+    telemetry_json_path = os.path.join(out_dir, "RESOURCE_TELEMETRY.json")
+    preflight_json_path = os.path.join(out_dir, "PREFLIGHT_LATEST.json")
+
     print("[MODE] EXECUTE AUTHORIZED INFERENCE\n")
     print("Running fresh preflight check immediately prior to launch...")
     report = steward.run_preflight()
-    save_preflight_json(report)
+    save_preflight_json(report, path=preflight_json_path)
     print_preflight_summary(report)
 
     if not report.passed:
@@ -301,7 +341,7 @@ def execute_inference(steward: ResourceSteward):
         print("!" * 72)
 
         # Write failure reports
-        with open(LOAD_RESULTS, "w", encoding="utf-8") as f:
+        with open(load_results_path, "w", encoding="utf-8") as f:
             f.write("# NOVA Compute — Phase 2C-B: Load Results\n\n")
             f.write("**Status:** **EXECUTION GATED (PREFLIGHT STOP)**  \n\n")
             f.write("Inference launch aborted because fresh preflight gates were not satisfied:\n\n")
@@ -310,7 +350,7 @@ def execute_inference(steward: ResourceSteward):
                 f.write(f"- **{name}:** {status} ({g.measured_str}; required: {g.required_str})\n")
             f.write("\nSee `FAILURE_ANALYSIS.md` for root cause and memory recovery path.\n")
 
-        with open(FAILURE_ANALYSIS, "w", encoding="utf-8") as f:
+        with open(failure_analysis_path, "w", encoding="utf-8") as f:
             f.write("# NOVA Compute — Phase 2C-B: Preflight Gate Analysis\n\n")
             f.write(f"**Timestamp (UTC):** {report.timestamp_utc}  \n")
             f.write(f"**Execution Status:** **GATED AT PREFLIGHT**  \n\n")
@@ -324,7 +364,7 @@ def execute_inference(steward: ResourceSteward):
                 f.write(f"- {rec.recommendation_text}\n")
             f.write("\n*Governance Rule:* Never terminate unrelated user applications to clear the gate.\n")
 
-        with open(EXECUTION_LOG, "w", encoding="utf-8") as f:
+        with open(execution_log_path, "w", encoding="utf-8") as f:
             f.write(f"NOVA Compute Execution Gated at Preflight.\nTimestamp (UTC): {report.timestamp_utc}\n")
             f.write("Inference process was not spawned due to unmet preflight gate conditions.\n")
 
@@ -371,29 +411,46 @@ def execute_inference(steward: ResourceSteward):
         clock=time.monotonic,
         abort_callback=lambda reason: print(f"\n[ABORT] {reason}"),
         on_output_line=lambda line: (sys.stdout.write(line), sys.stdout.flush()),
-        stale_timeout_sec=3.0
+        stale_timeout_sec=3.0,
+        reader_thread=reader_thread,
+        reader_timeout_sec=2.0
     )
 
-    # REFACTORED LIFECYCLE ORDER (Requirement 3):
-    # Stage 1 & 2: If abort was triggered, initiate child teardown FIRST
+    # REFACTORED LIFECYCLE ORDER (EOF Handling & Output Integrity):
+    # Stage 1: If abort was triggered, initiate child teardown FIRST
     if supervisor_res.abort_triggered:
         print(f"[RECOVERY] Abort triggered: {supervisor_res.abort_reason}. Initiating child teardown...")
         SafeReclamationManager.terminate_child_process(
             proc, grace_period_sec=steward.policy.child_termination_grace_period_seconds
         )
 
-    # Stage 3 & 4: Join reader thread (allow remaining EOF drain)
+    # Stage 2: Wait for reader thread to reach true EOF and join
     reader_stop.set()
     reader_thread.join(timeout=2.0)
     reader_stopped = not reader_thread.is_alive()
+    supervisor_res.reader_thread_stopped = reader_stopped
 
-    # Stage 5: Stop and join telemetry sampler
+    # Stage 3: Drain ALL remaining queued lines after reader has finished
+    while True:
+        try:
+            trailing_line = out_queue.get_nowait()
+            supervisor_res.output_lines.append(trailing_line)
+            sys.stdout.write(trailing_line)
+            sys.stdout.flush()
+            if "CUDA error" in trailing_line or "out of memory" in trailing_line.lower():
+                if not supervisor_res.abort_triggered:
+                    supervisor_res.abort_triggered = True
+                    supervisor_res.abort_reason = f"CUDA OOM / Error detected in trailing output: {trailing_line.strip()}"
+        except queue.Empty:
+            break
+
+    # Stage 4: Stop and join telemetry sampler
     sampler_stopped = sampler.stop(timeout_sec=2.0)
 
-    # Stage 6: Close remaining stdio pipes and handles
+    # Stage 5: Close remaining stdio pipes and handles (ONLY AFTER reader has completed EOF drain)
     pipes_closed = SafeReclamationManager.close_process_pipes(proc)
 
-    # Stage 7 & 8: Verify resource release and produce recovery report
+    # Stage 6: Verify resource release and produce recovery report
     recovery_report = steward.reclamation.perform_post_inference_recovery(
         pre_ram=pre_ram,
         pre_gpu=pre_gpu,
@@ -410,7 +467,7 @@ def execute_inference(steward: ResourceSteward):
     exit_code = proc.returncode if proc.returncode is not None else -1
 
     # Record EXECUTION_LOG.txt
-    with open(EXECUTION_LOG, "w", encoding="utf-8") as f:
+    with open(execution_log_path, "w", encoding="utf-8") as f:
         f.writelines(supervisor_res.output_lines)
         if supervisor_res.abort_triggered:
             f.write(f"\n[STEWARD_ABORT] {supervisor_res.abort_reason}\n")
@@ -447,13 +504,13 @@ def execute_inference(steward: ResourceSteward):
         "samples_count": len(sampler.samples),
         "timeline": sampler.samples
     }
-    with open(TELEMETRY_JSON, "w", encoding="utf-8") as f:
+    with open(telemetry_json_path, "w", encoding="utf-8") as f:
         json.dump(telemetry_data, f, indent=2)
 
     # Evaluate inference outcome with truthfulness
     outcome, outcome_reason = verify_inference_success(supervisor_res, recovery_report)
 
-    with open(LOAD_RESULTS, "w", encoding="utf-8") as f:
+    with open(load_results_path, "w", encoding="utf-8") as f:
         f.write("# NOVA Compute — Phase 2C-B: Load Results\n\n")
         f.write(f"**Outcome:** `{outcome.value}`  \n")
         f.write(f"**Reason:** {outcome_reason}  \n")
@@ -470,11 +527,11 @@ def execute_inference(steward: ResourceSteward):
         for n in recovery_report.notes:
             f.write(f"- {n}\n")
 
-    with open(FAILURE_ANALYSIS, "w", encoding="utf-8") as f:
+    with open(failure_analysis_path, "w", encoding="utf-8") as f:
         f.write("# NOVA Compute — Phase 2C-B: Analysis Report\n\n")
         f.write(f"**Outcome:** `{outcome.value}`: {outcome_reason}\n")
 
-    print(f"\nExecution finished. Outcome: {outcome.value}. Telemetry and reports saved to: {OUTPUT_DIR}")
+    print(f"\nExecution finished. Outcome: {outcome.value}. Telemetry and reports saved to: {out_dir}")
 
 def main():
     parser = argparse.ArgumentParser(

@@ -26,7 +26,9 @@ def supervise_child_process(
     on_sample_processed: Optional[Callable[[Dict[str, Any]], None]] = None,
     on_output_line: Optional[Callable[[str], None]] = None,
     stale_timeout_sec: float = 3.0,
-    poll_sleep_sec: float = 0.01
+    poll_sleep_sec: float = 0.01,
+    reader_thread: Optional[Any] = None,
+    reader_timeout_sec: float = 2.0
 ) -> SupervisorResult:
     """
     Supervises a running child process.
@@ -233,7 +235,13 @@ def supervise_child_process(
         if poll_sleep_sec > 0:
             time.sleep(poll_sleep_sec)
 
-    # Final post-loop output drain
+    # Wait for reader thread to reach EOF if provided and not aborted
+    reader_thread_stopped = True
+    if reader_thread is not None and not abort_triggered:
+        reader_thread.join(timeout=reader_timeout_sec)
+        reader_thread_stopped = not reader_thread.is_alive()
+
+    # Final post-loop output drain (drains any trailing lines from EOF)
     while True:
         try:
             line = output_queue.get_nowait()
@@ -243,7 +251,7 @@ def supervise_child_process(
             if "CUDA error" in line or "out of memory" in line.lower():
                 if not abort_triggered:
                     abort_triggered = True
-                    abort_reason = f"CUDA OOM / Error detected: {line.strip()}"
+                    abort_reason = f"CUDA OOM / Error detected in trailing output: {line.strip()}"
                     if abort_callback:
                         abort_callback(abort_reason)
         except queue.Empty:
@@ -260,5 +268,6 @@ def supervise_child_process(
         peak_vram_mib=peak_vram_mib,
         processed_samples_count=processed_samples_count,
         duration_seconds=dur,
-        output_lines=output_lines
+        output_lines=output_lines,
+        reader_thread_stopped=reader_thread_stopped
     )

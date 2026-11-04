@@ -7,14 +7,15 @@ Inspired by open-source memory monitors (Mem Reduct, WinMemClean) under a strict
 - PROHIBITS system-wide cache purges (NtSetSystemInformation), working set flushing (EmptyWorkingSet),
   and foreign process termination.
 - Validates pre- and post-reclamation telemetry and generates immutable audit reports.
+- Distinguishes observed system-wide deltas from process-local memory demonstrably released by NOVA.
 """
 
 import os
 import gc
 import json
 import time
+import math
 from typing import Optional, List, Dict, Any, Tuple, Callable
-from datetime import datetime, timezone
 
 from .models import (
     TelemetryStatus,
@@ -22,10 +23,16 @@ from .models import (
     ReclamationStatus,
     MemoryReclaimReport,
     SystemMemorySnapshot,
+    ProcessResourceSnapshot,
     current_iso_utc
 )
 from .policy import ResourcePolicy, DEFAULT_POLICY
 from .monitor import ResourceMonitor
+
+def _safe_int(val: Any) -> Optional[int]:
+    if val is not None and isinstance(val, int) and not isinstance(val, bool):
+        return val
+    return None
 
 class MemoryPressureDetector:
     """Classifies system memory pressure into hierarchical operational tiers."""
@@ -36,27 +43,42 @@ class MemoryPressureDetector:
     def evaluate_pressure(self, snapshot: SystemMemorySnapshot) -> MemoryPressureLevel:
         """
         Determines memory pressure tier based on verified available physical RAM and commit status.
-        Fail-closed: if telemetry failed or values invalid, treated as CRITICAL.
+        Fail-closed: if telemetry failed, missing, boolean, NaN, inf, or negative, treated as CRITICAL.
         """
         if snapshot.status != TelemetryStatus.SUCCESS:
             return MemoryPressureLevel.CRITICAL
 
         avail_ram = snapshot.avail_phys_gib
+        avail_bytes = snapshot.avail_phys_bytes
         commit_pct = snapshot.commit_pct
 
-        # Critical threshold
+        # Validate numeric types and finite bounds
+        if (avail_ram is None or isinstance(avail_ram, bool) or not isinstance(avail_ram, (int, float)) or
+            math.isnan(avail_ram) or math.isinf(avail_ram) or avail_ram < 0):
+            return MemoryPressureLevel.CRITICAL
+
+        if (avail_bytes is None or isinstance(avail_bytes, bool) or not isinstance(avail_bytes, int) or
+            avail_bytes < 0):
+            return MemoryPressureLevel.CRITICAL
+
+        if commit_pct is not None:
+            if (isinstance(commit_pct, bool) or not isinstance(commit_pct, (int, float)) or
+                math.isnan(commit_pct) or math.isinf(commit_pct) or not (0.0 <= commit_pct <= 100.0)):
+                return MemoryPressureLevel.CRITICAL
+
+        # 1. Critical threshold: RAM < critical_ram_gib (e.g. 2.0 GiB) or commit >= critical_commit_pct (90%)
         if avail_ram < self.policy.critical_ram_gib or (commit_pct is not None and commit_pct >= self.policy.critical_commit_pct):
             return MemoryPressureLevel.CRITICAL
 
-        # Constrained threshold (< minimum required for inference, e.g. < 10.0 GiB)
-        if avail_ram < self.policy.ram_pressure_constrained_gib:
+        # 2. Constrained threshold: RAM < minimum_inference_ram_gib (e.g. 10.0 GiB)
+        if avail_ram < self.policy.minimum_inference_ram_gib:
             return MemoryPressureLevel.CONSTRAINED
 
-        # Optimization threshold (10.0 GiB <= RAM < 12.0 GiB)
-        if avail_ram < self.policy.ram_pressure_optimization_gib:
+        # 3. Optimization threshold: minimum_inference_ram_gib <= RAM < preferred_inference_ram_gib (10.0 - 12.0 GiB)
+        if avail_ram < self.policy.preferred_inference_ram_gib:
             return MemoryPressureLevel.OPTIMIZATION
 
-        # Normal operational state (>= 12.0 GiB)
+        # 4. Normal operational state: RAM >= preferred_inference_ram_gib (>= 12.0 GiB)
         return MemoryPressureLevel.NORMAL
 
 class ReclamationCooldownManager:
@@ -119,12 +141,10 @@ class SafeMemoryReclaimer:
     def __init__(self, clock: Callable[[], float] = time.monotonic):
         self.clock = clock
 
-    def reclaim(
-        self,
-        extra_cleaners: Optional[List[Callable[[], None]]] = None
-    ) -> Tuple[List[str], List[str], List[str], float]:
+    def reclaim(self) -> Tuple[List[str], List[str], List[str], float]:
         """
         Executes SAFE_AUTO memory reclamation.
+        Currently performs process-local Python runtime garbage collection (gc.collect(2)).
         Returns: (actions_attempted, actions_completed, actions_failed, duration_seconds)
         """
         t_start = self.clock()
@@ -132,25 +152,13 @@ class SafeMemoryReclaimer:
         completed: List[str] = []
         failed: List[str] = []
 
-        # Action 1: Python full generational garbage collection
+        # Action: Python full generational garbage collection (process-local only)
         attempted.append("python_gc_collect")
         try:
-            # Run generational collection across all 3 generations
             collected = gc.collect(2)
-            completed.append(f"python_gc_collect (freed {collected} unreachable objects)")
+            completed.append(f"python_gc_collect (freed {collected} unreachable runtime objects)")
         except Exception as e:
             failed.append(f"python_gc_collect: {e}")
-
-        # Action 2: Execute any NOVA-internal registered buffer flushers
-        if extra_cleaners:
-            for idx, cleaner in enumerate(extra_cleaners):
-                action_name = f"nova_internal_cleaner_{idx+1}"
-                attempted.append(action_name)
-                try:
-                    cleaner()
-                    completed.append(action_name)
-                except Exception as e:
-                    failed.append(f"{action_name}: {e}")
 
         dur = round(self.clock() - t_start, 4)
         return attempted, completed, failed, dur
@@ -179,15 +187,14 @@ class AdaptiveMemoryController:
             clock=self.clock
         )
         self.reclaimer = reclaimer or SafeMemoryReclaimer(clock=self.clock)
-        self.reports_dir = reports_dir or os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            "reports", "phase2c", "memory_reclamation"
+        default_reports_dir = os.environ.get(
+            "NOVA_AMR_REPORT_DIR",
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                "reports", "phase2c", "memory_reclamation"
+            )
         )
-        self._registered_cleaners: List[Callable[[], None]] = []
-
-    def register_cleaner(self, cleaner: Callable[[], None]) -> None:
-        """Registers a NOVA-internal buffer/cache cleanup callable."""
-        self._registered_cleaners.append(cleaner)
+        self.reports_dir = reports_dir or default_reports_dir
 
     def evaluate_and_reclaim(
         self,
@@ -196,28 +203,40 @@ class AdaptiveMemoryController:
     ) -> MemoryReclaimReport:
         """
         Runs a complete evaluation and safe reclamation pass.
-        1. Measure pre-reclamation telemetry.
+        1. Measure pre-reclamation system and process-local telemetry.
         2. Evaluate pressure level.
         3. Check cooldown unless forced.
         4. Execute SAFE_AUTO reclamation if pressure indicates.
-        5. Measure post-reclamation telemetry.
-        6. Compute verified deltas and log report.
+        5. Measure post-reclamation system and process-local telemetry.
+        6. Compute verified deltas and log report safely.
         """
         timestamp_utc = current_iso_utc()
         safety_notes: List[str] = [
             "Policy: SAFE_AUTO (Strictly NOVA-owned resources only).",
             "Zero system-wide standby/modified list purging.",
             "Zero foreign process working-set trimming.",
-            "Zero unprivileged/privileged system modifications."
+            "Zero unprivileged/privileged system modifications.",
+            "Observed system-wide RAM delta reflects uncoordinated host activity; only process-local deltas are attributable to NOVA.",
+            "Do not infer freed bytes from Python object count."
         ]
 
         # 1. Pre-reclamation telemetry
         pre_ram = self.monitor.get_system_memory()
+        pre_proc = None
+        try:
+            pre_proc = self.monitor.get_process_memory(os.getpid())
+        except Exception:
+            pass
+
         if pre_ram.status != TelemetryStatus.SUCCESS:
-            return MemoryReclaimReport(
+            rep = MemoryReclaimReport(
                 timestamp_utc=timestamp_utc,
                 trigger_reason=trigger_reason,
                 pressure_level=MemoryPressureLevel.CRITICAL,
+                system_avail_bytes_before=0,
+                system_avail_bytes_after=0,
+                observed_system_avail_delta_bytes=0,
+                observed_system_avail_delta_mib=0.0,
                 ram_available_before_gib=0.0,
                 ram_available_after_gib=0.0,
                 ram_delta_gib=0.0,
@@ -231,41 +250,69 @@ class AdaptiveMemoryController:
                 overall_status=ReclamationStatus.RECLAMATION_FAILED,
                 safety_notes=safety_notes + ["Fail-closed: Pre-reclamation telemetry unavailable."]
             )
+            self.save_report(rep)
+            return rep
 
         pressure = self.detector.evaluate_pressure(pre_ram)
 
         # 2. Check if reclamation is necessary
         if pressure == MemoryPressureLevel.NORMAL and not force:
-            return MemoryReclaimReport(
+            ws_bytes = _safe_int(getattr(pre_proc, "working_set_bytes", None)) if pre_proc else None
+            priv_bytes = _safe_int(getattr(pre_proc, "private_commit_bytes", None)) if pre_proc else None
+            rep = MemoryReclaimReport(
                 timestamp_utc=timestamp_utc,
                 trigger_reason=trigger_reason,
                 pressure_level=pressure,
+                system_avail_bytes_before=pre_ram.avail_phys_bytes,
+                system_avail_bytes_after=pre_ram.avail_phys_bytes,
+                observed_system_avail_delta_bytes=0,
+                observed_system_avail_delta_mib=0.0,
                 ram_available_before_gib=pre_ram.avail_phys_gib,
                 ram_available_after_gib=pre_ram.avail_phys_gib,
                 ram_delta_gib=0.0,
                 commit_before_pct=pre_ram.commit_pct or 0.0,
                 commit_after_pct=pre_ram.commit_pct or 0.0,
+                nova_process_working_set_bytes_before=ws_bytes,
+                nova_process_working_set_bytes_after=ws_bytes,
+                nova_process_private_bytes_before=priv_bytes,
+                nova_process_private_bytes_after=priv_bytes,
+                nova_process_working_set_delta_bytes=0,
+                nova_process_private_delta_bytes=0,
                 actions_attempted=[],
                 actions_completed=[],
                 actions_failed=[],
                 reclamation_duration_seconds=0.0,
                 cooldown_applied=False,
                 overall_status=ReclamationStatus.NO_ACTION_REQUIRED,
-                safety_notes=safety_notes + [f"System RAM healthy ({pre_ram.avail_phys_gib:.2f} GiB >= {self.policy.ram_pressure_optimization_gib:.1f} GiB). No action needed."]
+                safety_notes=safety_notes + [f"System RAM healthy ({pre_ram.avail_phys_gib:.2f} GiB >= {self.policy.preferred_inference_ram_gib:.1f} GiB). No action needed."]
             )
+            self.save_report(rep)
+            return rep
 
         # 3. Check cooldown
         if not self.cooldown_mgr.can_reclaim() and not force:
             remaining = self.cooldown_mgr.remaining_cooldown_seconds
-            return MemoryReclaimReport(
+            ws_bytes = _safe_int(getattr(pre_proc, "working_set_bytes", None)) if pre_proc else None
+            priv_bytes = _safe_int(getattr(pre_proc, "private_commit_bytes", None)) if pre_proc else None
+            rep = MemoryReclaimReport(
                 timestamp_utc=timestamp_utc,
                 trigger_reason=trigger_reason,
                 pressure_level=pressure,
+                system_avail_bytes_before=pre_ram.avail_phys_bytes,
+                system_avail_bytes_after=pre_ram.avail_phys_bytes,
+                observed_system_avail_delta_bytes=0,
+                observed_system_avail_delta_mib=0.0,
                 ram_available_before_gib=pre_ram.avail_phys_gib,
                 ram_available_after_gib=pre_ram.avail_phys_gib,
                 ram_delta_gib=0.0,
                 commit_before_pct=pre_ram.commit_pct or 0.0,
                 commit_after_pct=pre_ram.commit_pct or 0.0,
+                nova_process_working_set_bytes_before=ws_bytes,
+                nova_process_working_set_bytes_after=ws_bytes,
+                nova_process_private_bytes_before=priv_bytes,
+                nova_process_private_bytes_after=priv_bytes,
+                nova_process_working_set_delta_bytes=0,
+                nova_process_private_delta_bytes=0,
                 actions_attempted=[],
                 actions_completed=[],
                 actions_failed=[],
@@ -274,20 +321,30 @@ class AdaptiveMemoryController:
                 overall_status=ReclamationStatus.NO_ACTION_REQUIRED,
                 safety_notes=safety_notes + [f"Reclamation throttled by cooldown ({remaining:.1f}s remaining)."]
             )
+            self.save_report(rep)
+            return rep
 
         # 4. Execute safe reclamation
-        attempted, completed, failed, duration = self.reclaimer.reclaim(
-            extra_cleaners=self._registered_cleaners
-        )
+        attempted, completed, failed, duration = self.reclaimer.reclaim()
         self.cooldown_mgr.record_reclamation()
 
         # 5. Post-reclamation telemetry
+        post_proc = None
+        try:
+            post_proc = self.monitor.get_process_memory(os.getpid())
+        except Exception:
+            pass
         post_ram = self.monitor.get_system_memory()
+
         if post_ram.status != TelemetryStatus.SUCCESS:
-            return MemoryReclaimReport(
+            rep = MemoryReclaimReport(
                 timestamp_utc=timestamp_utc,
                 trigger_reason=trigger_reason,
                 pressure_level=pressure,
+                system_avail_bytes_before=pre_ram.avail_phys_bytes,
+                system_avail_bytes_after=0,
+                observed_system_avail_delta_bytes=0,
+                observed_system_avail_delta_mib=0.0,
                 ram_available_before_gib=pre_ram.avail_phys_gib,
                 ram_available_after_gib=0.0,
                 ram_delta_gib=0.0,
@@ -301,14 +358,30 @@ class AdaptiveMemoryController:
                 overall_status=ReclamationStatus.RECLAMATION_UNVERIFIED,
                 safety_notes=safety_notes + ["Post-reclamation verification failed. Fail-closed: outcome unverified."]
             )
+            self.save_report(rep)
+            return rep
 
-        ram_delta_gib = round(post_ram.avail_phys_gib - pre_ram.avail_phys_gib, 4)
-        min_delta_gib = self.policy.min_reclamation_delta_mb / 1024.0
+        # System-wide memory delta calculation (exact bytes)
+        sys_delta_bytes = post_ram.avail_phys_bytes - pre_ram.avail_phys_bytes
+        sys_delta_mib = round(sys_delta_bytes / (1024 * 1024), 2)
+        ram_delta_gib = round(sys_delta_bytes / (1024**3), 4)
 
-        if ram_delta_gib >= min_delta_gib:
+        # Process-local memory delta calculation (exact bytes)
+        nova_ws_before = _safe_int(getattr(pre_proc, "working_set_bytes", None)) if pre_proc else None
+        nova_ws_after = _safe_int(getattr(post_proc, "working_set_bytes", None)) if post_proc else None
+        nova_priv_before = _safe_int(getattr(pre_proc, "private_commit_bytes", None)) if pre_proc else None
+        nova_priv_after = _safe_int(getattr(post_proc, "private_commit_bytes", None)) if post_proc else None
+
+        nova_ws_delta_bytes = (nova_ws_before - nova_ws_after) if (nova_ws_before is not None and nova_ws_after is not None) else None
+        nova_priv_delta_bytes = (nova_priv_before - nova_priv_after) if (nova_priv_before is not None and nova_priv_after is not None) else None
+
+        # Determine reclamation status based strictly on demonstrably released NOVA process memory
+        # (Never attribute unrelated host background activity or browser closures to AMR)
+        min_proc_delta_bytes = 1024 * 1024 # 1 MiB threshold for demonstrable process memory release
+        if ((nova_ws_delta_bytes is not None and nova_ws_delta_bytes >= min_proc_delta_bytes) or
+            (nova_priv_delta_bytes is not None and nova_priv_delta_bytes >= min_proc_delta_bytes)):
             status = ReclamationStatus.RECLAMATION_COMPLETED
         else:
-            # Memory reclaimed was below 10 MB or zero
             status = ReclamationStatus.NO_MEASURABLE_IMPROVEMENT
 
         paging_before = {
@@ -325,11 +398,21 @@ class AdaptiveMemoryController:
             timestamp_utc=timestamp_utc,
             trigger_reason=trigger_reason,
             pressure_level=pressure,
+            system_avail_bytes_before=pre_ram.avail_phys_bytes,
+            system_avail_bytes_after=post_ram.avail_phys_bytes,
+            observed_system_avail_delta_bytes=sys_delta_bytes,
+            observed_system_avail_delta_mib=sys_delta_mib,
             ram_available_before_gib=pre_ram.avail_phys_gib,
             ram_available_after_gib=post_ram.avail_phys_gib,
             ram_delta_gib=ram_delta_gib,
             commit_before_pct=pre_ram.commit_pct or 0.0,
             commit_after_pct=post_ram.commit_pct or 0.0,
+            nova_process_working_set_bytes_before=nova_ws_before,
+            nova_process_working_set_bytes_after=nova_ws_after,
+            nova_process_private_bytes_before=nova_priv_before,
+            nova_process_private_bytes_after=nova_priv_after,
+            nova_process_working_set_delta_bytes=nova_ws_delta_bytes,
+            nova_process_private_delta_bytes=nova_priv_delta_bytes,
             actions_attempted=attempted,
             actions_completed=completed,
             actions_failed=failed,
@@ -345,16 +428,20 @@ class AdaptiveMemoryController:
         return report
 
     def save_report(self, report: MemoryReclaimReport) -> Tuple[str, str]:
-        """Saves report to latest and timestamped JSON files."""
+        """Saves report atomically to latest and timestamped JSON files."""
         os.makedirs(self.reports_dir, exist_ok=True)
         latest_path = os.path.join(self.reports_dir, "reclaim_latest.json")
         ts_clean = report.timestamp_utc.replace(":", "-").replace("+", "_")
         ts_path = os.path.join(self.reports_dir, f"reclaim_{ts_clean}.json")
 
         data = report.to_dict()
-        with open(latest_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        with open(ts_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+
+        for dest in [latest_path, ts_path]:
+            tmp_dest = dest + ".tmp"
+            with open(tmp_dest, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_dest, dest)
 
         return latest_path, ts_path

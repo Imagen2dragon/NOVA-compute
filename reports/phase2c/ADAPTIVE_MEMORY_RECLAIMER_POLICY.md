@@ -1,7 +1,7 @@
 # NOVA Compute — Phase 2C-B: Adaptive Memory Reclaimer (AMR) Governance Policy
 
 **Document:** AMR Operational Policy & Safety Rules  
-**Status:** ACTIVE SPECIFICATION  
+**Status:** ACTIVE SPECIFICATION (Review Remediation Baseline)  
 **Enforcement:** Programmatic (Static AST Analysis & Preflight Gating)
 
 ---
@@ -16,6 +16,9 @@
    - AMR is not an excuse to launch when memory is insufficient.
 3. **Zero Standby Cache Sabotage**:
    - In SSD/mmap-backed MoE execution, Windows file cache (standby list) is critical to performance. Purging the standby list to make "Free RAM" look higher is an anti-pattern that slows down model execution by orders of magnitude.
+4. **Process-Local Scope Boundary**:
+   - Current AMR operational scope is strictly confined to NOVA's process-local allocations via generational garbage collection (`gc.collect(2)`).
+   - Future architectural expansions may include internal tensor cache flushes (e.g., intermediate KV cache pools or expert weight cache manager buffers once implemented in subsequent phases). External application memory or system memory lists will remain strictly forbidden.
 
 ---
 
@@ -25,18 +28,18 @@
 
 | Action | Target | Mechanism | Safety Guarantee |
 | :--- | :--- | :--- | :--- |
-| **Python GC Collection** | NOVA Runtime | `gc.collect(2)` | Fully safe; frees unreachable cyclical objects within Python process. |
-| **Telemetry Buffer Eviction** | NOVA Telemetry Sampler | `deque.clear()`, queue draining | Releases stale history records and temporary JSON strings. |
+| **Python GC Collection** | NOVA Runtime | `gc.collect(2)` | Fully safe; frees unreachable cyclical objects within NOVA process. |
+| **Process-Local Memory Tracking** | NOVA PID | `GetProcessMemoryInfo` | Read-only inspection of working set and private commit. |
 | **Preflight Fresh Measurement** | Host Sensors | `GlobalMemoryStatusEx`, `nvmlDeviceGetMemoryInfo` | Read-only; zero host modification. |
-| **Audit Logging** | Local Filesystem | JSON serialization to `reports/phase2c/memory_reclamation/` | Local only; zero telemetry upload. |
+| **Atomic Audit Logging** | Local Filesystem | Atomic JSON write (`.tmp` + `fsync` + `replace`) | Zero partial writes; local only; zero telemetry upload. |
 
 ### 2.2 Strictly Forbidden Actions (Absolute Prohibitions)
 
-The following APIs, techniques, and behaviors are **strictly prohibited** in NOVA Compute:
+The following APIs, techniques, and behaviors are **strictly prohibited** in NOVA Compute and verified via static AST analysis:
 
 1. **`EmptyWorkingSet` / `K32EmptyWorkingSet`**:
-   - Prohibited against all PIDs except NOVA's own child process during teardown.
    - Prohibited across any third-party or system process.
+   - Prohibited across all files in `nova/` and `scripts/`.
 2. **`NtSetSystemInformation`**:
    - Class `SystemFileCacheInformation` (21)
    - Command `MemoryPurgeStandbyList` (4)
@@ -64,8 +67,8 @@ AMR integrates directly into the admission control phase of `ResourceSteward.run
 [AMR evaluate_and_reclaim()]
         │
         ├─► Checks RAM Pressure (e.g., CONSTRAINED at 9.27 GiB)
-        ├─► Runs gc.collect() & internal buffer flush
-        └─► Logs audit report (reclaim_latest.json)
+        ├─► Evaluates process-local gc.collect(2)
+        └─► Logs atomic audit report (reclaim_latest.json)
         │
         ▼
 [Fresh Hardware Sampling]
@@ -87,13 +90,16 @@ AMR integrates directly into the admission control phase of `ResourceSteward.run
 
 ## 4. Policy Configuration Parameters
 
-All AMR operational parameters are exposed in `nova/resource_steward/policy.py` (`ResourcePolicy`):
+All AMR operational parameters in `nova/resource_steward/policy.py` (`ResourcePolicy`) reuse the primary policy thresholds to eliminate redundancy:
 
 ```python
-reclamation_cooldown_seconds: float = 30.0   # Minimum interval between automatic passes
-min_reclamation_delta_mb: float = 10.0       # Minimum delta (0.010 GiB) to qualify as RECLAMATION_COMPLETED
-ram_pressure_optimization_gib: float = 12.0  # Threshold to trigger proactive reclamation
-ram_pressure_constrained_gib: float = 10.0   # Minimum required RAM for inference admission
-ram_pressure_critical_gib: float = 2.0       # Threshold for sustained low-RAM abort
-auto_reclaim_enabled: bool = True            # Master switch for AMR during preflight
+# Primary policy thresholds reused for pressure tiers
+preferred_inference_ram_gib: float = 12.0  # Threshold for NORMAL vs OPTIMIZATION tier
+minimum_inference_ram_gib: float = 10.0    # Admission gate threshold (CONSTRAINED if below)
+critical_ram_gib: float = 2.0             # CRITICAL tier threshold (sustained abort)
+
+# AMR operational parameters
+reclamation_cooldown_seconds: float = 30.0 # Minimum interval between automatic passes
+min_reclamation_delta_mb: float = 1.0     # Minimum process working set reduction (1 MiB)
+auto_reclaim_enabled: bool = True          # Master switch for AMR during preflight
 ```
