@@ -218,20 +218,20 @@ class ResourceMonitor:
             if not ctypes.windll.kernel32.GetDiskFreeSpaceExW(drive, ctypes.byref(fb), ctypes.byref(tb), ctypes.byref(tf)):
                 err = ctypes.GetLastError()
                 return DiskSnapshot(
-                    drive=drive, free_bytes=0, total_bytes=0, free_gb=0.0, total_gb=0.0,
+                    drive=drive, free_bytes=0, total_bytes=0, free_gib=0.0, total_gib=0.0,
                     status=TelemetryStatus.FAILED, error_message=f"GetDiskFreeSpaceExW Win32 error: {err}"
                 )
             return DiskSnapshot(
                 drive=drive,
                 free_bytes=fb.value,
                 total_bytes=tb.value,
-                free_gb=round(fb.value / (1024**3), 2),
-                total_gb=round(tb.value / (1024**3), 2),
+                free_gib=round(fb.value / (1024**3), 2),
+                total_gib=round(tb.value / (1024**3), 2),
                 status=TelemetryStatus.SUCCESS
             )
         except Exception as e:
             return DiskSnapshot(
-                drive=path, free_bytes=0, total_bytes=0, free_gb=0.0, total_gb=0.0,
+                drive=path, free_bytes=0, total_bytes=0, free_gib=0.0, total_gib=0.0,
                 status=TelemetryStatus.FAILED, error_message=str(e)
             )
 

@@ -36,6 +36,11 @@ class ResourcePolicy:
         return self.min_reclamation_delta_mib
 
     @property
+    def minimum_disk_free_gb(self) -> float:
+        """Backward-compatibility alias for minimum_disk_free_gib."""
+        return self.minimum_disk_free_gib
+
+    @property
     def ram_pressure_optimization_gib(self) -> float:
         """Threshold below which proactive AMR optimization is triggered."""
         return self.preferred_inference_ram_gib
@@ -66,6 +71,8 @@ class ResourcePolicy:
             data_copy["execution_mode"] = ExecutionMode(data_copy["execution_mode"])
         if "min_reclamation_delta_mb" in data_copy and "min_reclamation_delta_mib" not in data_copy:
             data_copy["min_reclamation_delta_mib"] = data_copy.pop("min_reclamation_delta_mb")
+        if "minimum_disk_free_gb" in data_copy and "minimum_disk_free_gib" not in data_copy:
+            data_copy["minimum_disk_free_gib"] = data_copy.pop("minimum_disk_free_gb")
         return cls(**data_copy)
 
     @classmethod
@@ -88,6 +95,7 @@ MANDATORY_MIN_RAM_GIB: float = 10.0
 MANDATORY_MAX_COMMIT_PCT: float = 90.0
 MANDATORY_MIN_VRAM_MIB: float = 5500.0
 MANDATORY_MIN_DISK_FREE_GIB: float = 25.0
+MANDATORY_MIN_DISK_FREE_GB: float = 25.0  # Backward-compatibility alias
 
 def enforce_mandatory_admission_floors(policy: Optional[ResourcePolicy]) -> ResourcePolicy:
     """
@@ -95,8 +103,8 @@ def enforce_mandatory_admission_floors(policy: Optional[ResourcePolicy]) -> Reso
       - Available RAM >= 10.0 GiB
       - System commit < 90.0%
       - Free VRAM >= 5,500 MiB
-      - Free disk >= 25.0 GB
-    Stricter settings (e.g. >= 12.0 GiB RAM, < 80% commit, >= 5,800 MiB VRAM, >= 30 GB disk) are preserved.
+      - Free disk >= 25.0 GiB (26,843,545,600 bytes)
+    Stricter settings (e.g. >= 12.0 GiB RAM, < 80% commit, >= 5,800 MiB VRAM, >= 30 GiB disk) are preserved.
     Permissive/weakened settings are clamped to mandatory project floors.
     Always returns a new defensive copy and never returns the caller's original mutable object.
     """

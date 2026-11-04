@@ -130,11 +130,59 @@ class DiskSnapshot:
     drive: str
     free_bytes: int
     total_bytes: int
-    free_gb: float
-    total_gb: float
+    free_gib: float = 0.0
+    total_gib: float = 0.0
     status: TelemetryStatus = TelemetryStatus.SUCCESS
     error_message: Optional[str] = None
     timestamp_utc: str = field(default_factory=current_iso_utc)
+
+    def __init__(
+        self,
+        drive: str,
+        free_bytes: int,
+        total_bytes: int,
+        free_gib: Optional[float] = None,
+        total_gib: Optional[float] = None,
+        free_gb: Optional[float] = None,
+        total_gb: Optional[float] = None,
+        status: TelemetryStatus = TelemetryStatus.SUCCESS,
+        error_message: Optional[str] = None,
+        timestamp_utc: Optional[str] = None
+    ):
+        self.drive = drive
+        self.free_bytes = free_bytes
+        self.total_bytes = total_bytes
+        if free_gib is not None:
+            self.free_gib = free_gib
+        elif free_gb is not None:
+            self.free_gib = free_gb
+        elif free_bytes > 0:
+            self.free_gib = round(free_bytes / (1024**3), 2)
+        else:
+            self.free_gib = 0.0
+
+        if total_gib is not None:
+            self.total_gib = total_gib
+        elif total_gb is not None:
+            self.total_gib = total_gb
+        elif total_bytes > 0:
+            self.total_gib = round(total_bytes / (1024**3), 2)
+        else:
+            self.total_gib = 0.0
+
+        self.status = status
+        self.error_message = error_message
+        self.timestamp_utc = timestamp_utc or current_iso_utc()
+
+    @property
+    def free_gb(self) -> float:
+        """Backward-compatibility alias for free_gib."""
+        return self.free_gib
+
+    @property
+    def total_gb(self) -> float:
+        """Backward-compatibility alias for total_gib."""
+        return self.total_gib
 
 @dataclass
 class GateResult:

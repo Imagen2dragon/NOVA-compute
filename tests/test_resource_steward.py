@@ -157,13 +157,14 @@ class TestResourceSteward(unittest.TestCase):
             status=status
         )
 
-    def _make_healthy_disk(self, free_gb: float = 100.0, status: TelemetryStatus = TelemetryStatus.SUCCESS) -> DiskSnapshot:
+    def _make_healthy_disk(self, free_gib: Optional[float] = None, free_gb: Optional[float] = None, status: TelemetryStatus = TelemetryStatus.SUCCESS) -> DiskSnapshot:
+        val_gib = free_gib if free_gib is not None else (free_gb if free_gb is not None else 100.0)
         return DiskSnapshot(
             drive="C:\\",
-            free_bytes=int(free_gb * 1024**3),
+            free_bytes=int(val_gib * 1024**3),
             total_bytes=int(950 * 1024**3),
-            free_gb=free_gb,
-            total_gb=950.0,
+            free_gib=val_gib,
+            total_gib=950.0,
             status=status
         )
 
@@ -2720,13 +2721,13 @@ class TestResourceSteward(unittest.TestCase):
         self.assertIn("avail_vram", summary["failed_gates"])
         self.assertEqual(summary["gates"]["avail_vram"].required_str, ">= 5500 MiB")
 
-        # Sub-test 4: Disk deficit (15.0 GB < 25.0 GB floor, even though > 5.0 GB permissive)
+        # Sub-test 4: Disk deficit (15.0 GiB < 25.0 GiB floor, even though > 5.0 GiB permissive)
         mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=6000.0)
-        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=15.0)
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gib=15.0)
         snap, summary = steward.remeasure_memory()
         self.assertFalse(summary["admission_gate_passed"], "Permissive policy weakened disk threshold!")
         self.assertIn("disk_free", summary["failed_gates"])
-        self.assertEqual(summary["gates"]["disk_free"].required_str, ">= 25.0 GB")
+        self.assertEqual(summary["gates"]["disk_free"].required_str, ">= 25.0 GiB")
 
         # Sub-test 5: Competing GPU compute apps (1 active app fails unconditionally)
         mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=50.0)
@@ -2850,6 +2851,98 @@ class TestResourceSteward(unittest.TestCase):
         self.assertFalse(all_passed_s)
         self.assertFalse(gates_s["avail_ram"].passed)
         self.assertEqual(gates_s["avail_ram"].required_str, ">= 14.0 GiB")
+
+    def test_70_disk_space_unit_consistency_and_boundary_gates(self):
+        """
+        Validates disk telemetry GiB unit semantics, boundary conditions, and fail-closed integrity:
+          A. Boundary below threshold (24.99 GiB): Fails disk_free gate with explicit 0.01 GiB deficit.
+          B. Boundary exact threshold (25.00 GiB): Passes disk_free gate.
+          C. Boundary above threshold (25.01 GiB): Passes disk_free gate.
+          D. Failed telemetry sensor: Fails both disk_free and telemetry_integrity gates closed.
+          E. Stricter configured threshold (40.0 GiB required, 35.0 GiB measured): Enforces stricter requirement.
+          F. Backward compatibility: Validates aliases (free_gb, total_gb, minimum_disk_free_gb).
+        """
+        manager = MemoryBudgetManager(DEFAULT_POLICY)
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+
+        # --- A. Boundary Below Threshold: 24.99 GiB ---
+        free_disk_below_gib = 24.99
+        disk_below = self._make_healthy_disk(free_gib=free_disk_below_gib)
+        all_passed_a, gates_a = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_below)
+        self.assertFalse(all_passed_a, "24.99 GiB free disk must not pass admission")
+        self.assertFalse(gates_a["disk_free"].passed)
+        self.assertEqual(gates_a["disk_free"].required_str, ">= 25.0 GiB")
+        self.assertEqual(gates_a["disk_free"].measured_str, "24.99 GiB")
+        self.assertIn("0.01 GiB below required 25.0 GiB", gates_a["disk_free"].failure_reason)
+
+        # --- B. Boundary Exact Threshold: 25.00 GiB ---
+        free_disk_exact_gib = 25.00
+        disk_exact = self._make_healthy_disk(free_gib=free_disk_exact_gib)
+        all_passed_b, gates_b = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_exact)
+        self.assertTrue(all_passed_b, "25.00 GiB free disk must satisfy the admission threshold")
+        self.assertTrue(gates_b["disk_free"].passed)
+        self.assertEqual(gates_b["disk_free"].required_str, ">= 25.0 GiB")
+        self.assertEqual(gates_b["disk_free"].measured_str, "25.00 GiB")
+        self.assertIsNone(gates_b["disk_free"].failure_reason)
+
+        # --- C. Boundary Above Threshold: 25.01 GiB ---
+        free_disk_above_gib = 25.01
+        disk_above = self._make_healthy_disk(free_gib=free_disk_above_gib)
+        all_passed_c, gates_c = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_above)
+        self.assertTrue(all_passed_c, "25.01 GiB free disk must satisfy the admission threshold")
+        self.assertTrue(gates_c["disk_free"].passed)
+        self.assertEqual(gates_c["disk_free"].required_str, ">= 25.0 GiB")
+        self.assertEqual(gates_c["disk_free"].measured_str, "25.01 GiB")
+        self.assertIsNone(gates_c["disk_free"].failure_reason)
+
+        # --- D. Failed Sensor Telemetry: Fail-Closed ---
+        disk_failed = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=0,
+            total_bytes=0,
+            free_gib=0.0,
+            total_gib=0.0,
+            status=TelemetryStatus.FAILED,
+            error_message="Win32 error: Device not ready"
+        )
+        all_passed_d, gates_d = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_failed)
+        self.assertFalse(all_passed_d, "Failed disk sensor must fail closed")
+        self.assertFalse(gates_d["disk_free"].passed)
+        self.assertEqual(gates_d["disk_free"].measured_str, "UNAVAILABLE")
+        self.assertFalse(gates_d["telemetry_integrity"].passed)
+        self.assertIn("Disk: Win32 error: Device not ready", gates_d["telemetry_integrity"].measured_str)
+        self.assertEqual(gates_d["telemetry_integrity"].failure_reason, "Telemetry failure detected. Fail-closed: cannot verify hardware safety.")
+
+        # --- E. Stricter Configured Policy (40.0 GiB Required, 35.0 GiB Measured) ---
+        stricter_disk_policy = ResourcePolicy(minimum_disk_free_gib=40.0)
+        manager_strict_disk = MemoryBudgetManager(stricter_disk_policy)
+        free_disk_measured_gib = 35.0
+        disk_measured_strict = self._make_healthy_disk(free_gib=free_disk_measured_gib)
+        all_passed_e, gates_e = manager_strict_disk.evaluate_gates(ram_healthy, gpu_healthy, disk_measured_strict)
+        self.assertFalse(all_passed_e, "35.0 GiB must fail stricter 40.0 GiB policy")
+        self.assertFalse(gates_e["disk_free"].passed)
+        self.assertEqual(gates_e["disk_free"].required_str, ">= 40.0 GiB")
+        self.assertEqual(gates_e["disk_free"].measured_str, "35.00 GiB")
+        self.assertIn("5.00 GiB below required 40.0 GiB", gates_e["disk_free"].failure_reason)
+
+        # --- F. Backward Compatibility Aliases & Serialization ---
+        # 1. DiskSnapshot aliases
+        snap = DiskSnapshot(drive="C:\\", free_bytes=32212254720, total_bytes=107374182400, free_gib=30.0, total_gib=100.0)
+        self.assertEqual(snap.free_gb, 30.0)
+        self.assertEqual(snap.total_gb, 100.0)
+
+        # 2. DiskSnapshot constructed with legacy free_gb kwarg
+        snap_legacy = DiskSnapshot(drive="C:\\", free_bytes=32212254720, total_bytes=107374182400, free_gb=30.0, total_gb=100.0)
+        self.assertEqual(snap_legacy.free_gib, 30.0)
+        self.assertEqual(snap_legacy.free_gb, 30.0)
+
+        # 3. ResourcePolicy alias and from_dict
+        pol = ResourcePolicy(minimum_disk_free_gib=32.0)
+        self.assertEqual(pol.minimum_disk_free_gb, 32.0)
+        pol_from_legacy_dict = ResourcePolicy.from_dict({"minimum_disk_free_gb": 35.0})
+        self.assertEqual(pol_from_legacy_dict.minimum_disk_free_gib, 35.0)
+        self.assertEqual(pol_from_legacy_dict.minimum_disk_free_gb, 35.0)
 
 if __name__ == "__main__":
     unittest.main()

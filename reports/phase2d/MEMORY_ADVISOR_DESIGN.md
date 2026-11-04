@@ -139,7 +139,7 @@ $$\text{RankingScore} = \text{WS}_{\text{MB}} + 0.25 \times (\text{PrivateCommit
         ├─► Gate 3: System Commit Charge < 90.0%
         ├─► Gate 4: Available VRAM >= 5,500 MiB
         ├─► Gate 5: Competing GPU Compute Apps == 0
-        ├─► Gate 6: Free Disk Space >= 25.0 GB
+        ├─► Gate 6: Free Disk Space >= 25.0 GiB (26,843,545,600 bytes)
         │
         ├─► ALL GATES PASSED:
         │     └─► ADMISSION GRANTED (Inference permitted subject to user authorization)
@@ -149,20 +149,22 @@ $$\text{RankingScore} = \text{WS}_{\text{MB}} + 0.25 \times (\text{PrivateCommit
 
 **Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. The public API strictly prohibits injecting caller-supplied GPU snapshots, disk snapshots, or arbitrary budget evaluators. It always queries fresh telemetry across all hardware tiers directly through the monitor and evaluates admission using NOVA's trusted `MemoryBudgetManager` and configured `ResourcePolicy`. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
 
-### Mandatory Non-Overridable Admission Floors & Defensive Immutability
+### Mandatory Non-Overridable Admission Floors, Defensive Policy Isolation & Evaluation-Time Admission-Floor Enforcement
 To protect machine stability and prevent accidental or adversarial weakening of admission thresholds, the platform enforces mandatory project floors:
 - **Available RAM:** $\ge 10.0\text{ GiB}$
 - **System Commit:** $< 90.0\%$
 - **Free VRAM:** $\ge 5,500\text{ MiB}$
 - **Competing GPU Compute Apps:** $== 0$
-- **Free Disk Space:** $\ge 25.0\text{ GB}$
+- **Free Disk Space:** $\ge 25.0\text{ GiB}$ ($26,843,545,600$ bytes, $25 \times 1024^3$)
 - **Telemetry Integrity:** All sensors reporting `SUCCESS`
 
-A configurable `ResourcePolicy` is permitted to specify **stricter** criteria (e.g. $\ge 12.0\text{ GiB}$ RAM or $< 80\%$ commit), but can **never weaken** these mandatory constraints.
+A configurable `ResourcePolicy` is permitted to specify **stricter** criteria (e.g. $\ge 12.0\text{ GiB}$ RAM, $< 80\%$ commit, $\ge 5,800\text{ MiB}$ VRAM, or $\ge 40.0\text{ GiB}$ disk), but can **never weaken** these mandatory constraints.
 
-**Defensive Immutability Guarantees:**
+**Defensive Policy Isolation & Evaluation-Time Admission-Floor Enforcement Guarantees:**
 1. `enforce_mandatory_admission_floors()` always returns a new defensive copy and never returns the caller's mutable policy reference.
-2. `MemoryBudgetManager.evaluate_gates()` re-applies `enforce_mandatory_admission_floors()` immediately before evaluating thresholds, preventing post-construction mutation of `manager.policy` or the original caller object from weakening admission decisions. Stricter thresholds remain fully preserved.
+2. `MemoryBudgetManager.evaluate_gates()` re-applies `enforce_mandatory_admission_floors()` immediately before evaluating thresholds during every gate evaluation, ensuring that direct mutation of `manager.policy` or the original caller object cannot weaken mandatory admission floors.
+3. Stricter user-configured settings (e.g. $\ge 12.0\text{ GiB}$ RAM, $< 80\%$ commit, $\ge 5,800\text{ MiB}$ VRAM, or $\ge 40.0\text{ GiB}$ disk) remain fully preserved and enforced.
+4. Hard-coded unit semantics: Disk telemetry computes and verifies Gibibytes ($2^{30} = 1,073,741,824$ bytes per unit) via `GetDiskFreeSpaceExW`. The mandatory threshold is $25.0\text{ GiB}$ ($26,843,545,600$ bytes).
 
 ---
 

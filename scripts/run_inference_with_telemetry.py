@@ -121,6 +121,8 @@ def save_preflight_json(report: PreflightReport, path: str = PREFLIGHT_LATEST_JS
         },
         "disk": {
             "drive": report.disk.drive,
+            "free_gib": report.disk.free_gib,
+            "total_gib": report.disk.total_gib,
             "free_gb": report.disk.free_gb,
             "total_gb": report.disk.total_gb,
             "status": report.disk.status.value,
