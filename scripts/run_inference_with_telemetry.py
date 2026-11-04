@@ -181,6 +181,7 @@ def print_preflight_summary(report: PreflightReport):
         for idx, rec in enumerate(report.recommendations[:5], 1):
             print(f"{idx}. {rec.recommendation_text}")
         print("Note: Close applications through their normal interface. NOVA never force-terminates external apps.")
+        print("Working set reflects resident physical memory; private commit reflects dedicated virtual commit charge.")
 
 def run_preflight_only(steward: ResourceSteward, output_dir: Optional[str] = None) -> int:
     print("[MODE] PREFLIGHT ONLY (Inference execution will NOT be launched)\n")
@@ -209,16 +210,29 @@ def run_dry_run() -> int:
     return 0
 
 def run_memory_report(steward: ResourceSteward) -> int:
-    print("[MODE] DETAILED MEMORY REPORT\n")
+    print("[MODE] INTELLIGENT MEMORY ADVISOR REPORT\n")
     report = steward.run_preflight()
     save_preflight_json(report)
     print_preflight_summary(report)
-    print("\n--- Detailed Process Working Set Inventory ---")
+
+    advice = steward.get_memory_advice()
+    print("\n--- Protected System Infrastructure (Excluded from Recommendations) ---")
+    if advice.protected_processes_observed:
+        print(f"  Observed active protected processes: {', '.join(advice.protected_processes_observed)}")
+    else:
+        print("  No major protected system services in top process list.")
+    print("  Policy: Protected processes are never manipulated, terminated, or recommended for closure.")
+
+    print("\n--- Detailed Process Working Set & Private Commit Inventory ---")
     for p in report.top_processes:
         cat = "User Application" if p.is_user_application else "System/Background"
         part_str = " (partial)" if p.is_partial_private_commit else ""
         priv_str = f"{p.private_commit_mb:>7.1f} MB{part_str}" if p.private_commit_mb is not None else "    N/A          "
         print(f"  {p.name:<30} WS: {p.working_set_mb:>7.1f} MB  Priv: {priv_str:<17}  [{cat}] (Instances: {p.instances_measured}/{p.instances_total})")
+
+    print("\n" + "=" * 72)
+    print(f"ADVISOR NOTICE: {advice.disclaimer}")
+    print("=" * 72)
     return 0 if report.passed else 1
 
 def start_output_reader(pipe, out_queue: queue.Queue, stop_event: Optional[threading.Event] = None) -> threading.Thread:
@@ -567,6 +581,7 @@ def main():
     group.add_argument("--preflight", action="store_true", help="Run read-only hardware and process preflight diagnostics.")
     group.add_argument("--dry-run", action="store_true", help="Validate command syntax without launching inference.")
     group.add_argument("--memory-report", action="store_true", help="Generate detailed memory and process recommendation report.")
+    group.add_argument("--advisor", action="store_true", help="Run read-only Intelligent Memory Advisor diagnostics and recommendations.")
 
     args = parser.parse_args()
     steward = ResourceSteward()
@@ -577,7 +592,7 @@ def main():
     elif args.dry_run:
         code = run_dry_run()
         sys.exit(code)
-    elif args.memory_report:
+    elif args.advisor or args.memory_report:
         code = run_memory_report(steward)
         sys.exit(code)
     elif args.preflight:

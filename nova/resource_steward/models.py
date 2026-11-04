@@ -38,6 +38,12 @@ class ReclamationStatus(str, Enum):
     RECLAMATION_FAILED = "RECLAMATION_FAILED"
     RECLAMATION_UNVERIFIED = "RECLAMATION_UNVERIFIED"
 
+class ProcessCategory(str, Enum):
+    USER_APPLICATION = "USER_APPLICATION"
+    BACKGROUND_APPLICATION = "BACKGROUND_APPLICATION"
+    PROTECTED_SYSTEM = "PROTECTED_SYSTEM"
+    UNKNOWN = "UNKNOWN"
+
 def current_iso_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -94,7 +100,7 @@ class ProcessResourceSnapshot:
             self.private_commit_mb = round(self.private_commit_bytes / (1024**2), 1)
         if not self.pids and self.pid > 0:
             self.pids = [self.pid]
-        if self.pids:
+        if self.pids and self.instances_total <= 1:
             self.instances_total = len(self.pids)
 
 @dataclass
@@ -149,6 +155,29 @@ class MemoryRecommendation:
     is_partial: bool
     unverified_heuristic_reclaim_mb: Optional[float]
     recommendation_text: str
+    category: ProcessCategory = ProcessCategory.USER_APPLICATION
+    why_recommended: str = ""
+    action_guidance: str = ""
+    working_set_interpretation: str = ""
+    private_commit_interpretation: str = ""
+
+@dataclass
+class MemoryAdvisorReport:
+    timestamp_utc: str
+    available_ram_gib: float
+    total_commit_gib: float
+    commit_pct: float
+    is_ram_constrained: bool
+    ram_deficit_gib: float
+    recommendations: List[MemoryRecommendation]
+    user_app_recommendations: List[MemoryRecommendation]
+    background_app_recommendations: List[MemoryRecommendation]
+    protected_processes_observed: List[str]
+    disclaimer: str = (
+        "Memory Advisor is strictly read-only. Observed working set measures physical residency, "
+        "not guaranteed reclaimable RAM. Private commit represents dedicated virtual commit charge. "
+        "All application closure decisions remain under complete manual user control."
+    )
 
 @dataclass
 class PreflightReport:

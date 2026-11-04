@@ -41,7 +41,10 @@ from nova.resource_steward.models import (
     RecoveryReport,
     MemoryPressureLevel,
     ReclamationStatus,
-    MemoryReclaimReport
+    MemoryReclaimReport,
+    ProcessCategory,
+    MemoryRecommendation,
+    MemoryAdvisorReport
 )
 from nova.resource_steward.policy import ResourcePolicy
 from nova.resource_steward.memory_budget import MemoryBudgetManager
@@ -1838,6 +1841,276 @@ class TestResourceSteward(unittest.TestCase):
         self.assertFalse(rep.process_working_set_verified)
         self.assertFalse(rep.process_private_commit_verified)
         self.assertFalse(rep.process_telemetry_verified)
+
+    def test_52_advisor_process_classification(self):
+        """Proves that MemoryAdvisor correctly classifies processes into User, Background, Protected, and Unknown."""
+        # 1. Category A: User Applications
+        self.assertEqual(MemoryAdvisor.classify_process("msedge.exe"), ProcessCategory.USER_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("code.exe"), ProcessCategory.USER_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("chrome.exe"), ProcessCategory.USER_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("claude.exe"), ProcessCategory.USER_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("spotify.exe"), ProcessCategory.USER_APPLICATION)
+
+        # 2. Category B: Background Applications
+        self.assertEqual(MemoryAdvisor.classify_process("onedrive.exe"), ProcessCategory.BACKGROUND_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("dropbox.exe"), ProcessCategory.BACKGROUND_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("language_server.exe"), ProcessCategory.BACKGROUND_APPLICATION)
+        self.assertEqual(MemoryAdvisor.classify_process("node.exe"), ProcessCategory.BACKGROUND_APPLICATION)
+
+        # 3. Category C: Protected Processes
+        self.assertEqual(MemoryAdvisor.classify_process("system"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("registry"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("smss.exe"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("csrss.exe"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("services.exe"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("svchost.exe"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("msmpeng.exe"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("nvcontainer.exe"), ProcessCategory.PROTECTED_SYSTEM)
+        self.assertEqual(MemoryAdvisor.classify_process("dwm.exe"), ProcessCategory.PROTECTED_SYSTEM)
+
+        # 4. Unknown Processes
+        self.assertEqual(MemoryAdvisor.classify_process("random_daemon_xyz.exe"), ProcessCategory.UNKNOWN)
+        self.assertEqual(MemoryAdvisor.classify_process("unknown_tool.bin"), ProcessCategory.UNKNOWN)
+
+    def test_53_advisor_strictly_excludes_protected_processes(self):
+        """Proves that Protected Processes are NEVER included in recommendations."""
+        procs = [
+            ProcessResourceSnapshot(pid=100, name="svchost.exe", working_set_bytes=1000 * 1024 * 1024,
+                                    private_commit_bytes=800 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=200, name="msmpeng.exe", working_set_bytes=600 * 1024 * 1024,
+                                    private_commit_bytes=400 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=300, name="nvcontainer.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=300 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=400, name="system", working_set_bytes=400 * 1024 * 1024,
+                                    private_commit_bytes=None, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=500, name="msedge.exe", working_set_bytes=1200 * 1024 * 1024,
+                                    private_commit_bytes=1500 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+        recs = MemoryAdvisor.analyze_processes(procs)
+        rec_names = [r.process_name for r in recs]
+
+        # Protected processes must be strictly excluded
+        self.assertNotIn("svchost.exe", rec_names)
+        self.assertNotIn("msmpeng.exe", rec_names)
+        self.assertNotIn("nvcontainer.exe", rec_names)
+        self.assertNotIn("system", rec_names)
+
+        # User application should be recommended
+        self.assertIn("msedge.exe", rec_names)
+        self.assertEqual(len(recs), 1)
+
+    def test_54_advisor_handles_missing_and_partial_process_telemetry(self):
+        """Proves that missing or partial process telemetry is handled truthfully without failing."""
+        procs = [
+            # Complete telemetry
+            ProcessResourceSnapshot(pid=1001, name="code.exe", working_set_bytes=500 * 1024 * 1024,
+                                    private_commit_bytes=600 * 1024 * 1024, pids=[1001, 1002, 1003],
+                                    instances_total=3, instances_measured=3, is_partial_private_commit=False,
+                                    status=TelemetryStatus.SUCCESS),
+            # Partial private commit telemetry
+            ProcessResourceSnapshot(pid=2001, name="chrome.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=400 * 1024 * 1024, pids=[2001, 2002, 2003, 2004],
+                                    instances_total=4, instances_measured=1, is_partial_private_commit=True,
+                                    status=TelemetryStatus.SUCCESS),
+            # Missing private commit telemetry (access restricted)
+            ProcessResourceSnapshot(pid=3001, name="onedrive.exe", working_set_bytes=300 * 1024 * 1024,
+                                    private_commit_bytes=None, pids=[3001, 3002],
+                                    instances_total=2, instances_measured=0, is_partial_private_commit=False,
+                                    status=TelemetryStatus.SUCCESS)
+        ]
+        recs = MemoryAdvisor.analyze_processes(procs)
+        by_name = {r.process_name: r for r in recs}
+
+        # 1. Complete process
+        code_rec = by_name["code.exe"]
+        self.assertFalse(code_rec.is_partial)
+        self.assertEqual(code_rec.total_private_commit_mb, 600.0)
+        self.assertIn("across all 3 instance(s)", code_rec.private_commit_interpretation)
+
+        # 2. Partial process
+        chrome_rec = by_name["chrome.exe"]
+        self.assertTrue(chrome_rec.is_partial)
+        self.assertEqual(chrome_rec.total_private_commit_mb, 400.0)
+        self.assertIn("partial measurement: 1/4 instances measured", chrome_rec.private_commit_interpretation)
+        self.assertIn("(1/4 measured)", chrome_rec.recommendation_text)
+
+        # 3. Missing telemetry process
+        od_rec = by_name["onedrive.exe"]
+        self.assertIsNone(od_rec.total_private_commit_mb)
+        self.assertIn("Private commit telemetry unavailable", od_rec.private_commit_interpretation)
+
+    def test_55_advisor_working_set_vs_private_commit_semantics(self):
+        """
+        Proves that recommendations clearly distinguish working set (physical residency/standby cache)
+        from private commit (dedicated virtual commit charge), never claiming 1:1 guaranteed available RAM.
+        """
+        procs = [
+            ProcessResourceSnapshot(pid=2001, name="msedge.exe", working_set_bytes=1000 * 1024 * 1024,
+                                    private_commit_bytes=1200 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+        recs = MemoryAdvisor.analyze_processes(procs)
+        self.assertEqual(len(recs), 1)
+        rec = recs[0]
+
+        # Working set semantics: must mention physical residency and standby caching
+        self.assertIn("physical memory residency", rec.working_set_interpretation)
+        self.assertIn("standby", rec.working_set_interpretation)
+        self.assertNotIn("guaranteed available RAM", rec.working_set_interpretation)
+
+        # Private commit semantics: must mention dedicated commit charge
+        self.assertIn("dedicated commit charge", rec.private_commit_interpretation)
+        self.assertIn("virtual commit allocation", rec.private_commit_interpretation)
+
+    def test_56_advisor_candidate_ranking_by_verified_footprint(self):
+        """Proves that candidates are ranked by verified memory footprint with user applications prioritized."""
+        procs = [
+            # 1. Background app holding 400 MB WS, 300 MB Priv
+            ProcessResourceSnapshot(pid=3001, name="onedrive.exe", working_set_bytes=400 * 1024 * 1024,
+                                    private_commit_bytes=300 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            # 2. Large User app holding 1500 MB WS, 2000 MB Priv
+            ProcessResourceSnapshot(pid=3002, name="code.exe", working_set_bytes=1500 * 1024 * 1024,
+                                    private_commit_bytes=2000 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            # 3. Medium User app holding 800 MB WS, 900 MB Priv
+            ProcessResourceSnapshot(pid=3003, name="msedge.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=900 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            # 4. Large Protected System process (must be excluded)
+            ProcessResourceSnapshot(pid=3004, name="msmpeng.exe", working_set_bytes=3000 * 1024 * 1024,
+                                    private_commit_bytes=3000 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+        recs = MemoryAdvisor.analyze_processes(procs)
+        rec_names = [r.process_name for r in recs]
+
+        # msmpeng must not be present
+        self.assertNotIn("msmpeng.exe", rec_names)
+
+        # Ordering must rank largest user application first, then medium user application, then background app
+        self.assertEqual(rec_names, ["code.exe", "msedge.exe", "onedrive.exe"])
+
+    def test_57_advisor_read_only_guarantee_no_process_termination(self):
+        """Proves that MemoryAdvisor never terminates, signals, or kills any external process."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=8.5)
+        mock_monitor.list_top_processes.return_value = [
+            ProcessResourceSnapshot(pid=4001, name="msedge.exe", working_set_bytes=1000 * 1024 * 1024,
+                                    private_commit_bytes=1000 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+
+        with patch("os.kill") as mock_kill, patch("subprocess.run") as mock_subproc:
+            # 1. Direct analyze_processes
+            MemoryAdvisor.analyze_processes(mock_monitor.list_top_processes.return_value)
+            # 2. generate_advisor_report
+            advice = MemoryAdvisor.generate_advisor_report(mock_monitor)
+            # 3. steward.get_memory_advice
+            steward = ResourceSteward()
+            steward.monitor = mock_monitor
+            steward.get_memory_advice()
+
+            # Verify that os.kill was NEVER called
+            mock_kill.assert_not_called()
+            # Verify that no taskkill or termination command was executed
+            for call_args in mock_subproc.call_args_list:
+                args = call_args[0][0] if call_args[0] else []
+                if isinstance(args, list):
+                    self.assertNotIn("taskkill", args)
+                    self.assertNotIn("/F", args)
+
+    def test_58_advisor_static_inspection_forbidden_apis_absent(self):
+        """Static inspection: verifies forbidden Windows memory cleaner and kill APIs are absent in advisor.py."""
+        import ast
+        advisor_path = os.path.join(PROJECT_ROOT, "nova", "resource_steward", "advisor.py")
+        with open(advisor_path, "r", encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename="advisor.py")
+
+        forbidden = [
+            "EmptyWorkingSet",
+            "K32EmptyWorkingSet",
+            "NtSetSystemInformation",
+            "MemoryPurgeStandbyList",
+            "MemoryFlushModifiedList",
+            "SetSystemFileCacheSize",
+            "SetProcessWorkingSetSize",
+            "TerminateProcess",
+            "taskkill"
+        ]
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id in forbidden:
+                self.fail(f"Forbidden API '{node.id}' found in advisor.py")
+            elif isinstance(node, ast.Attribute) and node.attr in forbidden:
+                self.fail(f"Forbidden attribute '{node.attr}' found in advisor.py")
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    if alias.name in forbidden:
+                        self.fail(f"Forbidden import '{alias.name}' found in advisor.py")
+
+    def test_59_advisor_integration_with_preflight_report(self):
+        """Proves that ResourceSteward preflight integrates MemoryAdvisor and partitions recommendations."""
+        steward = ResourceSteward()
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=9.0) # Deficit 1.0 GiB
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu()
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk()
+        mock_monitor.list_top_processes.return_value = [
+            ProcessResourceSnapshot(pid=5001, name="msedge.exe", working_set_bytes=1200 * 1024 * 1024,
+                                    private_commit_bytes=1500 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=5002, name="onedrive.exe", working_set_bytes=300 * 1024 * 1024,
+                                    private_commit_bytes=200 * 1024 * 1024, status=TelemetryStatus.SUCCESS),
+            ProcessResourceSnapshot(pid=5003, name="svchost.exe", working_set_bytes=800 * 1024 * 1024,
+                                    private_commit_bytes=300 * 1024 * 1024, status=TelemetryStatus.SUCCESS)
+        ]
+        steward.monitor = mock_monitor
+        steward.adaptive_reclaimer = MagicMock()
+
+        report = steward.run_preflight(run_auto_reclaim=False)
+        self.assertFalse(report.passed) # RAM deficit -> GATED
+        self.assertEqual(len(report.recommendations), 2)
+        rec_names = [r.process_name for r in report.recommendations]
+        self.assertIn("msedge.exe", rec_names)
+        self.assertIn("onedrive.exe", rec_names)
+        self.assertNotIn("svchost.exe", rec_names)
+
+        # Test dedicated advice report
+        advice = steward.get_memory_advice()
+        self.assertTrue(advice.is_ram_constrained)
+        self.assertEqual(advice.ram_deficit_gib, 1.0)
+        self.assertEqual(len(advice.user_app_recommendations), 1)
+        self.assertEqual(advice.user_app_recommendations[0].process_name, "msedge.exe")
+        self.assertEqual(len(advice.background_app_recommendations), 1)
+        self.assertEqual(advice.background_app_recommendations[0].process_name, "onedrive.exe")
+        self.assertIn("svchost.exe", advice.protected_processes_observed)
+
+    def test_60_advisor_remeasure_memory_after_user_action_and_threshold_fidelity(self):
+        """
+        Proves that re-measurement correctly calculates RAM gains after manual user action
+        and strictly preserves the 10.0 GiB available RAM admission threshold.
+        """
+        steward = ResourceSteward()
+        mock_monitor = MagicMock()
+
+        baseline_ram = self._make_healthy_ram(avail_gib=8.5, commit_pct=45.0)
+
+        # Scenario A: User closes apps, RAM increases to 10.5 GiB (meets threshold)
+        fresh_a = self._make_healthy_ram(avail_gib=10.5, commit_pct=35.0)
+        mock_monitor.get_system_memory.return_value = fresh_a
+        steward.monitor = mock_monitor
+
+        snap_a, summary_a = steward.remeasure_memory(baseline_ram=baseline_ram)
+        self.assertEqual(summary_a["avail_ram_gib"], 10.5)
+        self.assertEqual(summary_a["ram_delta_gib"], 2.0)
+        self.assertEqual(summary_a["commit_delta_pct"], 10.0)
+        self.assertTrue(summary_a["admission_gate_passed"]) # >= 10.0 GiB
+
+        # Scenario B: User closes apps, but RAM only increases to 9.5 GiB (fails threshold)
+        fresh_b = self._make_healthy_ram(avail_gib=9.5, commit_pct=40.0)
+        mock_monitor.get_system_memory.return_value = fresh_b
+        steward.monitor = mock_monitor
+
+        snap_b, summary_b = steward.remeasure_memory(baseline_ram=baseline_ram)
+        self.assertEqual(summary_b["avail_ram_gib"], 9.5)
+        self.assertEqual(summary_b["ram_delta_gib"], 1.0)
+        self.assertEqual(summary_b["commit_delta_pct"], 5.0)
+        # Advisor strictly preserves the 10.0 GiB admission threshold: 9.5 GiB fails closed
+        self.assertFalse(summary_b["admission_gate_passed"])
 
 if __name__ == "__main__":
     unittest.main()

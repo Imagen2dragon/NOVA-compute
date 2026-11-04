@@ -4,7 +4,7 @@ Provides resource-aware system diagnostics, memory budget policies,
 fail-closed preflight gating, supervisor engines, and safe reclamation managers.
 """
 
-from typing import Optional
+from typing import Optional, Tuple, Dict, Any
 
 from .models import (
     TelemetryStatus,
@@ -12,6 +12,7 @@ from .models import (
     InferenceOutcome,
     MemoryPressureLevel,
     ReclamationStatus,
+    ProcessCategory,
     MemoryReclaimReport,
     SystemMemorySnapshot,
     ProcessResourceSnapshot,
@@ -20,6 +21,7 @@ from .models import (
     DiskSnapshot,
     GateResult,
     MemoryRecommendation,
+    MemoryAdvisorReport,
     PreflightReport,
     RecoveryReport,
     SupervisorResult
@@ -100,3 +102,14 @@ class ResourceSteward:
             top_processes=top_procs,
             recommendations=recommendations
         )
+
+    def get_memory_advice(self) -> MemoryAdvisorReport:
+        """Executes a dedicated read-only Memory Advisor diagnostic evaluation."""
+        return self.advisor.generate_advisor_report(self.monitor, policy=self.policy)
+
+    def remeasure_memory(
+        self,
+        baseline_ram: Optional[SystemMemorySnapshot] = None
+    ) -> Tuple[SystemMemorySnapshot, Dict[str, Any]]:
+        """Re-measures system memory telemetry and compares it against baseline."""
+        return self.advisor.remeasure_memory(self.monitor, baseline_ram=baseline_ram)
