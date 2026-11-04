@@ -98,23 +98,13 @@ def enforce_mandatory_admission_floors(policy: Optional[ResourcePolicy]) -> Reso
       - Free disk >= 25.0 GB
     Stricter settings (e.g. >= 12.0 GiB RAM, < 80% commit, >= 5,800 MiB VRAM, >= 30 GB disk) are preserved.
     Permissive/weakened settings are clamped to mandatory project floors.
+    Always returns a new defensive copy and never returns the caller's original mutable object.
     """
-    base = policy or DEFAULT_POLICY
-    effective_ram = max(MANDATORY_MIN_RAM_GIB, float(base.minimum_inference_ram_gib))
-    effective_commit = min(MANDATORY_MAX_COMMIT_PCT, float(base.critical_commit_pct))
-    effective_vram = max(MANDATORY_MIN_VRAM_MIB, float(base.minimum_vram_mib))
-    effective_disk = max(MANDATORY_MIN_DISK_FREE_GIB, float(base.minimum_disk_free_gib))
-
-    if (effective_ram == base.minimum_inference_ram_gib and
-        effective_commit == base.critical_commit_pct and
-        effective_vram == base.minimum_vram_mib and
-        effective_disk == base.minimum_disk_free_gib):
-        return base
-
     import copy
+    base = policy or DEFAULT_POLICY
     clamped = copy.copy(base)
-    clamped.minimum_inference_ram_gib = effective_ram
-    clamped.critical_commit_pct = effective_commit
-    clamped.minimum_vram_mib = effective_vram
-    clamped.minimum_disk_free_gib = effective_disk
+    clamped.minimum_inference_ram_gib = max(MANDATORY_MIN_RAM_GIB, float(base.minimum_inference_ram_gib))
+    clamped.critical_commit_pct = min(MANDATORY_MAX_COMMIT_PCT, float(base.critical_commit_pct))
+    clamped.minimum_vram_mib = max(MANDATORY_MIN_VRAM_MIB, float(base.minimum_vram_mib))
+    clamped.minimum_disk_free_gib = max(MANDATORY_MIN_DISK_FREE_GIB, float(base.minimum_disk_free_gib))
     return clamped

@@ -33,7 +33,10 @@ class MemoryBudgetManager:
         """
         Evaluates preflight gates with strict fail-closed semantics.
         If any telemetry metric is unverified, malformed, or failed, the gate fails.
+        Re-applies mandatory project admission floors immediately prior to evaluating thresholds
+        to prevent object mutation from weakening admission gates.
         """
+        effective_policy = enforce_mandatory_admission_floors(self.policy)
         gates: Dict[str, GateResult] = {}
 
         # 1. Telemetry Health Gate (Fail-Closed)
@@ -61,15 +64,15 @@ class MemoryBudgetManager:
         # 2. Available RAM Gate
         ram_passed = (
             system_ram.status == TelemetryStatus.SUCCESS and
-            system_ram.avail_phys_gib >= self.policy.minimum_inference_ram_gib
+            system_ram.avail_phys_gib >= effective_policy.minimum_inference_ram_gib
         )
-        ram_deficit = round(self.policy.minimum_inference_ram_gib - system_ram.avail_phys_gib, 3)
+        ram_deficit = round(effective_policy.minimum_inference_ram_gib - system_ram.avail_phys_gib, 3)
         gates["avail_ram"] = GateResult(
             gate_name="avail_ram",
             passed=ram_passed,
-            required_str=f">= {self.policy.minimum_inference_ram_gib:.1f} GiB",
+            required_str=f">= {effective_policy.minimum_inference_ram_gib:.1f} GiB",
             measured_str=f"{system_ram.avail_phys_gib:.3f} GiB" if system_ram.status == TelemetryStatus.SUCCESS else "UNAVAILABLE",
-            failure_reason=f"Available RAM deficit: {ram_deficit:.3f} GiB below required {self.policy.minimum_inference_ram_gib:.1f} GiB" if not ram_passed else None
+            failure_reason=f"Available RAM deficit: {ram_deficit:.3f} GiB below required {effective_policy.minimum_inference_ram_gib:.1f} GiB" if not ram_passed else None
         )
 
         # 3. Hardened System Commit Gate (Fail-Closed)
@@ -120,17 +123,17 @@ class MemoryBudgetManager:
             commit_measured = "INVALID / UNAVAILABLE"
             commit_failure = f"Fail-closed: commit validation failed ({commit_invalid_reason})."
         else:
-            commit_passed = (system_ram.commit_pct < self.policy.critical_commit_pct)
+            commit_passed = (system_ram.commit_pct < effective_policy.critical_commit_pct)
             commit_measured = f"{system_ram.commit_pct:.1f}%"
             commit_failure = (
-                f"System commit {system_ram.commit_pct:.1f}% exceeds critical threshold (< {self.policy.critical_commit_pct:.1f}%)."
+                f"System commit {system_ram.commit_pct:.1f}% exceeds critical threshold (< {effective_policy.critical_commit_pct:.1f}%)."
                 if not commit_passed else None
             )
 
         gates["system_commit"] = GateResult(
             gate_name="system_commit",
             passed=commit_passed,
-            required_str=f"< {self.policy.critical_commit_pct:.1f}%",
+            required_str=f"< {effective_policy.critical_commit_pct:.1f}%",
             measured_str=commit_measured,
             failure_reason=commit_failure
         )
@@ -138,15 +141,15 @@ class MemoryBudgetManager:
         # 4. Available VRAM Gate
         vram_passed = (
             gpu.status == TelemetryStatus.SUCCESS and
-            gpu.vram_free_mib >= self.policy.minimum_vram_mib
+            gpu.vram_free_mib >= effective_policy.minimum_vram_mib
         )
-        vram_deficit = round(self.policy.minimum_vram_mib - gpu.vram_free_mib, 1)
+        vram_deficit = round(effective_policy.minimum_vram_mib - gpu.vram_free_mib, 1)
         gates["avail_vram"] = GateResult(
             gate_name="avail_vram",
             passed=vram_passed,
-            required_str=f">= {self.policy.minimum_vram_mib:.0f} MiB",
+            required_str=f">= {effective_policy.minimum_vram_mib:.0f} MiB",
             measured_str=f"{gpu.vram_free_mib:.1f} MiB" if gpu.status == TelemetryStatus.SUCCESS else "UNAVAILABLE",
-            failure_reason=f"VRAM deficit: {vram_deficit:.1f} MiB below required {self.policy.minimum_vram_mib:.0f} MiB" if not vram_passed else None
+            failure_reason=f"VRAM deficit: {vram_deficit:.1f} MiB below required {effective_policy.minimum_vram_mib:.0f} MiB" if not vram_passed else None
         )
 
         # 5. Competing GPU Compute Workload Gate (Fail-Closed)
@@ -171,15 +174,15 @@ class MemoryBudgetManager:
         # 6. Free Storage Gate
         disk_passed = (
             disk.status == TelemetryStatus.SUCCESS and
-            disk.free_gb >= self.policy.minimum_disk_free_gib
+            disk.free_gb >= effective_policy.minimum_disk_free_gib
         )
-        disk_deficit = round(self.policy.minimum_disk_free_gib - disk.free_gb, 2)
+        disk_deficit = round(effective_policy.minimum_disk_free_gib - disk.free_gb, 2)
         gates["disk_free"] = GateResult(
             gate_name="disk_free",
             passed=disk_passed,
-            required_str=f">= {self.policy.minimum_disk_free_gib:.1f} GB",
+            required_str=f">= {effective_policy.minimum_disk_free_gib:.1f} GB",
             measured_str=f"{disk.free_gb:.2f} GB" if disk.status == TelemetryStatus.SUCCESS else "UNAVAILABLE",
-            failure_reason=f"Disk space deficit: {disk_deficit:.2f} GB below required {self.policy.minimum_disk_free_gib:.1f} GB" if not disk_passed else None
+            failure_reason=f"Disk space deficit: {disk_deficit:.2f} GB below required {effective_policy.minimum_disk_free_gib:.1f} GB" if not disk_passed else None
         )
 
         all_passed = all(g.passed for g in gates.values())

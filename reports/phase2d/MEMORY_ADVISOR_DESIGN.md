@@ -149,7 +149,7 @@ $$\text{RankingScore} = \text{WS}_{\text{MB}} + 0.25 \times (\text{PrivateCommit
 
 **Rule:** `remeasure_memory()` cannot independently grant inference permission based on RAM alone. The public API strictly prohibits injecting caller-supplied GPU snapshots, disk snapshots, or arbitrary budget evaluators. It always queries fresh telemetry across all hardware tiers directly through the monitor and evaluates admission using NOVA's trusted `MemoryBudgetManager` and configured `ResourcePolicy`. Reaching $\ge 10.0\text{ GiB}$ RAM does not produce a passed preflight if VRAM, GPU contention, system commit, or disk space gates fail.
 
-### Mandatory Non-Overridable Admission Floors
+### Mandatory Non-Overridable Admission Floors & Defensive Immutability
 To protect machine stability and prevent accidental or adversarial weakening of admission thresholds, the platform enforces mandatory project floors:
 - **Available RAM:** $\ge 10.0\text{ GiB}$
 - **System Commit:** $< 90.0\%$
@@ -158,7 +158,11 @@ To protect machine stability and prevent accidental or adversarial weakening of 
 - **Free Disk Space:** $\ge 25.0\text{ GB}$
 - **Telemetry Integrity:** All sensors reporting `SUCCESS`
 
-A configurable `ResourcePolicy` is permitted to specify **stricter** criteria (e.g. $\ge 12.0\text{ GiB}$ RAM or $< 80\%$ commit), but can **never weaken** these mandatory constraints. Permissive policies are clamped via `enforce_mandatory_admission_floors()`.
+A configurable `ResourcePolicy` is permitted to specify **stricter** criteria (e.g. $\ge 12.0\text{ GiB}$ RAM or $< 80\%$ commit), but can **never weaken** these mandatory constraints.
+
+**Defensive Immutability Guarantees:**
+1. `enforce_mandatory_admission_floors()` always returns a new defensive copy and never returns the caller's mutable policy reference.
+2. `MemoryBudgetManager.evaluate_gates()` re-applies `enforce_mandatory_admission_floors()` immediately before evaluating thresholds, preventing post-construction mutation of `manager.policy` or the original caller object from weakening admission decisions. Stricter thresholds remain fully preserved.
 
 ---
 

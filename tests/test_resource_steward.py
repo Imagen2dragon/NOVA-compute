@@ -46,7 +46,11 @@ from nova.resource_steward.models import (
     MemoryRecommendation,
     MemoryAdvisorReport
 )
-from nova.resource_steward.policy import ResourcePolicy
+from nova.resource_steward.policy import (
+    ResourcePolicy,
+    DEFAULT_POLICY,
+    enforce_mandatory_admission_floors
+)
 from nova.resource_steward.memory_budget import MemoryBudgetManager
 from nova.resource_steward.advisor import MemoryAdvisor
 from nova.resource_steward.recovery import SafeReclamationManager
@@ -2767,6 +2771,85 @@ class TestResourceSteward(unittest.TestCase):
         self.assertFalse(summary_s2["admission_gate_passed"])
         self.assertIn("system_commit", summary_s2["failed_gates"])
         self.assertEqual(summary_s2["gates"]["system_commit"].required_str, "< 75.0%")
+
+    def test_69_policy_immutability_and_defensive_copying(self):
+        """
+        Proves policy immutability, defensive copying, and evaluation-time re-enforcement:
+          A. Original-object mutation: Mutating the caller's original ResourcePolicy after passing
+             to ResourceSteward cannot weaken admission gates.
+          B. Manager-policy mutation: Modifying manager.policy thresholds directly cannot bypass
+             mandatory floors because evaluate_gates re-applies floors at admission evaluation time.
+          C. Defensive-copy behavior: enforce_mandatory_admission_floors always returns a new
+             copy, never the caller's original mutable object.
+          D. Stricter policies: Confirms stricter thresholds remain fully preserved and enforced.
+        """
+        # --- A. Original-object mutation ---
+        orig_policy = ResourcePolicy()
+        steward = ResourceSteward(policy=orig_policy)
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=8.0, commit_pct=40.0) # Deficit
+        mock_monitor.get_gpu_telemetry.return_value = self._make_healthy_gpu(free_mib=6000.0)
+        mock_monitor.get_disk_space.return_value = self._make_healthy_disk(free_gb=50.0)
+        steward.monitor = mock_monitor
+
+        # Mutate the caller's original policy object to permissive values
+        orig_policy.minimum_inference_ram_gib = 2.0
+        orig_policy.critical_commit_pct = 99.0
+        orig_policy.minimum_vram_mib = 1000.0
+        orig_policy.minimum_disk_free_gib = 5.0
+
+        # Verify admission still enforces mandatory 10.0 GiB floor
+        snap, summary = steward.remeasure_memory()
+        self.assertFalse(summary["admission_gate_passed"])
+        self.assertIn("avail_ram", summary["failed_gates"])
+        self.assertEqual(summary["gates"]["avail_ram"].required_str, ">= 10.0 GiB")
+
+        # --- B. Manager-policy mutation ---
+        manager = MemoryBudgetManager(DEFAULT_POLICY)
+        # Modify publicly accessible policy attributes on the manager instance
+        manager.policy.minimum_inference_ram_gib = 2.0
+        manager.policy.critical_commit_pct = 99.0
+        manager.policy.minimum_vram_mib = 1000.0
+        manager.policy.minimum_disk_free_gib = 5.0
+
+        ram_8gib = self._make_healthy_ram(avail_gib=8.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+        disk_healthy = self._make_healthy_disk(free_gb=50.0)
+
+        # evaluate_gates re-applies mandatory floors at evaluation time
+        all_passed, gates = manager.evaluate_gates(ram_8gib, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed)
+        self.assertFalse(gates["avail_ram"].passed)
+        self.assertEqual(gates["avail_ram"].required_str, ">= 10.0 GiB")
+
+        # --- C. Defensive-copy behavior ---
+        caller_policy = ResourcePolicy()
+        enforced = enforce_mandatory_admission_floors(caller_policy)
+        self.assertIsNot(enforced, caller_policy, "enforce_mandatory_admission_floors must return a defensive copy!")
+        self.assertIsNot(steward.policy, orig_policy, "ResourceSteward.policy must be a defensive copy!")
+        self.assertIsNot(manager.policy, DEFAULT_POLICY, "MemoryBudgetManager.policy must be a defensive copy!")
+
+        # --- D. Stricter policies preserved ---
+        stricter = ResourcePolicy(
+            minimum_inference_ram_gib=14.0,
+            critical_commit_pct=70.0,
+            minimum_vram_mib=5900.0,
+            minimum_disk_free_gib=50.0
+        )
+        enforced_strict = enforce_mandatory_admission_floors(stricter)
+        self.assertIsNot(enforced_strict, stricter)
+        self.assertEqual(enforced_strict.minimum_inference_ram_gib, 14.0)
+        self.assertEqual(enforced_strict.critical_commit_pct, 70.0)
+        self.assertEqual(enforced_strict.minimum_vram_mib, 5900.0)
+        self.assertEqual(enforced_strict.minimum_disk_free_gib, 50.0)
+
+        # Stricter gate evaluation enforcement
+        manager_strict = MemoryBudgetManager(stricter)
+        ram_12gib = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0) # Meets 10.0 GiB floor, fails 14.0 GiB policy
+        all_passed_s, gates_s = manager_strict.evaluate_gates(ram_12gib, gpu_healthy, disk_healthy)
+        self.assertFalse(all_passed_s)
+        self.assertFalse(gates_s["avail_ram"].passed)
+        self.assertEqual(gates_s["avail_ram"].required_str, ">= 14.0 GiB")
 
 if __name__ == "__main__":
     unittest.main()
