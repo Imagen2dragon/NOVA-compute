@@ -153,20 +153,20 @@ class DiskSnapshot:
         self.free_bytes = free_bytes
         self.total_bytes = total_bytes
         if free_gib is not None:
-            self.free_gib = free_gib
+            self.free_gib = float(free_gib)
         elif free_gb is not None:
-            self.free_gib = free_gb
+            self.free_gib = float(free_gb)
         elif free_bytes > 0:
-            self.free_gib = round(free_bytes / (1024**3), 2)
+            self.free_gib = float(free_bytes) / (1024**3)
         else:
             self.free_gib = 0.0
 
         if total_gib is not None:
-            self.total_gib = total_gib
+            self.total_gib = float(total_gib)
         elif total_gb is not None:
-            self.total_gib = total_gb
+            self.total_gib = float(total_gb)
         elif total_bytes > 0:
-            self.total_gib = round(total_bytes / (1024**3), 2)
+            self.total_gib = float(total_bytes) / (1024**3)
         else:
             self.total_gib = 0.0
 

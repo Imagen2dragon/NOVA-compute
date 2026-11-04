@@ -157,11 +157,29 @@ class TestResourceSteward(unittest.TestCase):
             status=status
         )
 
-    def _make_healthy_disk(self, free_gib: Optional[float] = None, free_gb: Optional[float] = None, status: TelemetryStatus = TelemetryStatus.SUCCESS) -> DiskSnapshot:
-        val_gib = free_gib if free_gib is not None else (free_gb if free_gb is not None else 100.0)
+    def _make_healthy_disk(
+        self,
+        free_bytes: Optional[int] = None,
+        free_gib: Optional[float] = None,
+        free_gb: Optional[float] = None,
+        status: TelemetryStatus = TelemetryStatus.SUCCESS
+    ) -> DiskSnapshot:
+        if free_bytes is not None:
+            bytes_val = free_bytes
+            val_gib = float(free_bytes) / (1024**3)
+        elif free_gib is not None:
+            val_gib = free_gib
+            bytes_val = int(val_gib * 1024**3)
+        elif free_gb is not None:
+            val_gib = free_gb
+            bytes_val = int(val_gib * 1024**3)
+        else:
+            val_gib = 100.0
+            bytes_val = int(100.0 * 1024**3)
+
         return DiskSnapshot(
             drive="C:\\",
-            free_bytes=int(val_gib * 1024**3),
+            free_bytes=bytes_val,
             total_bytes=int(950 * 1024**3),
             free_gib=val_gib,
             total_gib=950.0,
@@ -2943,6 +2961,88 @@ class TestResourceSteward(unittest.TestCase):
         pol_from_legacy_dict = ResourcePolicy.from_dict({"minimum_disk_free_gb": 35.0})
         self.assertEqual(pol_from_legacy_dict.minimum_disk_free_gib, 35.0)
         self.assertEqual(pol_from_legacy_dict.minimum_disk_free_gb, 35.0)
+        pol_from_legacy_kwarg = ResourcePolicy(minimum_disk_free_gb=30.0)
+        self.assertEqual(pol_from_legacy_kwarg.minimum_disk_free_gib, 30.0)
+
+    def test_71_disk_admission_precision_and_byte_boundaries(self):
+        """
+        Validates full-precision disk telemetry admission and byte-level boundary conditions:
+          Case A. One byte below threshold:
+            - Available bytes: 25 * (1024 ** 3) - 1 (26,843,545,599 bytes)
+            - Full-precision free_gib: 24.999999999068677 GiB
+            - Expected gate decision: FAIL (disk_free gate passed == False, all_passed == False)
+          Case B. Exactly at threshold:
+            - Available bytes: 25 * (1024 ** 3) (26,843,545,600 bytes)
+            - Full-precision free_gib: 25.0 GiB
+            - Expected gate decision: PASS (disk_free gate passed == True, all_passed == True)
+          Case C. One byte above threshold:
+            - Available bytes: 25 * (1024 ** 3) + 1 (26,843,545,601 bytes)
+            - Full-precision free_gib: 25.000000000931323 GiB
+            - Expected gate decision: PASS (disk_free gate passed == True, all_passed == True)
+          Case D. Rounding regression (sub-25 GiB measurement that previously rounded to 25.00 GiB):
+            - Available bytes: int(24.996 * 1024**3) = 26,839,250,698 bytes
+            - Full-precision free_gib: ~24.995999999776483 GiB (< 25.0 GiB)
+            - Previous behavior: round(24.996, 2) was 25.00 GiB, which would have passed a rounded check
+            - Full-precision behavior: FAIL (disk_free gate passed == False, all_passed == False)
+          Case E. Direct DiskSnapshot byte derivation:
+            - Proves DiskSnapshot(drive="C:\\", free_bytes=b, total_bytes=tb) computes full precision free_gib
+        """
+        manager = MemoryBudgetManager(DEFAULT_POLICY)
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+        exact_25_gib_bytes = 25 * (1024 ** 3)
+
+        # --- Case A: One byte below threshold (25 GiB - 1 byte) ---
+        bytes_below_1 = exact_25_gib_bytes - 1
+        disk_below_1 = self._make_healthy_disk(free_bytes=bytes_below_1)
+        self.assertEqual(disk_below_1.free_bytes, bytes_below_1)
+        self.assertLess(disk_below_1.free_gib, 25.0, "free_gib must be strictly less than 25.0 GiB")
+        all_passed_a, gates_a = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_below_1)
+        self.assertFalse(all_passed_a, "One byte below threshold must FAIL admission")
+        self.assertFalse(gates_a["disk_free"].passed, "disk_free gate must be False for 25 GiB - 1 byte")
+        self.assertEqual(gates_a["disk_free"].required_str, ">= 25.0 GiB")
+
+        # --- Case B: Exactly at threshold (25 GiB) ---
+        bytes_exact = exact_25_gib_bytes
+        disk_exact = self._make_healthy_disk(free_bytes=bytes_exact)
+        self.assertEqual(disk_exact.free_bytes, bytes_exact)
+        self.assertEqual(disk_exact.free_gib, 25.0, "free_gib must be exactly 25.0 GiB")
+        all_passed_b, gates_b = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_exact)
+        self.assertTrue(all_passed_b, "Exactly at threshold must PASS admission")
+        self.assertTrue(gates_b["disk_free"].passed, "disk_free gate must be True for exact 25 GiB")
+        self.assertEqual(gates_b["disk_free"].required_str, ">= 25.0 GiB")
+
+        # --- Case C: One byte above threshold (25 GiB + 1 byte) ---
+        bytes_above_1 = exact_25_gib_bytes + 1
+        disk_above_1 = self._make_healthy_disk(free_bytes=bytes_above_1)
+        self.assertEqual(disk_above_1.free_bytes, bytes_above_1)
+        self.assertGreater(disk_above_1.free_gib, 25.0, "free_gib must be strictly greater than 25.0 GiB")
+        all_passed_c, gates_c = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_above_1)
+        self.assertTrue(all_passed_c, "One byte above threshold must PASS admission")
+        self.assertTrue(gates_c["disk_free"].passed, "disk_free gate must be True for 25 GiB + 1 byte")
+        self.assertEqual(gates_c["disk_free"].required_str, ">= 25.0 GiB")
+
+        # --- Case D: Rounding regression (below 25 GiB that previously rounded to 25.00 GiB) ---
+        # 24.996 GiB rounds to 25.00 under round(val, 2), but is 0.004 GiB (~4.3 MB) short of threshold
+        bytes_rounding_regression = int(24.996 * (1024 ** 3))
+        disk_rounding_reg = self._make_healthy_disk(free_bytes=bytes_rounding_regression)
+        # Verify that round(..., 2) would have yielded 25.00
+        self.assertEqual(round(disk_rounding_reg.free_gib, 2), 25.00)
+        # Verify full-precision value is strictly sub-threshold
+        self.assertLess(disk_rounding_reg.free_gib, 25.0)
+        all_passed_d, gates_d = manager.evaluate_gates(ram_healthy, gpu_healthy, disk_rounding_reg)
+        self.assertFalse(all_passed_d, "Sub-25 GiB value rounding to 25.00 GiB must FAIL admission")
+        self.assertFalse(gates_d["disk_free"].passed, "disk_free gate must reject rounded-up measurement")
+
+        # --- Case E: Direct DiskSnapshot instantiation full precision ---
+        raw_snap = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=bytes_below_1,
+            total_bytes=100 * (1024 ** 3)
+        )
+        self.assertEqual(raw_snap.free_bytes, bytes_below_1)
+        self.assertLess(raw_snap.free_gib, 25.0)
+        self.assertEqual(raw_snap.free_gb, raw_snap.free_gib)
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,6 +30,57 @@ class ResourcePolicy:
     min_reclamation_delta_mib: float = 1.0  # Demonstrable process-local memory release threshold (MiB)
     auto_reclaim_enabled: bool = True
 
+    def __init__(
+        self,
+        minimum_inference_ram_gib: float = 10.0,
+        preferred_inference_ram_gib: float = 12.0,
+        preferred_inference_ram_target_gib: float = 13.0,
+        workspace_reserve_gib: float = 4.0,
+        critical_ram_gib: float = 2.0,
+        minimum_vram_mib: float = 5500.0,
+        minimum_disk_free_gib: Optional[float] = None,
+        sampling_interval_ms: int = 500,
+        low_ram_abort_duration_seconds: float = 5.0,
+        critical_commit_pct: float = 90.0,
+        critical_vram_free_mib: float = 512.0,
+        child_termination_grace_period_seconds: float = 5.0,
+        execution_mode: ExecutionMode = ExecutionMode.WORKSPACE_SAFE,
+        reclamation_cooldown_seconds: float = 30.0,
+        min_reclamation_delta_mib: Optional[float] = None,
+        auto_reclaim_enabled: bool = True,
+        # Backward-compatibility alias parameters:
+        minimum_disk_free_gb: Optional[float] = None,
+        min_reclamation_delta_mb: Optional[float] = None,
+    ):
+        self.minimum_inference_ram_gib = minimum_inference_ram_gib
+        self.preferred_inference_ram_gib = preferred_inference_ram_gib
+        self.preferred_inference_ram_target_gib = preferred_inference_ram_target_gib
+        self.workspace_reserve_gib = workspace_reserve_gib
+        self.critical_ram_gib = critical_ram_gib
+        self.minimum_vram_mib = minimum_vram_mib
+        if minimum_disk_free_gib is not None:
+            self.minimum_disk_free_gib = float(minimum_disk_free_gib)
+        elif minimum_disk_free_gb is not None:
+            self.minimum_disk_free_gib = float(minimum_disk_free_gb)
+        else:
+            self.minimum_disk_free_gib = 25.0
+
+        self.sampling_interval_ms = sampling_interval_ms
+        self.low_ram_abort_duration_seconds = low_ram_abort_duration_seconds
+        self.critical_commit_pct = critical_commit_pct
+        self.critical_vram_free_mib = critical_vram_free_mib
+        self.child_termination_grace_period_seconds = child_termination_grace_period_seconds
+        self.execution_mode = execution_mode
+        self.reclamation_cooldown_seconds = reclamation_cooldown_seconds
+        if min_reclamation_delta_mib is not None:
+            self.min_reclamation_delta_mib = float(min_reclamation_delta_mib)
+        elif min_reclamation_delta_mb is not None:
+            self.min_reclamation_delta_mib = float(min_reclamation_delta_mb)
+        else:
+            self.min_reclamation_delta_mib = 1.0
+
+        self.auto_reclaim_enabled = auto_reclaim_enabled
+
     @property
     def min_reclamation_delta_mb(self) -> float:
         """Backward-compatibility alias for min_reclamation_delta_mib."""
@@ -58,6 +109,8 @@ class ResourcePolicy:
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d["execution_mode"] = self.execution_mode.value
+        d["minimum_disk_free_gb"] = self.minimum_disk_free_gib
+        d["min_reclamation_delta_mb"] = self.min_reclamation_delta_mib
         return d
 
     def with_mandatory_floors(self) -> "ResourcePolicy":

@@ -176,13 +176,15 @@ class MemoryBudgetManager:
             disk.status == TelemetryStatus.SUCCESS and
             disk.free_gib >= effective_policy.minimum_disk_free_gib
         )
-        disk_deficit = round(effective_policy.minimum_disk_free_gib - disk.free_gib, 2)
+        disk_deficit = effective_policy.minimum_disk_free_gib - disk.free_gib
+        deficit_rounded = round(disk_deficit, 2)
+        deficit_str = f"{deficit_rounded:.2f} GiB" if deficit_rounded > 0 else "< 0.01 GiB"
         gates["disk_free"] = GateResult(
             gate_name="disk_free",
             passed=disk_passed,
             required_str=f">= {effective_policy.minimum_disk_free_gib:.1f} GiB",
             measured_str=f"{disk.free_gib:.2f} GiB" if disk.status == TelemetryStatus.SUCCESS else "UNAVAILABLE",
-            failure_reason=f"Disk space deficit: {disk_deficit:.2f} GiB below required {effective_policy.minimum_disk_free_gib:.1f} GiB" if not disk_passed else None
+            failure_reason=f"Disk space deficit: {deficit_str} below required {effective_policy.minimum_disk_free_gib:.1f} GiB" if not disk_passed else None
         )
 
         all_passed = all(g.passed for g in gates.values())

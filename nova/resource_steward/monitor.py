@@ -225,8 +225,8 @@ class ResourceMonitor:
                 drive=drive,
                 free_bytes=fb.value,
                 total_bytes=tb.value,
-                free_gib=round(fb.value / (1024**3), 2),
-                total_gib=round(tb.value / (1024**3), 2),
+                free_gib=float(fb.value) / (1024**3),
+                total_gib=float(tb.value) / (1024**3),
                 status=TelemetryStatus.SUCCESS
             )
         except Exception as e:

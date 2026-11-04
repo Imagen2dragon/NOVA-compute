@@ -164,7 +164,7 @@ A configurable `ResourcePolicy` is permitted to specify **stricter** criteria (e
 1. `enforce_mandatory_admission_floors()` always returns a new defensive copy and never returns the caller's mutable policy reference.
 2. `MemoryBudgetManager.evaluate_gates()` re-applies `enforce_mandatory_admission_floors()` immediately before evaluating thresholds during every gate evaluation, ensuring that direct mutation of `manager.policy` or the original caller object cannot weaken mandatory admission floors.
 3. Stricter user-configured settings (e.g. $\ge 12.0\text{ GiB}$ RAM, $< 80\%$ commit, $\ge 5,800\text{ MiB}$ VRAM, or $\ge 40.0\text{ GiB}$ disk) remain fully preserved and enforced.
-4. Hard-coded unit semantics: Disk telemetry computes and verifies Gibibytes ($2^{30} = 1,073,741,824$ bytes per unit) via `GetDiskFreeSpaceExW`. The mandatory threshold is $25.0\text{ GiB}$ ($26,843,545,600$ bytes).
+4. Full-precision disk telemetry: Disk telemetry computes and verifies Gibibytes ($2^{30} = 1,073,741,824$ bytes per unit) at full floating-point precision via `GetDiskFreeSpaceExW`. The mandatory threshold is $25.0\text{ GiB}$ ($26,843,545,600$ bytes). Converted values are never prematurely rounded before admission evaluation, guaranteeing that sub-threshold measurements (e.g. $25\text{ GiB} - 1\text{ byte}$ or $24.996\text{ GiB}$) strictly fail admission. Rounding occurs exclusively when formatting human-readable output strings.
 
 ---
 
