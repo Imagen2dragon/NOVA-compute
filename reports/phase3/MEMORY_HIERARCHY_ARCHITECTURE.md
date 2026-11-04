@@ -6,12 +6,12 @@
 **Status:** Design and Static Analysis Only (Phase 3A)  
 **Target Hardware:** HP Victus Gaming Laptop 15-fa1xxx  
 - CPU: Intel Core i7-13700H (14 cores / 20 threads: 6P + 8E, AVX2, AVX2-VNNI)  
-- RAM: 16.0 GB physical (15.65 GB visible, 2× 8 GB DDR4-3200 Dual-Channel, ~35–42 GB/s real bandwidth)  
-- GPU: NVIDIA GeForce RTX 4050 Laptop GPU (6,141 MiB GDDR6, ~192 GB/s, AD107, PCIe Gen4 x8)  
+- RAM: 16.0 GB physical installed (15.65 GB visible to OS, 2× 8 GB DDR4-3200 Dual-Channel, ~35–42 GB/s real bandwidth; available physical RAM is dynamic and was measured at 8.66–9.91 GiB during preflight)  
+- GPU: NVIDIA GeForce RTX 4050 Laptop GPU (6,141 MiB GDDR6, ~192 GB/s, AD107; hardware interface is PCIe Gen4 x8 capable, observed as Gen1 x8 in idle power saving, dynamically scaling to Gen4 x8 under load)  
 - Storage: WD PC SN810 1 TB NVMe SSD (PCIe Gen4 x4, NTFS, C: drive with >100 GiB free space)  
 - OS: Microsoft Windows 11 Home (Build 26200)  
 **Target Model:** `Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` (18,632,184,480 bytes / ~17.35 GiB; 30.53B total parameters, 3.35B active parameters per token, 48 layers, 128 experts per layer, 8 active experts per token)  
-**Runtime:** `llama.cpp` Windows x64 CUDA 12.4 build `b12032`  
+**Runtime:** `llama.cpp` Windows x64 CUDA 12.4 build `b12032` (commit `dde879bc4`)  
 **Project Owner:** User  
 **Lead Architect:** ChatGPT  
 **Implementation Engineer:** Antigravity  
@@ -66,14 +66,14 @@ Feasible local execution without catastrophic system thrashing or out-of-memory 
 - **Physical Hardware:** 6,141 MiB GDDR6 on NVIDIA AD107 (RTX 4050 Laptop).
 - **Peak Bandwidth:** 96-bit bus at ~16 Gbps $\approx$ **192 GB/s** theoretical bandwidth.
 - **Latency:** Sub-nanosecond to single-digit nanoseconds for register and L2 cache access; ~10–20 ns for GDDR6 fetches.
-- **Usable Budget:** Under clean desktop idle with Windows Desktop Window Manager (DWM) consuming ~200–350 MiB, usable VRAM is strictly bounded to **~5,500–5,700 MiB**.
+- **Usable Budget:** Total dedicated VRAM is 6,141 MiB. Pre-run free VRAM on clean desktop idle is ~5,920 MiB (Windows DWM consumes ~200–350 MiB). The project enforces a mandatory safety reserve floor of 512 MiB, leaving an operational envelope of ~5,408 MiB. Headroom cannot be declared safe until CUDA context initialization overhead (~150–250 MiB) and compute scratchpad memory (~200–450 MiB) are empirically measured.
 - **Residency:**
-  - Dense model weights: embedding (`tok_embd.weight`), output head (`output.weight`), pre/post norms, and self-attention projections (`attn_q`, `attn_k`, `attn_v`, `attn_output`) across all 48 layers ($\approx 1,023.3\text{ MiB}$ in Q4_K_M/Q6_K).
-  - Dense MoE router gates (`ffn_gate_inp.weight`) across 48 layers ($\approx 50.3\text{ MiB}$).
-  - Key-Value (KV) Cache: At context length 512 with `q8_0` quantization (`-ctk q8_0 -ctv q8_0`), precisely **24.0 MiB** across 48 layers.
-  - CUDA compute and activation scratch buffers: ~300–450 MiB.
-  - Selected GPU MoE expert layers: If using `-ncmoe 40` (keeping 40 layers of experts on CPU), the remaining 8 layers of MoE experts reside in VRAM ($8 \times \sim 365.7\text{ MiB} \approx 2,925.6\text{ MiB}$).
-  - Optional GPU Expert Cache: Dynamic Least-Recently-Used (LRU) expert cache via `--moe-cache-mib`.
+  - Dense model weights: embedding (`tok_embd.weight`), output head (`output.weight`), pre/post norms, and self-attention projections (`attn_q`, `attn_k`, `attn_v`, `attn_output`) across all 48 layers ($1,022.5\text{ MiB}$ in Q4_K_M/Q6_K).
+  - Dense MoE router gates (`ffn_gate_inp.weight`) across 48 layers ($50.3\text{ MiB}$, included within the dense total).
+  - Key-Value (KV) Cache: At context length 512 with `q8_0` quantization (`-ctk q8_0 -ctv q8_0`), precisely **25.50 MiB** ($26,738,688\text{ bytes}$) across 48 layers (accounting for GGML 34-byte block overhead per 32 values). At ctx 1024: 51.00 MiB; at ctx 2048: 102.00 MiB; at ctx 4096: 204.00 MiB.
+  - CUDA compute and activation scratch buffers: ~200–450 MiB [Estimated, to be measured].
+  - Selected GPU MoE expert layers: If using `-ncmoe 40` (keeping 40 layers of experts on CPU), the remaining 8 layers of MoE experts (layers 40–47) reside in VRAM ($3,081,240,576\text{ bytes} = 2,938.50\text{ MiB} \approx 2.87\text{ GiB}$; mean $367.31\text{ MiB/layer}$).
+  - Optional GPU Expert Cache: Dynamic expert cache via `--moe-cache-mib` (runtime-managed internal cache; eviction heuristics are internal to the runtime and must not be assumed to be strictly LRU without binary-level verification). A 1,024 MiB allocation must NOT be configured prematurely, as it risks breaching the 512 MiB safety reserve floor.
 - **Operating Constraints:**
   - VRAM allocations via `cudaMalloc` are **locked physical GPU pages**.
   - WDDM driver paging (evicting GPU buffers to system RAM) causes severe execution stalls ($10\times\text{--}50\times$ slowdown) and must be strictly avoided. If total VRAM demand exceeds available capacity, a CUDA Out-of-Memory (`cudaErrorMemoryAllocation`) abort occurs immediately.
@@ -83,11 +83,12 @@ Feasible local execution without catastrophic system thrashing or out-of-memory 
 - **Peak Bandwidth:** Theoretical peak of $51.2\text{ GB/s}$; real-world sustained dual-channel memory copy bandwidth is measured at **~35 to 42 GB/s**.
 - **Latency:** ~50 to 80 nanoseconds (DDR4 CAS latency + memory controller overhead).
 - **Usable Budget:**
-  - Clean Windows 11 desktop baseline (background browsers, IDEs, and external services closed): consumes **~3.5 to 4.0 GB**.
-  - Effective available physical RAM for inference: **~11.5 to 12.0 GB**.
+  - Installed physical RAM is 16.0 GB (15.65 GB visible to OS; ~358 MB hardware reserved).
+  - Clean Windows 11 desktop baseline (background browsers, IDEs, and external services closed) consumes **~3.5 to 4.0 GB**, theoretically yielding up to ~11.5–12.0 GB under clean laboratory conditions.
+  - However, available physical RAM fluctuates dynamically with desktop tasks and background services. In actual project preflight tests, available RAM was measured between **8.66 GiB and 9.91 GiB**. Therefore, available RAM cannot be assumed as a fixed 11.8 GB and must be verified immediately prior to any run.
 - **Residency:**
-  - `llama.cpp` process private commit (heap, thread stacks, tokenizer, model graph metadata): ~350–450 MB.
-  - Active CPU MoE expert working sets: During token generation, only the 8 active experts per CPU layer need to be read. For 40 CPU layers, this corresponds to $\frac{8}{128} \times 13.48\text{ GiB} \approx 862.6\text{ MiB}$ of active weight tensors touched per forward pass.
+  - `llama.cpp` process private commit (heap, thread stacks, tokenizer, model graph metadata): ~350–450 MB [Estimated].
+  - Active CPU MoE expert working sets: During token generation, only the 8 active experts per CPU layer are activated. For 40 CPU layers (totaling $13,801.5\text{ MiB}$), this corresponds to $\frac{8}{128} \times 13,801.5\text{ MiB} \approx 862.6\text{ MiB}$ ($904,495,104\text{ bytes}$). Note that this $862.6\text{ MiB}$ figure represents the **logical selected expert slice payload touched per forward pass under equal routing**, NOT a guaranteed physical RAM residency requirement or locked allocation. Without memory locking (`mlock`), pages are paged in on demand and may be discarded by the OS under memory pressure.
 - **Operating Constraints:**
   - Physical RAM is shared with all running operating system services and the user desktop environment.
   - If anonymous dirty memory exceeds available physical RAM, Windows is forced to page dirty frames out to `pagefile.sys`.
@@ -110,7 +111,7 @@ Feasible local execution without catastrophic system thrashing or out-of-memory 
 ### 2.4 Tier 4: NVMe Storage Subsystem
 - **Physical Hardware:** Western Digital PC SN810 SDCPNRY-1T00-1006 1 TB NVMe SSD (PCIe Gen4 x4, BiCS5 112-layer TLC NAND).
 - **Sequential Burst Throughput:** Up to ~6,600 MB/s sequential read (at queue depth 32).
-- **Random Read Performance:** 4K random read latency is **~20 to 100 microseconds** (~750K IOPS peak at QD32; ~15K–25K IOPS at QD1 single-thread).
+- **Random Read Performance:** Single-threaded, queue-depth-1 (QD1) 4K-64K random read latency is **~20 to 100 microseconds** (~15K–25K IOPS at QD1 single-thread, yielding ~60–100 MB/s, compared to ~750K IOPS peak at QD32 under multi-threaded synthetic workloads).
 - **Residency:**
   - The static GGUF model file on NTFS: `models/qwen3-30b/Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` ($18,632,184,480\text{ bytes}$).
   - Windows system pagefile: `C:\pagefile.sys` (dynamically managed by Windows, typically 15.65 GB committed).
@@ -143,21 +144,32 @@ Understanding how data moves between tiers is crucial for analyzing bottlenecks:
             [ GPU Dedicated VRAM (Tier 1) ]
 ```
 
-### 3.1 Movements Managed by `llama.cpp` and CUDA Runtime
+### 3.1 Runtime Memory Management and Option Mechanics
+
+To prevent architectural confusion, `llama.cpp` CLI options and memory mechanisms must be clearly distinguished:
+- `-ngl N` (`--n-gpu-layers`): Sets the maximum number of model layers whose dense components (attention, RMSNorms, routers) are stored in and computed by GPU VRAM.
+- `-ncmoe N` (`--no-cache-moe` / CPU MoE offload count): Forces the MoE feed-forward expert weights of the first $N$ layers to remain in CPU memory space. **Crucially, `-ncmoe` does NOT pin physical RAM.** It merely directs the runtime to keep those layers mapped in host virtual memory rather than copying them to GPU VRAM.
+- `--moe-cache-mib M`: Allocates a dedicated dynamic buffer of $M$ MiB in GPU VRAM to cache CPU-resident MoE experts during inference. When a token activates an expert that is already in this GPU cache, it computes on CUDA cores without host-to-device PCIe transfer. If missing, it is copied over PCIe. *Eviction behavior is internal to the runtime and must not be assumed to follow strict LRU without runtime source verification.* (Note: Supported in `llama-cli.exe` and `llama-server.exe`, but not in `llama-bench.exe`).
+- `--mlock`: Calls Win32 `VirtualLock()` to lock mapped pages into physical RAM, preventing the OS from paging them to disk. *On this 16 GB laptop, `--mlock` on a 17.35 GiB model fails or causes system-wide OOM, because total physical RAM is smaller than the model.*
+- `-lm mmap` / `-lm dio` / `-lm none`: Configures model file loading mode (`mmap` uses Win32 `MapViewOfFile`; `dio` uses unbuffered direct I/O; `none` loads via buffered read).
+- `-lzm auto` / `off` / `on`: Configures lazy loading. In `b12032`, `auto` only applies lazy allocation to tensors $>4\text{ GiB}$. It does NOT provide fine-grained MoE expert streaming.
+
 1. **Dense Weight Placement (`-ngl`):**
    - At startup, `llama.cpp` determines which layers are offloaded to GPU based on `-ngl 48`.
    - Offloaded dense tensors (attention projections, RMSNorms, gating routers, embeddings) are transferred from host mmap staging buffers over PCIe Gen4 x8 into locked VRAM allocations (`cudaMalloc`).
 2. **MoE Expert Partitioning (`-ncmoe`):**
    - The `-ncmoe N` flag instructs `llama.cpp` to retain the MoE expert weights of the first $N$ layers on the CPU.
-   - For layers $N$ to 47, the expert tensors are loaded directly into GPU VRAM.
-   - For layers 0 to $N-1$, expert tensors remain mapped in CPU memory space.
+   - For layers $N$ to 47, the expert tensors are loaded directly into GPU VRAM allocations.
+   - For layers 0 to $N-1$, expert tensors remain in CPU memory-mapped virtual address space.
 3. **GPU Expert Caching (`--moe-cache-mib`):**
-   - When `--moe-cache-mib` is enabled, `llama.cpp` dynamically maintains an LRU cache buffer in GPU VRAM.
-   - During the forward pass of a CPU-pinned MoE layer, the router selects 8 active experts.
+   - When `--moe-cache-mib` is enabled, `llama.cpp` maintains a dynamic cache buffer in GPU VRAM.
+   - During the forward pass of a CPU-resident MoE layer, the router selects 8 active experts.
    - **Cache Hit:** If the selected expert slice already resides in the GPU expert cache, computation executes directly on the 2,048 CUDA cores at ~192 GB/s with zero PCIe transfer.
-   - **Cache Miss:** The missing expert slice is copied from system RAM over PCIe Gen4 x8 into the GPU expert cache, evicting the least-recently-used expert.
+   - **Cache Miss:** The missing expert slice is copied from system RAM over PCIe Gen4 x8 into the GPU expert cache, evicting previous entries under the runtime's internal cache replacement heuristic.
 4. **KV Cache Allocation (`-c`, `-ctk`, `-ctv`):**
-   - The KV cache is allocated as a contiguous CUDA buffer in VRAM sized strictly to the context window (e.g. 512 tokens $\times$ 48 layers $\times$ 4 heads $\times$ 128 dim $\times$ 2 values $\times$ 1 byte = 24.0 MiB in `q8_0`).
+   - The KV cache is allocated as a contiguous CUDA buffer in VRAM sized strictly to the context window:
+     $$\text{KV Bytes} = \text{Context} \times 48\text{ layers} \times 4\text{ KV heads} \times 128\text{ head dim} \times 2\text{ (K+V)} \times \left(\frac{34\text{ bytes}}{32\text{ values}}\right)$$
+   - At context length 512 with `q8_0` quantization (`-ctk q8_0 -ctv q8_0`), precisely **25.50 MiB** ($26,738,688\text{ bytes}$). At 1024: 51.00 MiB; at 2048: 102.00 MiB; at 4096: 204.00 MiB.
 
 ### 3.2 Movements Managed by Windows Operating System
 1. **Demand Page-Ins (Hard Page Faults):**
@@ -213,7 +225,7 @@ Another critical distinction is the difference between CUDA Unified Memory (`cud
    - On Windows with `llama.cpp b12032`, memory tiering is **explicitly managed**:
      * Dense weights and GPU expert layers reside in locked VRAM allocations.
      * CPU expert layers reside in host virtual memory backed by mmap.
-     * Active expert slices move between CPU RAM and GPU VRAM strictly via explicit PCIe staging or the dynamic `--moe-cache-mib` LRU buffer.
+     * Active expert slices move between CPU RAM and GPU VRAM strictly via explicit PCIe staging or the dynamic `--moe-cache-mib` GPU buffer.
      * No magical unified memory pool exists on this operating system.
 
 ---
@@ -222,7 +234,7 @@ Another critical distinction is the difference between CUDA Unified Memory (`cud
 
 To achieve safe and reproducible execution on the target hardware:
 
-1. **Tier 1 (GPU VRAM):** Offload all dense layers (attention, norms, routers, embeddings, output head), the entire KV cache (Q8_0, 24 MiB at ctx 512), and a calibrated subset of MoE layers (e.g. 8 layers via `-ncmoe 40`), leaving at least 1.5–1.8 GB of VRAM headroom for compute scratch and preventing WDDM paging.
-2. **Tier 2 (System RAM):** Host the remaining 40 layers of MoE expert weights in memory-mapped space, ensuring that the active working set touched per token (~862.6 MiB) fits comfortably within clean available physical RAM without triggering OS memory pressure.
+1. **Tier 1 (GPU VRAM):** Offload all dense layers (attention, norms, routers, embeddings, output head: $1,022.5\text{ MiB}$), the entire KV cache (Q8_0, **25.50 MiB** at ctx 512), and 8 layers of MoE experts (layers 40–47: $2,938.50\text{ MiB}$ via `-ncmoe 40`), consuming $3,986.5\text{ MiB}$. Out of ~5,920 MiB clean free VRAM, this leaves ~1,933.5 MiB gross margin, comfortably covering the 512 MiB mandatory safety floor, CUDA context (~150–250 MiB), and compute scratchpad (~200–450 MiB), yielding ~720–1,070 MiB of estimated net safety headroom.
+2. **Tier 2 (System RAM):** Host the remaining 40 layers of MoE expert weights ($13,801.50\text{ MiB}$) in memory-mapped virtual address space, ensuring that the logical active expert working set touched per token (~862.6 MiB) operates within measured available physical RAM (measured at 8.66–9.91 GiB during preflight; must be verified dynamically at runtime).
 3. **Tier 3 (Windows File Cache):** Allow the OS Cache Manager to maintain unaccessed expert pages in the clean Standby list, knowing that Windows can discard them instantly without write overhead if memory pressure occurs.
 4. **Tier 4 (NVMe SSD):** Serve as the static read-only backing store for the 17.35 GiB GGUF file. Zero reliance is placed on `pagefile.sys` for dynamic tensor swapping; anonymous private commit is kept strictly under ~400 MB.

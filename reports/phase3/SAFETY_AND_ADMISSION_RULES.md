@@ -41,13 +41,13 @@ Prior to launching any inference executable or benchmark process, NOVA's `Memory
    - Any contradictory representation, missing telemetry, or malformed numeric input immediately fails the gate closed.
 2. **Gate 2: Available Physical RAM Gate ($\ge 10.0\text{ GiB}$):**
    - Requires at least $10.0\text{ GiB}$ ($10,737,418,240\text{ bytes}$) of available physical memory.
-   - Guarantees sufficient physical RAM headroom for the active MoE expert working set (~862.6 MiB), process heap (~400 MB), and OS operation without forced swapping.
+   - Guarantees sufficient physical RAM headroom for the logical active MoE expert working set (~862.6 MiB per forward pass), process heap (~400 MB), and OS operation without forced swapping. Note that available RAM is dynamic and fluctuates with desktop applications; preflight runs have observed 8.66–9.91 GiB available.
 3. **Gate 3: System Commit Gate ($< 90.0\%$):**
    - Verifies that system-wide virtual commit charge is strictly below 90.0% of the commit limit (`SizeStoredInPagingFiles + TotalPhysicalMemory`).
    - Prevents memory-allocation failures in background desktop components and driver staging buffers.
 4. **Gate 4: Available Dedicated VRAM Gate ($\ge 5,500.0\text{ MiB}$):**
    - Requires at least 5,500 MiB of unallocated GDDR6 memory on the RTX 4050 GPU.
-   - Ensures sufficient capacity for offloaded dense layers (~1.00 GiB), GPU MoE layers (~2.92 GiB in Config D), KV cache, and compute scratch buffers.
+   - Ensures sufficient capacity for offloaded dense layers ($1,022.5\text{ MiB}$), GPU MoE layers ($2,938.5\text{ MiB} \approx 2.87\text{ GiB}$ in Config D), KV cache ($25.5\text{ MiB}$ at ctx 512), and compute scratch buffers.
 5. **Gate 5: Competing GPU Compute Gate ($== 0$ Apps):**
    - Verifies via NVML that zero external compute processes are running on the discrete GPU.
    - Prevents VRAM allocation race conditions and CUDA context contention.

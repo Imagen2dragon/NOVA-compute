@@ -119,6 +119,6 @@ llama_perf_context_print:       total time =    9213.35 ms /   192 tokens
 - **Current Evidence:** Zero benchmark trials have been conducted on this laptop for `Qwen3-30B-A3B-Q4_K_M`. Any statement claiming that 18–20 tokens/second is already achieved or easily achievable on an RTX 4050 Laptop GPU with dual-channel DDR4 memory is unfounded.
 - **Reporting Rule:** In all future reports, decode throughput must be reported with:
   1. Exact quantization (e.g. Q4_K_M).
-  2. Exact placement flags (`-ngl 48 -ncmoe 40 --moe-cache-mib 1024`).
+  2. Exact placement flags (e.g. `-ngl 48 -ncmoe 40 --moe-cache-mib 0`).
   3. Distinction between Cold Cache and Warm Cache.
   4. Standard deviation across trials.

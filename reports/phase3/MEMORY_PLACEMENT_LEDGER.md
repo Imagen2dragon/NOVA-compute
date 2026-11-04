@@ -1,104 +1,142 @@
 # NOVA Compute — Phase 3A: Memory Placement Ledger
-## Source-Backed Allocation Table for Qwen3-30B-A3B Q4_K_M
+## Source-Backed Allocation Table for Qwen3-30B-A3B Q4_K_M (Corrected)
 
 **Date:** 2026-11-05  
 **Document:** `reports/phase3/MEMORY_PLACEMENT_LEDGER.md`  
-**Status:** Design and Static Analysis Only (Phase 3A)  
-**Target Model:** `Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` (SHA256 verified: `a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32`)  
+**Status:** Design and Static Analysis Only (Phase 3A) — Reconciled Ledger  
+**Target Model:** `Qwen_Qwen3-30B-A3B-Q4_K_M.gguf` (SHA256: `a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32`)  
 **File Size:** 18,632,184,480 bytes (17.353 GiB / 18.632 GB)  
-**Tensors:** 579 top-level GGUF records  
-**Parameters:** 30,532,122,624 total (~30.53B) / 3,353,247,744 active per token (~3.35B)  
-**Hardware Baseline:** HP Victus Laptop (RTX 4050 6GB VRAM [6,141 MiB GDDR6], 16GB RAM [15.65 GB visible], WD SN810 1TB NVMe)  
+**Total Tensors:** 579 top-level GGUF records  
+**Total Parameters:** 30,532,122,624 (~30.53B total) / 3,353,247,744 active per token (~3.35B active)  
+**Target Hardware:** HP Victus Laptop (RTX 4050 6GB [6,141 MiB GDDR6], 16.0 GB physical RAM [15.65 GB visible], WD SN810 1TB NVMe)  
+**Bundled Runtime:** `llama.cpp` Windows x64 CUDA 12.4 build `b12032` (commit `dde879bc4`)  
 
 ---
 
-## 1. Source-Backed Placement Table
+## 1. Classification & Measurement Label Definitions
 
-The following ledger accounts for every architectural component of the model, runtime buffers, and operating system structures. 
+To ensure complete empirical transparency, every quantity in this ledger is strictly categorized:
+- **[Measured]:** Obtained directly from verified GGUF binary headers, Win32 API system queries, or NVML hardware queries.
+- **[Derived]:** Calculated from verified closed-form mathematical equations and exact architectural tensor specifications.
+- **[Estimated]:** Approximated from typical runtime characteristics reported in community baselines or similar model architectures; subject to live measurement.
+- **[Unknown]:** Cannot be known or verified without spawning an active inference execution and instrumenting live memory allocators.
+- **[Controlled]:** Parameter set directly by command-line flag or runtime configuration.
 
-> [!IMPORTANT]
-> Values marked **Measured** originate directly from byte-exact GGUF headers, verified binary help output, or hardware qualification diagnostics.  
-> Values marked **Calculated** are derived from closed-form mathematical formulae (e.g. tensor dimensions $\times$ quantization bit-rates or GQA head dimensions).  
-> Values that cannot be known prior to executing an active runtime process are explicitly marked **UNKNOWN**.
+---
 
-| Component / Subsystem | Target Placement Tier | Size in Bytes | Size (MiB / GiB) | Derivation Source | Measurement Status | Controlling Runtime Option | Memory-Pressure & Allocation Risks |
+## 2. Reconciled Per-Layer MoE Expert Ledger
+
+The Qwen3-30B-A3B Q4_K_M model employs an importance-matrix (imatrix) calibrated quantization scheme. Consequently, **expert layers are not uniform in size**. 
+
+### 2.1 The Two Expert Layer Profiles
+Across the 48 transformer blocks, expert weights are stored as 144 three-dimensional stacked tensors (3 records per layer: `ffn_gate_exps`, `ffn_up_exps`, `ffn_down_exps`):
+
+| Profile | Layer Count | Gate Projection (`ffn_gate_exps`) | Up Projection (`ffn_up_exps`) | Down Projection (`ffn_down_exps`) | Layer Total (Bytes) | Layer Total (MiB) |
+|---|---|---|---|---|---|---|
+| **Profile A (Q6_K Down)** | **24 layers** | `[2048, 768, 128]` @ Q4_K (113,246,208 B) | `[2048, 768, 128]` @ Q4_K (113,246,208 B) | `[768, 2048, 128]` @ **Q6_K** (165,150,720 B) | **391,643,136 B** | **373.50 MiB** |
+| **Profile B (Q4_K Down)** | **24 layers** | `[2048, 768, 128]` @ Q4_K (113,246,208 B) | `[2048, 768, 128]` @ Q4_K (113,246,208 B) | `[768, 2048, 128]` @ **Q4_K** (113,246,208 B) | **339,738,624 B** | **324.00 MiB** |
+| **Total / Average** | **48 layers** | 5,435,817,984 B | 5,435,817,984 B | 6,681,526,272 B | **17,553,162,240 B** | **16,740.00 MiB (Avg: 348.75 MiB)** |
+
+- **Profile A Layer Indices (24 layers @ 373.50 MiB):**  
+  `[0, 1, 2, 3, 4, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35, 38, 41, 42, 43, 44, 45, 46, 47]`
+- **Profile B Layer Indices (24 layers @ 324.00 MiB):**  
+  `[6, 7, 9, 10, 12, 13, 15, 16, 18, 19, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34, 36, 37, 39, 40]`
+
+### 2.2 Reconciliation of Configuration D Partitioning (`-ncmoe 40`)
+In Configuration D, `-ncmoe 40` directs the runtime to keep the MoE expert weights of the first 40 layers (0 to 39) in host CPU memory space, while the remaining 8 layers (40 to 47) are placed in GPU VRAM:
+
+1. **GPU-Resident MoE Experts (Layers 40 to 47: 8 Layers):**
+   - Layer 40: Profile B ($1 \times 339,738,624\text{ bytes} = 324.00\text{ MiB}$)
+   - Layers 41–47: Profile A ($7 \times 391,643,136\text{ bytes} = 2,614.50\text{ MiB}$)
+   - **Total GPU Expert Footprint:** **$3,081,240,576\text{ bytes} = \mathbf{2,938.50\text{ MiB}} \approx \mathbf{2.8696\text{ GiB}}$**
+   - **Mean Layer Size on GPU:** **$367.31\text{ MiB per layer}$** (differs from the 48-layer average because 7 of the 8 GPU layers have Q6_K down-projections).
+2. **CPU-Resident MoE Experts (Layers 0 to 39: 40 Layers):**
+   - 17 Profile A layers ($17 \times 391,643,136\text{ bytes} = 6,657.93\text{ MiB}$)
+   - 23 Profile B layers ($23 \times 339,738,624\text{ bytes} = 7,143.57\text{ MiB}$)
+   - **Total CPU Expert Footprint:** **$14,471,921,664\text{ bytes} = \mathbf{13,801.50\text{ MiB}} \approx \mathbf{13.4780\text{ GiB}}$**
+   - **Mean Layer Size on CPU:** **$345.04\text{ MiB per layer}$**.
+3. **Aggregate Check:**
+   $$3,081,240,576\text{ bytes (GPU)} + 14,471,921,664\text{ bytes (CPU)} = 17,553,162,240\text{ bytes} = \mathbf{16,740.00\text{ MiB}} = \mathbf{16.3477\text{ GiB}}$$
+   $$\text{Overall Model Average} = \frac{16,740.00\text{ MiB}}{48\text{ layers}} = \mathbf{348.75\text{ MiB per layer}}$$
+
+### 2.3 Clarification of the Active Expert Payload Estimate
+- **Logical Active Payload per Token:**  
+  $$\text{Active CPU Expert Data} = \frac{8\text{ active}}{128\text{ total}} \times 14,471,921,664\text{ bytes} = 904,495,104\text{ bytes} = \mathbf{862.59\text{ MiB}}$$
+- **Operational Reality:** This $862.6\text{ MiB}$ figure represents the **mathematical slice volume** of tensor weights selected by the routing function during a single forward pass across the 40 CPU layers.
+- **Not Guaranteed RAM Residency:** This is **not** a physical RAM guarantee. Because expert weights are stored as stacked 3D tensors, accessing an expert slice touches 4 KiB memory pages across the file mapping. Depending on OS page management, cache hit history, and prior token paths, the actual physical RAM occupied by CPU experts may range from $\sim 863\text{ MiB}$ up to the full $13.48\text{ GiB}$ if all pages are touched and retained in the working set.
+
+---
+
+## 3. Comprehensive Placement Table
+
+| Component / Subsystem | Placement Tier | Storage (Bytes) | Size (MiB / GiB) | Status | Derivation Source | Controlling Option | Memory-Pressure & Risk Factors |
 |---|---|---|---|---|---|---|---|
-| **GGUF File on Disk** | Tier 4 (NVMe Storage) | 18,632,184,480 bytes | 17.353 GiB (18.632 GB) | NTFS filesystem stat / SHA256 audit | **Measured** | `-m <path>` | Consumes 17.35 GiB disk space. Free disk gate requires $\ge 25.0\text{ GiB}$. |
-| **GGUF Header & Metadata** | Tier 3 (Virtual Mapping) / Tier 2 (Host RAM) | 5,970,560 bytes | 5.694 MiB | GGUF binary header parse (`inspect_gguf_metadata.py`) | **Measured** | `-lm mmap` | Negligible footprint; read once during model initialization. |
-| **Virtual Address Reservation** | Process Virtual Address Space | 18,632,184,480 bytes | 17.353 GiB | Win32 `MapViewOfFile` specification | **Calculated** | `-lm mmap` | Virtual address space reservation only; consumes 0 bytes physical RAM until touched. |
-| **Embedding Weights (`tok_embd.weight`)** | Tier 1 (GPU VRAM) | 175,030,272 bytes | 166.922 MiB | GGUF record `[2048, 151936]`, type `Q4_K` | **Measured** | `-ngl 48` | Offloaded to VRAM. If offload fails, falls back to CPU RAM. |
-| **LM Output Head (`output.weight`)** | Tier 1 (GPU VRAM) | 255,252,480 bytes | 243.428 MiB | GGUF record `[2048, 151936]`, type `Q6_K` | **Measured** | `-ngl 48` | Offloaded to VRAM. Requires un-embedding projection on every generated token. |
-| **Output RMSNorm (`output_norm.weight`)** | Tier 1 (GPU VRAM) | 8,192 bytes | 0.008 MiB | GGUF record `[2048]`, type `F32` | **Measured** | `-ngl 48` | Negligible size. |
-| **Attention Q Projections (`attn_q.weight`, 48 layers)** | Tier 1 (GPU VRAM) | 226,492,416 bytes | 216.000 MiB | 48 records `[2048, 4096]`, type `Q4_K` ($48 \times 4.72\text{ MB}$) | **Measured** | `-ngl 48` | Permanent resident in VRAM for all 48 layers. |
-| **Attention K Projections (`attn_k.weight`, 48 layers)** | Tier 1 (GPU VRAM) | 53,477,376 bytes | 51.000 MiB | 48 records `[2048, 512]`, type `Q8_0` ($48 \times 1.11\text{ MB}$) | **Measured** | `-ngl 48` | GQA compressed (4 heads); permanent VRAM residency. |
-| **Attention V Projections (`attn_v.weight`, 48 layers)** | Tier 1 (GPU VRAM) | 34,799,616 bytes | 33.188 MiB | 48 records `[2048, 512]`, type `Q6_K` ($48 \times 0.72\text{ MB}$) | **Measured** | `-ngl 48` | GQA compressed (4 heads); permanent VRAM residency. |
-| **Attention Output Projections (`attn_output.weight`, 48 layers)** | Tier 1 (GPU VRAM) | 276,824,064 bytes | 264.000 MiB | 48 records `[4096, 2048]`, type `Q5_K` ($48 \times 5.77\text{ MB}$) | **Measured** | `-ngl 48` | Permanent resident in VRAM for all 48 layers. |
-| **MoE Router Gate Weights (`ffn_gate_inp.weight`, 48 layers)** | Tier 1 (GPU VRAM) | 50,331,648 bytes | 48.000 MiB | 48 records `[2048, 128]`, type `F32` ($48 \times 1.05\text{ MB}$) | **Measured** | `-ngl 48` | Routers must reside on GPU to evaluate expert selection for every token. |
-| **Layer RMSNorms (`attn_norm`, `ffn_norm`, `attn_q_norm`, `attn_k_norm`)** | Tier 1 (GPU VRAM) | 835,584 bytes | 0.797 MiB | 192 records across 48 layers, type `F32` | **Measured** | `-ngl 48` | Negligible size; permanently locked in VRAM. |
-| **Dense Weights Total (GPU-Resident)** | **Tier 1 (GPU VRAM)** | **1,072,217,856 bytes** | **1,022.545 MiB (~1.00 GiB)** | Sum of embeddings, output head, attention, routers, and norms | **Measured** | `-ngl 48` | Safe VRAM footprint (~1.00 GiB out of 5.70 GiB usable VRAM). |
-| **MoE Expert Stacked Weights (All 48 Layers)** | Split between Tier 1 (VRAM) & Tier 2/3 (RAM/File Cache) | 17,553,162,240 bytes | 16.348 GiB (17.553 GB) | 144 stacked records ($48 \times 3$): gate (`Q4_K`), up (`Q4_K`), down (`Q6_K`) | **Measured** | `-ncmoe N`, `-ngl 48` | Exceeds VRAM capacity ($2.7\times$). Must be partitioned across GPU and CPU. |
-| **MoE Expert Weights Per Layer** | — | 391,643,136 bytes | 373.500 MiB (~365.7 MB) | Sum of gate ($113.25\text{M}$), up ($113.25\text{M}$), down ($165.15\text{M}$) | **Measured** | Architecture constant | Each layer offloaded to GPU consumes ~373.5 MiB VRAM. |
-| **MoE GPU Layers (Config D: 8 Layers, 40 to 47)** | Tier 1 (GPU VRAM) | 3,133,145,088 bytes | 2,988.000 MiB (~2.92 GiB) | $8\text{ layers} \times 391,643,136\text{ bytes}$ | **Calculated** | `-ngl 48 -ncmoe 40` | Locked in VRAM. Combined with dense weights = ~3.91 GiB VRAM. |
-| **MoE CPU Layers (Config D: 40 Layers, 0 to 39)** | Tier 2 (System RAM) / Tier 3 (File Cache) | 14,420,017,152 bytes | 13.430 GiB (14.420 GB) | $40\text{ layers} \times 391,643,136\text{ bytes}$ | **Calculated** | `-ncmoe 40` | If 100% resident in RAM, exceeds clean RAM (11.8 GB). Relies on dynamic demand-paging. |
-| **Active CPU Expert Working Set Per Token (Config D)** | Tier 2 (Host Physical RAM) | 901,251,072 bytes | 859.500 MiB (~901.3 MB) | $40\text{ layers} \times \frac{8\text{ active}}{128\text{ total}} \times 391,643,136\text{ bytes}$ | **Calculated** | Runtime execution | Comfortably fits inside available physical RAM (~11.8 GB). |
-| **KV Cache (`ctx = 512`, `q8_0`)** | Tier 1 (GPU VRAM) | 25,165,824 bytes | 24.000 MiB | $512 \times 48 \times 4 \times 128 \times 2 \times 1\text{ byte}$ | **Calculated** | `-c 512 -ctk q8_0 -ctv q8_0` | Extremely small footprint due to GQA ($H_{kv}=4$) and Q8_0 quantization. |
-| **KV Cache (`ctx = 1024`, `q8_0`)** | Tier 1 (GPU VRAM) | 50,331,648 bytes | 48.000 MiB | $1024 \times 48 \times 4 \times 128 \times 2 \times 1\text{ byte}$ | **Calculated** | `-c 1024 -ctk q8_0 -ctv q8_0` | Fits easily in VRAM headroom. |
-| **KV Cache (`ctx = 2048`, `f16`)** | Tier 1 (GPU VRAM) | 201,326,592 bytes | 192.000 MiB | $2048 \times 48 \times 4 \times 128 \times 2 \times 2\text{ bytes}$ | **Calculated** | `-c 2048 -ctk f16 -ctv f16` | Moderate footprint; leaves ample VRAM headroom. |
-| **GPU Expert Cache (`--moe-cache-mib`)** | Tier 1 (GPU VRAM) | Configurable ($0$ in Config D; up to $2\text{--}3\text{ GiB}$) | $0\text{ to }3,072\text{ MiB}$ | CLI runtime parameter | **Controlled** | `--moe-cache-mib N` | Directly reduces VRAM headroom. Must not exceed $2,000\text{ MiB}$ under `-ncmoe 40`. |
-| **CUDA Compute & Graph Scratch Buffers** | Tier 1 (GPU VRAM) | Estimated 300–500 MiB | ~300 to 500 MiB | Dynamic runtime allocation | **UNKNOWN** *(Measured only after init)* | `-fa auto`, `-b 64`, `-ub 16` | Exact allocation depends on batch size and FlashAttention kernel selection. |
-| **llama.cpp Host Process Heap & Stack** | Tier 2 (System RAM Private Commit) | Estimated 350–450 MB | ~350 to 450 MB | Dynamic C++ runtime heap allocation | **UNKNOWN** *(Measured only after init)* | Runtime executable | Anonymous private commit (`PrivateUsage`). Must be monitored via `GetProcessMemoryInfo`. |
-| **Windows Desktop & Driver VRAM Overhead** | Tier 1 (GPU VRAM) | ~200–350 MiB at idle | ~200 to 350 MiB | `nvidia-smi` idle baseline | **Measured** | OS display driver | Increases if external monitors, browser hardware acceleration, or 3D apps are active. |
-| **Windows OS Clean Working Set** | Tier 2 (System RAM) | ~3,500–4,000 MB | ~3.4 to 3.9 GB | Win32 `GlobalMemoryStatusEx` clean baseline | **Measured** | Windows Services | Degrades if user applications (Edge, IDEs, SQL Server) are left open. |
+| **Static GGUF Model File** | Tier 4 (NVMe) | 18,632,184,480 B | 17.353 GiB (18.632 GB) | **Measured** | File stat / SHA256 audit | `-m <path>` | Read-only backing store. Requires $\ge 25.0\text{ GiB}$ free disk gate. |
+| **GGUF Header & Metadata** | Tier 3 (Virtual Mapping) / RAM | 5,970,560 B | 5.694 MiB | **Measured** | GGUF header parser | `-lm mmap` | Negligible size. Parsed at startup. |
+| **Virtual Address Reservation** | Process Virtual Memory | 18,632,184,480 B | 17.353 GiB | **Derived** | Win32 `MapViewOfFile` | `-lm mmap` | Virtual reservation only. Consumes 0 bytes physical RAM until touched. |
+| **Token Embeddings (`tok_embd`)** | Tier 1 (GPU VRAM) | 175,030,272 B | 166.922 MiB | **Measured** | GGUF record `[2048, 151936]` Q4_K | `-ngl 48` | Offloaded to VRAM. Essential for prompt ingestion. |
+| **LM Output Head (`output`)** | Tier 1 (GPU VRAM) | 255,252,480 B | 243.428 MiB | **Measured** | GGUF record `[2048, 151936]` Q6_K | `-ngl 48` | Offloaded to VRAM. Evaluated on every generated token. |
+| **Output RMSNorm (`output_norm`)** | Tier 1 (GPU VRAM) | 8,192 B | 0.008 MiB | **Measured** | GGUF record `[2048]` F32 | `-ngl 48` | Negligible size. |
+| **Attention Q Projections (48L)** | Tier 1 (GPU VRAM) | 226,492,416 B | 216.000 MiB | **Measured** | 48 records `[2048, 4096]` Q4_K | `-ngl 48` | Locked in VRAM across all 48 layers. |
+| **Attention K Projections (48L)** | Tier 1 (GPU VRAM) | 53,477,376 B | 51.000 MiB | **Measured** | 48 records `[2048, 512]` Q8_0 | `-ngl 48` | GQA compressed (4 heads). Locked in VRAM. |
+| **Attention V Projections (48L)** | Tier 1 (GPU VRAM) | 34,799,616 B | 33.188 MiB | **Measured** | 48 records `[2048, 512]` Q6_K | `-ngl 48` | GQA compressed (4 heads). Locked in VRAM. |
+| **Attention Out Projections (48L)**| Tier 1 (GPU VRAM) | 276,824,064 B | 264.000 MiB | **Measured** | 48 records `[4096, 2048]` Q5_K | `-ngl 48` | Locked in VRAM across all 48 layers. |
+| **Router Gate Weights (48L)** | Tier 1 (GPU VRAM) | 50,331,648 B | 48.000 MiB | **Measured** | 48 records `[2048, 128]` F32 | `-ngl 48` | Dense gating must run on GPU for every token. |
+| **Layer RMSNorms (48L)** | Tier 1 (GPU VRAM) | 835,584 B | 0.797 MiB | **Measured** | 192 records across 48 layers F32 | `-ngl 48` | Negligible size. |
+| **Total Dense Model Weights** | **Tier 1 (GPU VRAM)** | **1,072,217,856 B** | **1,022.545 MiB (~1.00 GiB)**| **Derived** | Sum of dense GGUF records | `-ngl 48` | Stable, fixed VRAM allocation. |
+| **GPU MoE Experts (Layers 40–47)**| **Tier 1 (GPU VRAM)** | **3,081,240,576 B** | **2,938.500 MiB (~2.87 GiB)**| **Derived** | Layers 40–47 stacked records | `-ngl 48 -ncmoe 40` | Layer 40 is 324 MiB; Layers 41–47 are 373.5 MiB. |
+| **CPU MoE Experts (Layers 0–39)** | **Tier 2/3 (RAM / mmap)** | **14,471,921,664 B**| **13,801.500 MiB (~13.48 GiB)**|**Derived** | Layers 0–39 stacked records | `-ncmoe 40` | Stored in file-backed virtual memory. NOT pinned in RAM. |
+| **KV Cache (`ctx=512`, `q8_0`)** | Tier 1 (GPU VRAM) | 26,738,688 B | 25.500 MiB | **Derived** | $512 \times 48 \times 4 \times 128 \times 2 \times \frac{34}{32}$ | `-c 512 -ctk q8_0 -ctv q8_0`| Exact Q8_0 block formula ($34\text{ B} / 32\text{ vals}$). |
+| **KV Cache (`ctx=1024`, `q8_0`)** | Tier 1 (GPU VRAM) | 53,477,376 B | 51.000 MiB | **Derived** | $1024 \times 48 \times 4 \times 128 \times 2 \times \frac{34}{32}$| `-c 1024 -ctk q8_0 -ctv q8_0`| Scales linearly with context. |
+| **KV Cache (`ctx=2048`, `q8_0`)** | Tier 1 (GPU VRAM) | 106,954,752 B | 102.000 MiB | **Derived** | $2048 \times 48 \times 4 \times 128 \times 2 \times \frac{34}{32}$| `-c 2048 -ctk q8_0 -ctv q8_0`| Ample headroom in VRAM. |
+| **KV Cache (`ctx=4096`, `q8_0`)** | Tier 1 (GPU VRAM) | 213,909,504 B | 204.000 MiB | **Derived** | $4096 \times 48 \times 4 \times 128 \times 2 \times \frac{34}{32}$| `-c 4096 -ctk q8_0 -ctv q8_0`| Requires verification under high context. |
+| **GPU Dynamic Expert Cache** | Tier 1 (GPU VRAM) | Controlled ($0\text{ B}$ in Config D) | $0\text{ to }2,048\text{ MiB}$ | **Controlled**| CLI option | `--moe-cache-mib N` | Directly consumes VRAM headroom. Disabled in baseline. |
+| **CUDA Driver Context Overhead** | Tier 1 (GPU VRAM) | ~150–250 MiB (est.) | ~150 to 250 MiB | **UNKNOWN** | Driver baseline initialization | CUDA runtime | **UNKNOWN** until measured via NVML on active process. |
+| **Compute Scratch / FlashAttn** | Tier 1 (GPU VRAM) | ~200–450 MiB (est.) | ~200 to 450 MiB | **UNKNOWN** | GGML CUDA graph allocator | `-fa auto -b 64 -ub 16` | **UNKNOWN** until measured during first forward pass. |
+| **llama.cpp Process Private Commit**| Tier 2 (Host System RAM) | ~350–450 MB (est.) | ~350 to 450 MB | **UNKNOWN** | C++ heap / stack / tokenizer | Runtime executable | Anonymous memory (`PrivateUsage`). Must be monitored. |
+| **Desktop / DWM VRAM Overhead** | Tier 1 (GPU VRAM) | ~200–350 MiB at idle | ~200 to 350 MiB | **Measured** | NVML baseline query | Windows DWM | Baseline display consumption. Increases with external apps. |
 
 ---
 
-## 2. Configuration D Total Allocation Rollup
+## 4. Reconciled VRAM Budget (Configuration D Baseline)
 
-Configuration D represents the baseline configuration authorized for preliminary safety validation:
-- Flags: `-ngl 48 -ncmoe 40 -c 512 -b 64 -ub 16 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p Hello`
+The VRAM budget must not rely on an unsupported nominal ceiling. Instead, it is evaluated strictly against:
+- **Physical Total VRAM:** $6,141.0\text{ MiB}$ **[Measured]**
+- **Current Measured Free VRAM (Idle Desktop):** $\sim 5,920.0\text{ MiB}$ **[Measured via NVML]**
+- **Mandatory Runtime Safety Reserve:** $512.0\text{ MiB}$ **[Policy Floor]**
 
-### 2.1 GPU VRAM Allocation Rollup (Tier 1)
+### 4.1 Known Model & KV Allocations (Configuration D: `-ngl 48 -ncmoe 40 -c 512`)
 $$\begin{aligned}
-\text{Dense Model Weights} &= 1,022.5\text{ MiB} \\
-\text{8 MoE Layers on GPU (Layers 40–47)} &= 2,988.0\text{ MiB} \\
-\text{KV Cache (512 ctx, Q8\_0)} &= 24.0\text{ MiB} \\
-\text{GPU Expert Cache} &= 0.0\text{ MiB (Disabled)} \\
-\text{Compute Scratch Buffers (Estimated)} &\approx 350.0\text{ MiB} \\
+\text{Dense Model Weights (All 48 Layers)} &= 1,022.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
+\text{GPU MoE Experts (Layers 40–47: 8 Layers)} &= 2,938.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
+\text{KV Cache (512 Context, Q8\_0: } 34/32\text{ bytes/value)} &= 25.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
+\text{GPU Expert Cache (`--moe-cache-mib 0`)} &= 0.0\text{ MiB} \quad \text{\textbf{[Controlled]}} \\
 \hline
-\mathbf{Total\ Model\ VRAM\ Requirement} &\approx \mathbf{4,384.5\text{ MiB}}~(\mathbf{\sim 4.28\text{ GiB}}) \\
-\text{Usable VRAM Capacity} &\approx 5,700.0\text{ MiB} \\
-\mathbf{Expected\ VRAM\ Headroom} &\approx \mathbf{+1,315.5\text{ MiB}}~(\mathbf{\sim 1.28\text{ GiB}})
+\mathbf{Subtotal\ (Fixed\ Model\ +\ KV\ Allocation)} &= \mathbf{3,986.5\text{ MiB}} \quad \text{\textbf{[Derived]}}
 \end{aligned}$$
 
-**VRAM Verdict:** **Feasible and Safe.** The estimated allocation of ~4.28 GiB operates at ~77% of usable VRAM, maintaining an ample ~1.3 GiB safety buffer against activation spikes and preventing WDDM driver eviction.
-
-### 2.2 System RAM Allocation Rollup (Tier 2 & Tier 3)
+### 4.2 Headroom Calculation Against Pre-Run Free VRAM
 $$\begin{aligned}
-\text{Clean OS Baseline Working Set} &\approx 3,800.0\text{ MB} \\
-\text{llama.cpp Private Process Commit} &\approx 400.0\text{ MB} \\
-\text{Active MoE Expert Working Set (8 active per token)} &\approx 901.3\text{ MB} \\
+\text{Current Measured Free VRAM} &\approx 5,920.0\text{ MiB} \quad \text{\textbf{[Measured]}} \\
+\text{Subtotal (Fixed Model + KV)} &= -3,986.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
 \hline
-\mathbf{Minimum\ Required\ Physical\ RAM\ for\ Steady\ Generation} &\approx \mathbf{5,101.3\text{ MB}}~(\mathbf{\sim 5.1\text{ GB}}) \\
-\text{Total Visible Physical RAM} &\approx 16,024.0\text{ MB}~(\mathbf{15.65\text{ GB}}) \\
-\mathbf{Physical\ RAM\ Safety\ Margin\ for\ Active\ Working\ Set} &\approx \mathbf{+10,922.7\text{ MB}}~(\mathbf{\sim 10.7\text{ GB}})
+\mathbf{Gross\ Remaining\ Free\ VRAM} &\approx \mathbf{1,933.5\text{ MiB}} \quad \text{\textbf{[Derived]}} \\
+\text{Mandatory Runtime Safety Reserve} &= -512.0\text{ MiB} \quad \text{\textbf{[Policy Floor]}} \\
+\hline
+\mathbf{Unallocated\ Buffer\ Available\ for\ Dynamic\ Overheads} &\approx \mathbf{1,421.5\text{ MiB}} \quad \text{\textbf{[Derived]}}
 \end{aligned}$$
 
-$$\begin{aligned}
-\text{Theoretical Worst-Case RAM Load (If all 40 CPU layers paged in)} &\approx 3,800\text{ MB (OS)} + 400\text{ MB (Heap)} + 14,420\text{ MB (Experts)} \\
-&\approx \mathbf{18,620.0\text{ MB}}~(\mathbf{\sim 18.2\text{ GB}}) \\
-\text{Physical RAM Deficit in Worst-Case Fully-Resident Scenario} &\approx \mathbf{-2,596.0\text{ MB}}~(\mathbf{\sim 2.5\text{ GB Over Physical Limit}})
-\end{aligned}$$
+### 4.3 Material Dynamic Overheads (Unknowns)
+The $1,421.5\text{ MiB}$ unallocated buffer must accommodate all remaining runtime components:
+- **CUDA Context Overhead:** Typically $\sim 150\text{--}250\text{ MiB}$ **[UNKNOWN]**
+- **Compute Scratchpad / FlashAttention Activations:** Typically $\sim 200\text{--}450\text{ MiB}$ **[UNKNOWN]**
 
-**System RAM Verdict:**  
-- **Steady-State Generation:** Fully feasible provided unaccessed expert pages are not forced into physical RAM. The active working set per token generation step requires under 1.0 GB of expert weights.
-- **Worst-Case Vulnerability:** If sequential generation across long contexts touches all 128 experts across all 40 layers without page eviction, physical RAM will be exhausted, forcing Windows to discard standby pages and page-fault repeatedly from the NVMe SSD.
+$$\mathbf{Estimated\ Net\ Headroom\ Above\ Reserve} \approx 1,421.5\text{ MiB} - (150\text{ to }250\text{ MiB}) - (200\text{ to }450\text{ MiB}) \approx \mathbf{721.5\text{ to }1,071.5\text{ MiB}}$$
 
----
+> [!WARNING]
+> **Headroom Uncertainty:** While the mathematical subtotal of $3,986.5\text{ MiB}$ leaves an estimated $\sim 720\text{--}1,070\text{ MiB}$ above the safety reserve, **this headroom cannot be declared safe until CUDA context overhead and peak activation scratchpads are empirically measured under live execution**.
 
-## 3. Explicit Gaps and Unknowns
-
-The following quantities cannot be verified by static file inspection and must be empirically measured during future authorized tasks:
-1. **Actual CUDA Context Initialization Overhead:** The exact memory reserved by the CUDA driver (`nvcuda.dll`) upon runtime initialization (typically 150–250 MiB on Ada Lovelace). Marked **UNKNOWN**.
-2. **FlashAttention Activation Buffer Size:** The exact scratchpad memory allocated by GGML CUDA backend for FlashAttention with batch size 64 and ubatch 16. Marked **UNKNOWN**.
-3. **Exact Cache Miss Penalty:** The empirical round-trip latency (in milliseconds) required to fault an un-cached expert from NVMe through Windows file cache into CPU RAM. Marked **UNKNOWN**.
-4. **Thermal Throttling Thresholds:** The sustained temperature under combined CPU AVX2 and GPU CUDA compute before thermal throttling engages on the HP Victus chassis. Marked **UNKNOWN**.
+### 4.4 Governance on GPU Expert Cache (`--moe-cache-mib`)
+- Setting `--moe-cache-mib 1024` would consume $1,024\text{ MiB}$ of VRAM.
+- Subtracting $1,024\text{ MiB}$ from the estimated net buffer ($721.5\text{--}1,071.5\text{ MiB}$) would leave **between $-302.5\text{ MiB}$ (an immediate OOM/abort violation) and $+47.5\text{ MiB}$ (dangerously tight margin)**.
+- **Strict Rule:** **Do not recommend or configure a 1,024 MiB expert cache before a clean baseline smoke test measures the exact unallocated VRAM headroom.**
