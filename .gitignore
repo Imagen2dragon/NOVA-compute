@@ -18,6 +18,7 @@ runtime/
 *.tar.gz
 
 # Python artifacts
+scratch/
 __pycache__/
 *.py[cod]
 *$py.class

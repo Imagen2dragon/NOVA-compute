@@ -1,0 +1,4 @@
+NOVA Compute Phase 2C-B Execution Aborted Before Process Launch.
+Timestamp: 2026-11-04T11:52:43
+Reason: Available physical RAM was 9.486 GiB (< 10.0 GiB gate threshold).
+Per AGENTS.md and Task 3 rules: 'If any condition fails, STOP. Do not terminate unrelated processes to satisfy the gate.'

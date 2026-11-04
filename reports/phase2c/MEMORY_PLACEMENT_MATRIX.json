@@ -111,15 +111,22 @@
       "description": "All experts CPU (-cmoe), dense layers GPU (-ngl 48)",
       "cpu_moe_layers": 48,
       "gpu_moe_layers": 0,
-      "cli_flags": ".\\runtime\\windows\\llama-cpp\\llama-cli.exe -m .\\models\\qwen3-30b\\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -cmoe -c 1024 -b 512 -ub 128 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Test\"",
       "cpu": {
         "expert_bytes": 17553162240,
         "expert_gib": 16.348,
-        "active_ws_bytes": 1097072640,
-        "active_ws_mib": 1046.2,
+        "activated_expert_bytes_per_token": 1097072640,
+        "activated_expert_mib_per_token": 1046.2,
+        "cpu_runtime_overhead_mb": 400,
         "mmap_virtual_gib": 17.353,
-        "resident_ram_est_gib": 16.738,
-        "note": "mmap maps entire GGUF as virtual address space. Physical resident RAM = CPU expert pages faulted in on demand + llama.cpp process overhead. Active working set \u2248 8/128 \u00d7 expert bytes per layer \u00d7 CPU layers."
+        "worst_case_if_all_cpu_expert_pages_resident_gib": 16.738,
+        "memory_classification_notes": {
+          "virtual_mapping": "mmap maps entire 18.63 GB GGUF into process virtual address space.",
+          "prefetch_request": "llama.cpp calls PrefetchVirtualMemory on load as an advisory hint. Windows may fulfill partially or reject under memory pressure.",
+          "resident_working_set": "Only actively executed expert pages (approx 862.6 MiB for 8 active experts in Config D) plus cached pages stay in physical RAM.",
+          "cached_file_backed_pages": "Model pages in physical RAM are clean file-backed cache pages dropped without pagefile writes when OS needs RAM.",
+          "private_committed_memory": "Only process runtime heap, stack, tokenizer, and metadata (~400 MB) are private anonymous commit.",
+          "cuda_allocations": "GPU dense layers, GPU expert layers, KV cache, and compute buffers are allocated in dedicated VRAM."
+        }
       },
       "gpu": {
         "dense_model_bytes": 1073051648,
@@ -127,20 +134,18 @@
         "expert_bytes": 0,
         "expert_mib": 0.0,
         "total_model_mib": 1023.3,
+        "kv_512_q8_mib": 24.0,
         "kv_1024_q8_mib": 48.0,
         "kv_2048_q8_mib": 96.0,
-        "kv_1024_f16_mib": 96.0,
-        "kv_2048_f16_mib": 192.0,
         "overhead_mib": 300,
-        "total_vram_1024_q8_mib": 1371.3,
-        "total_vram_2048_q8_mib": 1419.3,
-        "total_vram_1024_f16_mib": 1419.3,
-        "total_vram_2048_f16_mib": 1515.3,
+        "estimated_vram_ctx512_q8_mib": 1347.3,
+        "estimated_vram_ctx1024_q8_mib": 1371.3,
+        "estimated_vram_ctx2048_q8_mib": 1419.3,
         "vram_budget_mib": 6141,
-        "headroom_1024_q8_mib": 4769.7,
-        "headroom_2048_q8_mib": 4721.7,
-        "fits_vram_1024_q8": true,
-        "fits_vram_2048_q8": true
+        "headroom_ctx512_q8_mib": 4793.7,
+        "headroom_ctx1024_q8_mib": 4769.7,
+        "fits_vram_ctx512_q8": true,
+        "fits_vram_ctx1024_q8": true
       }
     },
     {
@@ -148,15 +153,22 @@
       "description": "First 44 layers CPU experts, final 4 GPU (-ncmoe 44 -ngl 48)",
       "cpu_moe_layers": 44,
       "gpu_moe_layers": 4,
-      "cli_flags": ".\\runtime\\windows\\llama-cpp\\llama-cli.exe -m .\\models\\qwen3-30b\\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -ncmoe 44 -c 1024 -b 512 -ub 128 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Test\"",
       "cpu": {
         "expert_bytes": 15986589696,
         "expert_gib": 14.889,
-        "active_ws_bytes": 999161856,
-        "active_ws_mib": 952.9,
+        "activated_expert_bytes_per_token": 999161856,
+        "activated_expert_mib_per_token": 952.9,
+        "cpu_runtime_overhead_mb": 400,
         "mmap_virtual_gib": 17.353,
-        "resident_ram_est_gib": 15.279,
-        "note": "mmap maps entire GGUF as virtual address space. Physical resident RAM = CPU expert pages faulted in on demand + llama.cpp process overhead. Active working set \u2248 8/128 \u00d7 expert bytes per layer \u00d7 CPU layers."
+        "worst_case_if_all_cpu_expert_pages_resident_gib": 15.279,
+        "memory_classification_notes": {
+          "virtual_mapping": "mmap maps entire 18.63 GB GGUF into process virtual address space.",
+          "prefetch_request": "llama.cpp calls PrefetchVirtualMemory on load as an advisory hint. Windows may fulfill partially or reject under memory pressure.",
+          "resident_working_set": "Only actively executed expert pages (approx 862.6 MiB for 8 active experts in Config D) plus cached pages stay in physical RAM.",
+          "cached_file_backed_pages": "Model pages in physical RAM are clean file-backed cache pages dropped without pagefile writes when OS needs RAM.",
+          "private_committed_memory": "Only process runtime heap, stack, tokenizer, and metadata (~400 MB) are private anonymous commit.",
+          "cuda_allocations": "GPU dense layers, GPU expert layers, KV cache, and compute buffers are allocated in dedicated VRAM."
+        }
       },
       "gpu": {
         "dense_model_bytes": 1073051648,
@@ -164,20 +176,18 @@
         "expert_bytes": 1566572544,
         "expert_mib": 1494.0,
         "total_model_mib": 2517.3,
+        "kv_512_q8_mib": 24.0,
         "kv_1024_q8_mib": 48.0,
         "kv_2048_q8_mib": 96.0,
-        "kv_1024_f16_mib": 96.0,
-        "kv_2048_f16_mib": 192.0,
         "overhead_mib": 300,
-        "total_vram_1024_q8_mib": 2865.3,
-        "total_vram_2048_q8_mib": 2913.3,
-        "total_vram_1024_f16_mib": 2913.3,
-        "total_vram_2048_f16_mib": 3009.3,
+        "estimated_vram_ctx512_q8_mib": 2841.3,
+        "estimated_vram_ctx1024_q8_mib": 2865.3,
+        "estimated_vram_ctx2048_q8_mib": 2913.3,
         "vram_budget_mib": 6141,
-        "headroom_1024_q8_mib": 3275.7,
-        "headroom_2048_q8_mib": 3227.7,
-        "fits_vram_1024_q8": true,
-        "fits_vram_2048_q8": true
+        "headroom_ctx512_q8_mib": 3299.7,
+        "headroom_ctx1024_q8_mib": 3275.7,
+        "fits_vram_ctx512_q8": true,
+        "fits_vram_ctx1024_q8": true
       }
     },
     {
@@ -185,15 +195,22 @@
       "description": "First 42 layers CPU experts, final 6 GPU (-ncmoe 42 -ngl 48)",
       "cpu_moe_layers": 42,
       "gpu_moe_layers": 6,
-      "cli_flags": ".\\runtime\\windows\\llama-cpp\\llama-cli.exe -m .\\models\\qwen3-30b\\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -ncmoe 42 -c 1024 -b 512 -ub 128 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Test\"",
       "cpu": {
         "expert_bytes": 15203303424,
         "expert_gib": 14.159,
-        "active_ws_bytes": 950206464,
-        "active_ws_mib": 906.2,
+        "activated_expert_bytes_per_token": 950206464,
+        "activated_expert_mib_per_token": 906.2,
+        "cpu_runtime_overhead_mb": 400,
         "mmap_virtual_gib": 17.353,
-        "resident_ram_est_gib": 14.55,
-        "note": "mmap maps entire GGUF as virtual address space. Physical resident RAM = CPU expert pages faulted in on demand + llama.cpp process overhead. Active working set \u2248 8/128 \u00d7 expert bytes per layer \u00d7 CPU layers."
+        "worst_case_if_all_cpu_expert_pages_resident_gib": 14.55,
+        "memory_classification_notes": {
+          "virtual_mapping": "mmap maps entire 18.63 GB GGUF into process virtual address space.",
+          "prefetch_request": "llama.cpp calls PrefetchVirtualMemory on load as an advisory hint. Windows may fulfill partially or reject under memory pressure.",
+          "resident_working_set": "Only actively executed expert pages (approx 862.6 MiB for 8 active experts in Config D) plus cached pages stay in physical RAM.",
+          "cached_file_backed_pages": "Model pages in physical RAM are clean file-backed cache pages dropped without pagefile writes when OS needs RAM.",
+          "private_committed_memory": "Only process runtime heap, stack, tokenizer, and metadata (~400 MB) are private anonymous commit.",
+          "cuda_allocations": "GPU dense layers, GPU expert layers, KV cache, and compute buffers are allocated in dedicated VRAM."
+        }
       },
       "gpu": {
         "dense_model_bytes": 1073051648,
@@ -201,20 +218,18 @@
         "expert_bytes": 2349858816,
         "expert_mib": 2241.0,
         "total_model_mib": 3264.3,
+        "kv_512_q8_mib": 24.0,
         "kv_1024_q8_mib": 48.0,
         "kv_2048_q8_mib": 96.0,
-        "kv_1024_f16_mib": 96.0,
-        "kv_2048_f16_mib": 192.0,
         "overhead_mib": 300,
-        "total_vram_1024_q8_mib": 3612.3,
-        "total_vram_2048_q8_mib": 3660.3,
-        "total_vram_1024_f16_mib": 3660.3,
-        "total_vram_2048_f16_mib": 3756.3,
+        "estimated_vram_ctx512_q8_mib": 3588.3,
+        "estimated_vram_ctx1024_q8_mib": 3612.3,
+        "estimated_vram_ctx2048_q8_mib": 3660.3,
         "vram_budget_mib": 6141,
-        "headroom_1024_q8_mib": 2528.7,
-        "headroom_2048_q8_mib": 2480.7,
-        "fits_vram_1024_q8": true,
-        "fits_vram_2048_q8": true
+        "headroom_ctx512_q8_mib": 2552.7,
+        "headroom_ctx1024_q8_mib": 2528.7,
+        "fits_vram_ctx512_q8": true,
+        "fits_vram_ctx1024_q8": true
       }
     },
     {
@@ -222,15 +237,22 @@
       "description": "First 40 layers CPU experts, final 8 GPU (-ncmoe 40 -ngl 48)",
       "cpu_moe_layers": 40,
       "gpu_moe_layers": 8,
-      "cli_flags": ".\\runtime\\windows\\llama-cpp\\llama-cli.exe -m .\\models\\qwen3-30b\\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -ncmoe 40 -c 1024 -b 512 -ub 128 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Test\"",
       "cpu": {
         "expert_bytes": 14471921664,
         "expert_gib": 13.478,
-        "active_ws_bytes": 904495104,
-        "active_ws_mib": 862.6,
+        "activated_expert_bytes_per_token": 904495104,
+        "activated_expert_mib_per_token": 862.6,
+        "cpu_runtime_overhead_mb": 400,
         "mmap_virtual_gib": 17.353,
-        "resident_ram_est_gib": 13.869,
-        "note": "mmap maps entire GGUF as virtual address space. Physical resident RAM = CPU expert pages faulted in on demand + llama.cpp process overhead. Active working set \u2248 8/128 \u00d7 expert bytes per layer \u00d7 CPU layers."
+        "worst_case_if_all_cpu_expert_pages_resident_gib": 13.869,
+        "memory_classification_notes": {
+          "virtual_mapping": "mmap maps entire 18.63 GB GGUF into process virtual address space.",
+          "prefetch_request": "llama.cpp calls PrefetchVirtualMemory on load as an advisory hint. Windows may fulfill partially or reject under memory pressure.",
+          "resident_working_set": "Only actively executed expert pages (approx 862.6 MiB for 8 active experts in Config D) plus cached pages stay in physical RAM.",
+          "cached_file_backed_pages": "Model pages in physical RAM are clean file-backed cache pages dropped without pagefile writes when OS needs RAM.",
+          "private_committed_memory": "Only process runtime heap, stack, tokenizer, and metadata (~400 MB) are private anonymous commit.",
+          "cuda_allocations": "GPU dense layers, GPU expert layers, KV cache, and compute buffers are allocated in dedicated VRAM."
+        }
       },
       "gpu": {
         "dense_model_bytes": 1073051648,
@@ -238,20 +260,18 @@
         "expert_bytes": 3081240576,
         "expert_mib": 2938.5,
         "total_model_mib": 3961.8,
+        "kv_512_q8_mib": 24.0,
         "kv_1024_q8_mib": 48.0,
         "kv_2048_q8_mib": 96.0,
-        "kv_1024_f16_mib": 96.0,
-        "kv_2048_f16_mib": 192.0,
         "overhead_mib": 300,
-        "total_vram_1024_q8_mib": 4309.8,
-        "total_vram_2048_q8_mib": 4357.8,
-        "total_vram_1024_f16_mib": 4357.8,
-        "total_vram_2048_f16_mib": 4453.8,
+        "estimated_vram_ctx512_q8_mib": 4285.8,
+        "estimated_vram_ctx1024_q8_mib": 4309.8,
+        "estimated_vram_ctx2048_q8_mib": 4357.8,
         "vram_budget_mib": 6141,
-        "headroom_1024_q8_mib": 1831.2,
-        "headroom_2048_q8_mib": 1783.2,
-        "fits_vram_1024_q8": true,
-        "fits_vram_2048_q8": true
+        "headroom_ctx512_q8_mib": 1855.2,
+        "headroom_ctx1024_q8_mib": 1831.2,
+        "fits_vram_ctx512_q8": true,
+        "fits_vram_ctx1024_q8": true
       }
     },
     {
@@ -259,15 +279,22 @@
       "description": "First 36 layers CPU experts, final 12 GPU (-ncmoe 36 -ngl 48)",
       "cpu_moe_layers": 36,
       "gpu_moe_layers": 12,
-      "cli_flags": ".\\runtime\\windows\\llama-cpp\\llama-cli.exe -m .\\models\\qwen3-30b\\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -ncmoe 36 -c 1024 -b 512 -ub 128 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Test\"",
       "cpu": {
         "expert_bytes": 13061062656,
         "expert_gib": 12.164,
-        "active_ws_bytes": 816316416,
-        "active_ws_mib": 778.5,
+        "activated_expert_bytes_per_token": 816316416,
+        "activated_expert_mib_per_token": 778.5,
+        "cpu_runtime_overhead_mb": 400,
         "mmap_virtual_gib": 17.353,
-        "resident_ram_est_gib": 12.555,
-        "note": "mmap maps entire GGUF as virtual address space. Physical resident RAM = CPU expert pages faulted in on demand + llama.cpp process overhead. Active working set \u2248 8/128 \u00d7 expert bytes per layer \u00d7 CPU layers."
+        "worst_case_if_all_cpu_expert_pages_resident_gib": 12.555,
+        "memory_classification_notes": {
+          "virtual_mapping": "mmap maps entire 18.63 GB GGUF into process virtual address space.",
+          "prefetch_request": "llama.cpp calls PrefetchVirtualMemory on load as an advisory hint. Windows may fulfill partially or reject under memory pressure.",
+          "resident_working_set": "Only actively executed expert pages (approx 862.6 MiB for 8 active experts in Config D) plus cached pages stay in physical RAM.",
+          "cached_file_backed_pages": "Model pages in physical RAM are clean file-backed cache pages dropped without pagefile writes when OS needs RAM.",
+          "private_committed_memory": "Only process runtime heap, stack, tokenizer, and metadata (~400 MB) are private anonymous commit.",
+          "cuda_allocations": "GPU dense layers, GPU expert layers, KV cache, and compute buffers are allocated in dedicated VRAM."
+        }
       },
       "gpu": {
         "dense_model_bytes": 1073051648,
@@ -275,20 +302,18 @@
         "expert_bytes": 4492099584,
         "expert_mib": 4284.0,
         "total_model_mib": 5307.3,
+        "kv_512_q8_mib": 24.0,
         "kv_1024_q8_mib": 48.0,
         "kv_2048_q8_mib": 96.0,
-        "kv_1024_f16_mib": 96.0,
-        "kv_2048_f16_mib": 192.0,
         "overhead_mib": 300,
-        "total_vram_1024_q8_mib": 5655.3,
-        "total_vram_2048_q8_mib": 5703.3,
-        "total_vram_1024_f16_mib": 5703.3,
-        "total_vram_2048_f16_mib": 5799.3,
+        "estimated_vram_ctx512_q8_mib": 5631.3,
+        "estimated_vram_ctx1024_q8_mib": 5655.3,
+        "estimated_vram_ctx2048_q8_mib": 5703.3,
         "vram_budget_mib": 6141,
-        "headroom_1024_q8_mib": 485.7,
-        "headroom_2048_q8_mib": 437.7,
-        "fits_vram_1024_q8": true,
-        "fits_vram_2048_q8": true
+        "headroom_ctx512_q8_mib": 509.7,
+        "headroom_ctx1024_q8_mib": 485.7,
+        "fits_vram_ctx512_q8": true,
+        "fits_vram_ctx1024_q8": true
       }
     }
   ]
