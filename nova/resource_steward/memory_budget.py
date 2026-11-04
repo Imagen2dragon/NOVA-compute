@@ -40,17 +40,25 @@ class MemoryBudgetManager:
         gates: Dict[str, GateResult] = {}
 
         # 1. Telemetry Health Gate (Fail-Closed)
+        disk_telemetry_healthy = (
+            disk.status == TelemetryStatus.SUCCESS and
+            isinstance(disk.free_bytes, int) and not isinstance(disk.free_bytes, bool) and disk.free_bytes >= 0 and
+            isinstance(disk.total_bytes, int) and not isinstance(disk.total_bytes, bool) and disk.total_bytes > 0 and
+            disk.free_bytes <= disk.total_bytes and
+            disk.free_gib is not None and isinstance(disk.free_gib, (int, float)) and not isinstance(disk.free_gib, bool) and math.isfinite(disk.free_gib) and
+            disk.total_gib is not None and isinstance(disk.total_gib, (int, float)) and not isinstance(disk.total_gib, bool) and math.isfinite(disk.total_gib)
+        )
         telemetry_healthy = (
             system_ram.status == TelemetryStatus.SUCCESS and
             gpu.status == TelemetryStatus.SUCCESS and
-            disk.status == TelemetryStatus.SUCCESS
+            disk_telemetry_healthy
         )
         telemetry_failures = []
         if system_ram.status != TelemetryStatus.SUCCESS:
             telemetry_failures.append(f"RAM: {system_ram.error_message or 'Unavailable'}")
         if gpu.status != TelemetryStatus.SUCCESS:
             telemetry_failures.append(f"GPU: {gpu.error_message or 'Unavailable'}")
-        if disk.status != TelemetryStatus.SUCCESS:
+        if not disk_telemetry_healthy:
             telemetry_failures.append(f"Disk: {disk.error_message or 'Unavailable'}")
 
         gates["telemetry_integrity"] = GateResult(
@@ -171,20 +179,64 @@ class MemoryBudgetManager:
             failure_reason=gpu_comp_failure
         )
 
-        # 6. Free Storage Gate
-        disk_passed = (
-            disk.status == TelemetryStatus.SUCCESS and
-            disk.free_gib >= effective_policy.minimum_disk_free_gib
-        )
-        disk_deficit = effective_policy.minimum_disk_free_gib - disk.free_gib
-        deficit_rounded = round(disk_deficit, 2)
-        deficit_str = f"{deficit_rounded:.2f} GiB" if deficit_rounded > 0 else "< 0.01 GiB"
+        # 6. Free Storage Gate (Raw Integer Byte Counters Authoritative)
+        disk_valid = True
+        disk_invalid_reason = None
+
+        if disk.status != TelemetryStatus.SUCCESS:
+            disk_valid = False
+            disk_invalid_reason = f"Disk telemetry status is not SUCCESS ({disk.error_message or 'Unavailable'})."
+        elif not isinstance(disk.free_bytes, int) or isinstance(disk.free_bytes, bool) or disk.free_bytes < 0:
+            disk_valid = False
+            disk_invalid_reason = f"Invalid free_bytes counter: {disk.free_bytes!r} (must be non-negative integer, non-bool)."
+        elif not isinstance(disk.total_bytes, int) or isinstance(disk.total_bytes, bool) or disk.total_bytes <= 0:
+            disk_valid = False
+            disk_invalid_reason = f"Invalid total_bytes counter: {disk.total_bytes!r} (must be positive integer, non-bool)."
+        elif disk.free_bytes > disk.total_bytes:
+            disk_valid = False
+            disk_invalid_reason = f"Contradictory disk counters: free_bytes ({disk.free_bytes}) > total_bytes ({disk.total_bytes})."
+        elif disk.free_gib is None or not isinstance(disk.free_gib, (int, float)) or isinstance(disk.free_gib, bool) or not math.isfinite(disk.free_gib):
+            disk_valid = False
+            disk_invalid_reason = f"Invalid or non-finite free_gib telemetry: {disk.free_gib!r}."
+        elif disk.total_gib is None or not isinstance(disk.total_gib, (int, float)) or isinstance(disk.total_gib, bool) or not math.isfinite(disk.total_gib):
+            disk_valid = False
+            disk_invalid_reason = f"Invalid or non-finite total_gib telemetry: {disk.total_gib!r}."
+        else:
+            # Reject conflicting representations: free_bytes and free_gib must be mathematically consistent
+            expected_free_gib = float(disk.free_bytes) / (1024 ** 3)
+            if abs(disk.free_gib - expected_free_gib) > 0.001:
+                disk_valid = False
+                disk_invalid_reason = (
+                    f"Contradictory disk representations: free_bytes ({disk.free_bytes}) yields "
+                    f"{expected_free_gib:.4f} GiB, but free_gib is {disk.free_gib:.4f}."
+                )
+
+        if not disk_valid:
+            disk_passed = False
+            disk_measured = "UNAVAILABLE" if disk.status != TelemetryStatus.SUCCESS else "INVALID / UNAVAILABLE"
+            disk_failure = f"Fail-closed: disk validation failed ({disk_invalid_reason})"
+        else:
+            required_bytes = math.ceil(effective_policy.minimum_disk_free_gib * (1024 ** 3))
+            # Authoritative admission decision derived strictly from integer free_bytes
+            disk_passed = (disk.free_bytes >= required_bytes)
+
+            byte_deficit = max(0, required_bytes - disk.free_bytes)
+            gib_deficit = byte_deficit / (1024 ** 3)
+            deficit_rounded = round(gib_deficit, 2)
+            deficit_str = f"{deficit_rounded:.2f} GiB" if deficit_rounded > 0 else "< 0.01 GiB"
+
+            disk_measured = f"{disk.free_gib:.2f} GiB"
+            disk_failure = (
+                f"Disk space deficit: {deficit_str} below required {effective_policy.minimum_disk_free_gib:.1f} GiB"
+                if not disk_passed else None
+            )
+
         gates["disk_free"] = GateResult(
             gate_name="disk_free",
             passed=disk_passed,
             required_str=f">= {effective_policy.minimum_disk_free_gib:.1f} GiB",
-            measured_str=f"{disk.free_gib:.2f} GiB" if disk.status == TelemetryStatus.SUCCESS else "UNAVAILABLE",
-            failure_reason=f"Disk space deficit: {deficit_str} below required {effective_policy.minimum_disk_free_gib:.1f} GiB" if not disk_passed else None
+            measured_str=disk_measured,
+            failure_reason=disk_failure
         )
 
         all_passed = all(g.passed for g in gates.values())

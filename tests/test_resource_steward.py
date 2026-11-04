@@ -3044,5 +3044,134 @@ class TestResourceSteward(unittest.TestCase):
         self.assertLess(raw_snap.free_gib, 25.0)
         self.assertEqual(raw_snap.free_gb, raw_snap.free_gib)
 
+    def test_72_disk_telemetry_source_of_truth_and_integrity(self):
+        """
+        Validates that raw integer byte counters are authoritative for disk admission decisions:
+          Case A. Conflicting representations (free_bytes = 25 GiB - 1, free_gib = 25.0):
+            - Expected: FAIL.
+          Case B. Opposite conflicting representations (free_bytes = 25 GiB, free_gib < 25.0):
+            - Expected: Snapshot normalizes to byte-derived value (25.0 GiB) or rejects inconsistency;
+              gate PASSES based on authoritative bytes.
+          Case C. Positive infinity free_gib:
+            - Expected: malformed telemetry fails closed.
+          Case D. NaN free_gib:
+            - Expected: malformed telemetry fails closed.
+          Case E. Invalid byte counters:
+            - Negative byte count (FAIL)
+            - Boolean byte count (FAIL)
+            - Non-integer byte count (FAIL)
+            - Free bytes greater than total bytes (FAIL)
+        """
+        manager = MemoryBudgetManager(DEFAULT_POLICY)
+        ram_healthy = self._make_healthy_ram(avail_gib=12.0, commit_pct=40.0)
+        gpu_healthy = self._make_healthy_gpu(free_mib=6000.0)
+        exact_25_gib_bytes = 25 * (1024 ** 3)
+
+        # --- Case A: Conflicting representations (free_bytes < 25 GiB, free_gib = 25.0) ---
+        bytes_below_1 = exact_25_gib_bytes - 1
+        snap_a = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=bytes_below_1,
+            total_bytes=100 * (1024 ** 3),
+            free_gib=25.0
+        )
+        # Even if caller passed free_gib=25.0, raw bytes are authoritative:
+        # snapshot normalizes free_gib to the byte-derived value (< 25.0 GiB)
+        self.assertLess(snap_a.free_gib, 25.0)
+        all_passed_a, gates_a = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_a)
+        self.assertFalse(all_passed_a, "Conflicting free_bytes < 25 GiB must FAIL admission")
+        self.assertFalse(gates_a["disk_free"].passed)
+
+        # Forced post-init conflicting free_gib also fails admission
+        snap_a_forced = DiskSnapshot(drive="C:\\", free_bytes=bytes_below_1, total_bytes=100 * (1024 ** 3))
+        snap_a_forced.free_gib = 25.0
+        all_passed_af, gates_af = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_a_forced)
+        self.assertFalse(all_passed_af, "Forced conflicting free_gib=25.0 must FAIL admission")
+        self.assertFalse(gates_af["disk_free"].passed)
+
+        # --- Case B: Opposite conflicting representations (free_bytes = 25 GiB, free_gib = 20.0) ---
+        snap_b = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=exact_25_gib_bytes,
+            total_bytes=100 * (1024 ** 3),
+            free_gib=20.0
+        )
+        # Snapshot normalizes to the byte-derived presentation value (25.0 GiB)
+        self.assertEqual(snap_b.free_gib, 25.0, "Snapshot must normalize to byte-derived presentation value")
+        all_passed_b, gates_b = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_b)
+        self.assertTrue(all_passed_b, "25 GiB raw bytes must PASS admission based on authoritative byte counter")
+        self.assertTrue(gates_b["disk_free"].passed)
+
+        # --- Case C: Positive infinity telemetry fails closed ---
+        snap_c = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=exact_25_gib_bytes,
+            total_bytes=100 * (1024 ** 3),
+            free_gib=float("inf")
+        )
+        self.assertEqual(snap_c.status, TelemetryStatus.FAILED)
+        all_passed_c, gates_c = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_c)
+        self.assertFalse(all_passed_c, "Positive infinity telemetry must fail closed")
+        self.assertFalse(gates_c["disk_free"].passed)
+
+        snap_c_forced = self._make_healthy_disk()
+        snap_c_forced.free_gib = float("inf")
+        all_passed_cf, gates_cf = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_c_forced)
+        self.assertFalse(all_passed_cf, "Forced inf free_gib must fail closed")
+        self.assertFalse(gates_cf["disk_free"].passed)
+
+        # --- Case D: NaN telemetry fails closed ---
+        snap_d = DiskSnapshot(
+            drive="C:\\",
+            free_bytes=exact_25_gib_bytes,
+            total_bytes=100 * (1024 ** 3),
+            free_gib=float("nan")
+        )
+        self.assertEqual(snap_d.status, TelemetryStatus.FAILED)
+        all_passed_d, gates_d = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_d)
+        self.assertFalse(all_passed_d, "NaN telemetry must fail closed")
+        self.assertFalse(gates_d["disk_free"].passed)
+
+        snap_d_forced = self._make_healthy_disk()
+        snap_d_forced.free_gib = float("nan")
+        all_passed_df, gates_df = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_d_forced)
+        self.assertFalse(all_passed_df, "Forced NaN free_gib must fail closed")
+        self.assertFalse(gates_df["disk_free"].passed)
+
+        # --- Case E: Invalid byte counters fail closed ---
+        # 1. Negative free_bytes
+        snap_e1 = DiskSnapshot(drive="C:\\", free_bytes=-1000, total_bytes=100 * (1024 ** 3))
+        all_p_e1, gates_e1 = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_e1)
+        self.assertFalse(all_p_e1, "Negative free_bytes must fail closed")
+        self.assertFalse(gates_e1["disk_free"].passed)
+
+        # 2. Boolean byte counters
+        snap_e2 = DiskSnapshot(drive="C:\\", free_bytes=True, total_bytes=100 * (1024 ** 3))
+        all_p_e2, gates_e2 = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_e2)
+        self.assertFalse(all_p_e2, "Boolean free_bytes must fail closed")
+        self.assertFalse(gates_e2["disk_free"].passed)
+
+        snap_e3 = DiskSnapshot(drive="C:\\", free_bytes=exact_25_gib_bytes, total_bytes=False)
+        all_p_e3, gates_e3 = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_e3)
+        self.assertFalse(all_p_e3, "Boolean total_bytes must fail closed")
+        self.assertFalse(gates_e3["disk_free"].passed)
+
+        # 3. Non-integer byte counters
+        snap_e4 = DiskSnapshot(drive="C:\\", free_bytes="26843545600", total_bytes=100 * (1024 ** 3))
+        all_p_e4, gates_e4 = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_e4)
+        self.assertFalse(all_p_e4, "String free_bytes must fail closed")
+        self.assertFalse(gates_e4["disk_free"].passed)
+
+        snap_e5 = DiskSnapshot(drive="C:\\", free_bytes=26843545600.5, total_bytes=100 * (1024 ** 3))
+        all_p_e5, gates_e5 = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_e5)
+        self.assertFalse(all_p_e5, "Float free_bytes must fail closed")
+        self.assertFalse(gates_e5["disk_free"].passed)
+
+        # 4. Free bytes greater than total bytes
+        snap_e6 = DiskSnapshot(drive="C:\\", free_bytes=100 * (1024 ** 3), total_bytes=50 * (1024 ** 3))
+        all_p_e6, gates_e6 = manager.evaluate_gates(ram_healthy, gpu_healthy, snap_e6)
+        self.assertFalse(all_p_e6, "free_bytes > total_bytes must fail closed")
+        self.assertFalse(gates_e6["disk_free"].passed)
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
+import math
 
 class TelemetryStatus(str, Enum):
     SUCCESS = "SUCCESS"
@@ -152,27 +153,39 @@ class DiskSnapshot:
         self.drive = drive
         self.free_bytes = free_bytes
         self.total_bytes = total_bytes
-        if free_gib is not None:
-            self.free_gib = float(free_gib)
-        elif free_gb is not None:
-            self.free_gib = float(free_gb)
-        elif free_bytes > 0:
-            self.free_gib = float(free_bytes) / (1024**3)
-        else:
-            self.free_gib = 0.0
-
-        if total_gib is not None:
-            self.total_gib = float(total_gib)
-        elif total_gb is not None:
-            self.total_gib = float(total_gb)
-        elif total_bytes > 0:
-            self.total_gib = float(total_bytes) / (1024**3)
-        else:
-            self.total_gib = 0.0
-
         self.status = status
         self.error_message = error_message
         self.timestamp_utc = timestamp_utc or current_iso_utc()
+
+        # Check for malformed / non-finite free_gib / free_gb if explicitly provided
+        for val_name, val in [("free_gib", free_gib), ("total_gib", total_gib), ("free_gb", free_gb), ("total_gb", total_gb)]:
+            if val is not None:
+                if isinstance(val, bool) or not isinstance(val, (int, float)) or math.isnan(val) or math.isinf(val):
+                    self.status = TelemetryStatus.FAILED
+                    self.error_message = f"Invalid or non-finite {val_name} provided: {val!r}"
+
+        # Raw integer byte counters are authoritative: derive presentation values when valid
+        is_valid_free_b = isinstance(free_bytes, int) and not isinstance(free_bytes, bool) and free_bytes >= 0
+        is_valid_total_b = isinstance(total_bytes, int) and not isinstance(total_bytes, bool) and total_bytes > 0
+
+        if is_valid_free_b:
+            # Derived directly from authoritative raw bytes (normalizes any conflicting free_gib / free_gb)
+            self.free_gib = float(free_bytes) / (1024 ** 3)
+        elif free_gib is not None and isinstance(free_gib, (int, float)) and not isinstance(free_gib, bool) and math.isfinite(free_gib):
+            self.free_gib = float(free_gib)
+        elif free_gb is not None and isinstance(free_gb, (int, float)) and not isinstance(free_gb, bool) and math.isfinite(free_gb):
+            self.free_gib = float(free_gb)
+        else:
+            self.free_gib = 0.0
+
+        if is_valid_total_b:
+            self.total_gib = float(total_bytes) / (1024 ** 3)
+        elif total_gib is not None and isinstance(total_gib, (int, float)) and not isinstance(total_gib, bool) and math.isfinite(total_gib):
+            self.total_gib = float(total_gib)
+        elif total_gb is not None and isinstance(total_gb, (int, float)) and not isinstance(total_gb, bool) and math.isfinite(total_gb):
+            self.total_gib = float(total_gb)
+        else:
+            self.total_gib = 0.0
 
     @property
     def free_gb(self) -> float:
