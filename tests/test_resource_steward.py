@@ -3523,5 +3523,167 @@ class TestResourceSteward(unittest.TestCase):
         self.assertEqual(gates_e2["disk_free"].required_str, ">= 40.0 GiB")
         self.assertIn("Disk space deficit: 5.00 GiB below required 40.0 GiB", gates_e2["disk_free"].failure_reason)
 
+    # =======================================================================
+    # SECTION Q: SUPERVISOR RUNTIME BOUNDARY TESTS (PHASE 3B)
+    # =======================================================================
+
+    def test_77_supervisor_vram_threshold_boundary_abort(self):
+        """
+        Validates the supervisor runtime decision path for the 512 MiB VRAM safety floor:
+        - Free VRAM = 511.0 MiB (< 512.0 MiB) -> Abort triggered with exact reason.
+        - Free VRAM = 512.0 MiB (== 512.0 MiB) -> No VRAM abort.
+        - Free VRAM = 513.0 MiB (> 512.0 MiB) -> No VRAM abort.
+        - Verifies that only the NOVA-owned child process handle is targeted.
+        - Ensures unrelated gates do not cause false positives.
+        - Uses mocked telemetry and mocked process handles (no real subprocesses).
+        """
+        # Case A: Free VRAM = 511.0 MiB (< 512 MiB threshold) -> ABORT
+        clock_a = FakeClock(100.5)
+        s_queue_a = queue.Queue()
+        s_queue_a.put(self._make_sample(1, 100.0, avail_ram_gib=12.0, commit_pct=40.0, vram_free_mib=511.0))
+        mock_proc_a = MagicMock()
+        mock_proc_a.pid = 41001
+        mock_proc_a.poll.return_value = None
+        abort_calls_a = []
+
+        res_a = supervise_child_process(
+            proc=mock_proc_a,
+            sample_queue=s_queue_a,
+            output_queue=queue.Queue(),
+            policy=self.policy,
+            clock=clock_a,
+            poll_sleep_sec=0.0,
+            abort_callback=lambda reason: abort_calls_a.append(reason)
+        )
+        self.assertTrue(res_a.abort_triggered)
+        self.assertIn("CRITICAL ABORT: Free VRAM dropped to 511.0 MiB (< 512.0 MiB).", res_a.abort_reason)
+        self.assertEqual(len(abort_calls_a), 1)
+        self.assertIn("Free VRAM dropped to 511.0 MiB", abort_calls_a[0])
+        # Verify handle targeting: only mock_proc_a was polled/supervised
+        self.assertTrue(mock_proc_a.poll.called)
+
+        # Case B: Free VRAM = 512.0 MiB (Exact threshold boundary) -> PASS (NO ABORT)
+        clock_b = FakeClock(100.5)
+        s_queue_b = queue.Queue()
+        s_queue_b.put(self._make_sample(1, 100.0, avail_ram_gib=12.0, commit_pct=40.0, vram_free_mib=512.0))
+        mock_proc_b = MagicMock()
+        mock_proc_b.pid = 41002
+        mock_proc_b.poll.side_effect = [None, 0, 0, 0]
+        abort_calls_b = []
+
+        res_b = supervise_child_process(
+            proc=mock_proc_b,
+            sample_queue=s_queue_b,
+            output_queue=queue.Queue(),
+            policy=self.policy,
+            clock=clock_b,
+            poll_sleep_sec=0.0,
+            abort_callback=lambda reason: abort_calls_b.append(reason)
+        )
+        self.assertFalse(res_b.abort_triggered)
+        self.assertEqual(res_b.abort_reason, "")
+        self.assertEqual(len(abort_calls_b), 0)
+        self.assertEqual(res_b.processed_samples_count, 1)
+
+        # Case C: Free VRAM = 513.0 MiB (> 512 MiB threshold) -> PASS (NO ABORT)
+        clock_c = FakeClock(100.5)
+        s_queue_c = queue.Queue()
+        s_queue_c.put(self._make_sample(1, 100.0, avail_ram_gib=12.0, commit_pct=40.0, vram_free_mib=513.0))
+        mock_proc_c = MagicMock()
+        mock_proc_c.pid = 41003
+        mock_proc_c.poll.side_effect = [None, 0, 0, 0]
+        abort_calls_c = []
+
+        res_c = supervise_child_process(
+            proc=mock_proc_c,
+            sample_queue=s_queue_c,
+            output_queue=queue.Queue(),
+            policy=self.policy,
+            clock=clock_c,
+            poll_sleep_sec=0.0,
+            abort_callback=lambda reason: abort_calls_c.append(reason)
+        )
+        self.assertFalse(res_c.abort_triggered)
+        self.assertEqual(res_c.abort_reason, "")
+        self.assertEqual(len(abort_calls_c), 0)
+        self.assertEqual(res_c.processed_samples_count, 1)
+
+    def test_78_supervisor_system_commit_boundary_abort(self):
+        """
+        Validates the supervisor runtime decision path for the 90.0% commit threshold:
+        - Commit = 90.0% (== 90.0%) -> Abort triggered with exact reason.
+        - Commit = 90.1% (> 90.0%) -> Abort triggered with exact reason.
+        - Commit = 89.9% (< 90.0%) -> No commit abort.
+        - Ensures unrelated gates (RAM=12.0 GiB, VRAM=5900.0 MiB) do not cause false positives.
+        - Uses mocked telemetry and mocked process handles (no real subprocesses).
+        """
+        # Case A: Commit = 90.0% (Exact threshold boundary) -> ABORT
+        clock_a = FakeClock(100.5)
+        s_queue_a = queue.Queue()
+        s_queue_a.put(self._make_sample(1, 100.0, avail_ram_gib=12.0, commit_pct=90.0, vram_free_mib=5900.0))
+        mock_proc_a = MagicMock()
+        mock_proc_a.pid = 42001
+        mock_proc_a.poll.return_value = None
+        abort_calls_a = []
+
+        res_a = supervise_child_process(
+            proc=mock_proc_a,
+            sample_queue=s_queue_a,
+            output_queue=queue.Queue(),
+            policy=self.policy,
+            clock=clock_a,
+            poll_sleep_sec=0.0,
+            abort_callback=lambda reason: abort_calls_a.append(reason)
+        )
+        self.assertTrue(res_a.abort_triggered)
+        self.assertIn("CRITICAL ABORT: System commit reached 90.0% of limit (>= 90.0%).", res_a.abort_reason)
+        self.assertEqual(len(abort_calls_a), 1)
+        self.assertTrue(mock_proc_a.poll.called)
+
+        # Case B: Commit = 90.1% (> 90.0% threshold) -> ABORT
+        clock_b = FakeClock(100.5)
+        s_queue_b = queue.Queue()
+        s_queue_b.put(self._make_sample(1, 100.0, avail_ram_gib=12.0, commit_pct=90.1, vram_free_mib=5900.0))
+        mock_proc_b = MagicMock()
+        mock_proc_b.pid = 42002
+        mock_proc_b.poll.return_value = None
+        abort_calls_b = []
+
+        res_b = supervise_child_process(
+            proc=mock_proc_b,
+            sample_queue=s_queue_b,
+            output_queue=queue.Queue(),
+            policy=self.policy,
+            clock=clock_b,
+            poll_sleep_sec=0.0,
+            abort_callback=lambda reason: abort_calls_b.append(reason)
+        )
+        self.assertTrue(res_b.abort_triggered)
+        self.assertIn("CRITICAL ABORT: System commit reached 90.1% of limit (>= 90.0%).", res_b.abort_reason)
+        self.assertEqual(len(abort_calls_b), 1)
+
+        # Case C: Commit = 89.9% (< 90.0% threshold) -> PASS (NO ABORT)
+        clock_c = FakeClock(100.5)
+        s_queue_c = queue.Queue()
+        s_queue_c.put(self._make_sample(1, 100.0, avail_ram_gib=12.0, commit_pct=89.9, vram_free_mib=5900.0))
+        mock_proc_c = MagicMock()
+        mock_proc_c.pid = 42003
+        mock_proc_c.poll.side_effect = [None, 0, 0, 0]
+        abort_calls_c = []
+
+        res_c = supervise_child_process(
+            proc=mock_proc_c,
+            sample_queue=s_queue_c,
+            output_queue=queue.Queue(),
+            policy=self.policy,
+            clock=clock_c,
+            poll_sleep_sec=0.0,
+            abort_callback=lambda reason: abort_calls_c.append(reason)
+        )
+        self.assertFalse(res_c.abort_triggered)
+        self.assertEqual(res_c.abort_reason, "")
+        self.assertEqual(len(abort_calls_c), 0)
+        self.assertEqual(res_c.processed_samples_count, 1)
+
 if __name__ == "__main__":
     unittest.main()
