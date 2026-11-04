@@ -2,9 +2,9 @@
 
 **Document:** AMR Automated Verification & Test Results  
 **Test Suite:** `tests/test_resource_steward.py`  
-**Total Tests:** 34 Passed, 0 Failed, 0 Errors  
-**Execution Time:** ~5.1 seconds  
-**Status:** ALL 34 TESTS VERIFIED (Review Remediation Baseline)
+**Total Tests:** 45 Passed, 0 Failed, 0 Errors  
+**Execution Time:** ~5.2 seconds  
+**Status:** ALL 45 TESTS VERIFIED (Final Review Micro-Fix Baseline)
 
 ---
 
@@ -15,11 +15,13 @@ The test suite validates runtime supervision stability, recovery verification, a
 2. **Mock Sensor telemetry** covering boundary conditions (healthy, optimization, constrained, critical, and sensor failures).
 3. **Static AST Analysis** programmatically inspecting the codebase across `nova/` and `scripts/` to mathematically guarantee the complete absence of forbidden Windows memory APIs.
 4. **End-to-End Admission Integration** verifying that preflight gates strictly block inference when post-reclamation RAM is insufficient.
-5. **Production Regression Fixture (`test_34`)** executing a live subprocess that delays trailing output, proving complete EOF draining and trailing CUDA OOM detection.
+5. **Deterministic EOF Stream Fixture (`test_42`)** proving that output arriving after direct child exit is fully retained and fatal markers are caught.
+6. **Reader Exception and Timeout Guards (`test_43`, `test_44`)** proving that read failure or timeout yields `UNVERIFIED` rather than `SUCCESS`.
+7. **Process-Local Accounting Verification (`test_35`–`test_40`)** proving strict fail-closed handling on failed snapshots, PID mismatches, zero default counters, and requiring private-commit reduction for `RECLAMATION_COMPLETED`.
 
 ---
 
-## 2. Comprehensive Test Catalog (34 Tests)
+## 2. Comprehensive Test Catalog (45 Tests)
 
 | Test ID | Test Name | Target Subsystem | Key Verification Condition | Result |
 | :--- | :--- | :--- | :--- | :--- |
@@ -52,11 +54,22 @@ The test suite validates runtime supervision stability, recovery verification, a
 | `test_27` | `test_27_amr_pressure_detection_levels` | AMR Detector | Classifies NORMAL, OPTIMIZATION, CONSTRAINED, CRITICAL; rejects invalid inputs | **PASS** |
 | `test_28` | `test_28_amr_cooldown_throttling_and_reset` | AMR Cooldown | Throttles within 30s; allows after 30s; reset works | **PASS** |
 | `test_29` | `test_29_amr_safe_reclaimer_no_exceptions` | AMR Reclaimer | Process-local `gc.collect(2)` runs without exception | **PASS** |
-| `test_30` | `test_30_amr_delta_measurement_and_status` | AMR Controller | Verified deltas ($\ge 1\text{ MiB}$ completed vs $< 1\text{ MiB}$ no measurable improvement) | **PASS** |
+| `test_30` | `test_30_amr_delta_measurement_and_status` | AMR Controller | Verified private commit deltas ($\ge 1\text{ MiB}$ completed vs $< 1\text{ MiB}$ no improvement) | **PASS** |
 | `test_31` | `test_31_amr_reports_saved_to_json_across_all_outcomes` | AMR Audit | Atomic JSON reports saved across action, cooldown, normal, and failed | **PASS** |
 | `test_32` | `test_32_static_inspection_forbidden_apis_absent` | Static Safety | Programmatic AST audit of all files in `nova/` and `scripts/` | **PASS** |
 | `test_33` | `test_33_preflight_auto_reclaim_integration` | Admission Control | AMR integrates into preflight; still gates if RAM < 10 GiB | **PASS** |
 | `test_34` | `test_34_supervisor_retains_trailing_output_after_child_exit_and_detects_fatal_marker` | Production Regression | Proves EOF draining, trailing output retention, and trailing CUDA OOM abort | **PASS** |
+| `test_35` | `test_35_amr_failed_pre_reclamation_process_snapshot` | AMR Accounting | Failed pre-snapshot sets deltas to None, reports RECLAMATION_UNVERIFIED | **PASS** |
+| `test_36` | `test_36_amr_failed_post_reclamation_process_snapshot` | AMR Accounting | Failed post-snapshot sets deltas to None, reports RECLAMATION_UNVERIFIED | **PASS** |
+| `test_37` | `test_37_amr_before_after_pid_mismatch` | AMR Accounting | PID mismatch sets deltas to None, reports RECLAMATION_UNVERIFIED | **PASS** |
+| `test_38` | `test_38_amr_zero_default_working_set_from_failed_snapshot` | AMR Accounting | Zero default field from failed snapshot never calculates false positive delta | **PASS** |
+| `test_39` | `test_39_amr_working_set_decrease_without_private_commit_decrease` | AMR Semantics | Working-set drop alone NEVER classifies COMPLETED; reports NO_MEASURABLE_IMPROVEMENT | **PASS** |
+| `test_40` | `test_40_amr_private_commit_decrease_with_both_snapshots_successful` | AMR Semantics | Private commit decrease >= 1 MiB reports RECLAMATION_COMPLETED with verified deltas | **PASS** |
+| `test_41` | `test_41_pressure_detector_missing_and_invalid_commit_pct` | AMR Pressure | `commit_pct=None`, bool, str, nan, inf, negative, > 100 all fail-closed (CRITICAL) | **PASS** |
+| `test_42` | `test_42_deterministic_delayed_output_arriving_after_direct_child_exit` | EOF Verification | Controlled stream: child exits, trailing output arrives, drained, CUDA OOM aborts | **PASS** |
+| `test_43` | `test_43_reader_exception_versus_successful_eof` | Reader Guard | Reader exception sets `read_failed=True`, verifier reports UNVERIFIED | **PASS** |
+| `test_44` | `test_44_reader_timeout_results_in_unverified` | Reader Guard | Reader join timeout sets `reader_timed_out=True`, verifier reports UNVERIFIED | **PASS** |
+| `test_45` | `test_45_amr_no_measurable_improvement_and_unverified_persistence` | AMR Persistence | Verifies atomic JSON persistence for NO_MEASURABLE_IMPROVEMENT & RECLAMATION_UNVERIFIED | **PASS** |
 
 ---
 
@@ -74,14 +87,4 @@ The scan inspects every function call (`ast.Call`), attribute access (`ast.Attri
 - `MemoryFlushModifiedList`
 - `SetSystemFileCacheSize`
 
-The scan inspected 11+ source files and passed with 100% compliance.
-
----
-
-## 4. Production Regression Verification (`test_34`)
-
-`test_34` uses a live child process (`tests/fixtures/delayed_trailing_child.py`) that delays writing its trailing output line until immediately before exit.
-- Proves the asynchronous reader thread remains active until true EOF.
-- Proves all trailing lines are drained into `SupervisorResult.output_lines`.
-- Proves trailing fatal markers (`CUDA error: out of memory`) are caught and trigger `abort_triggered = True`.
-- Proves recovery verification confirms clean reader thread termination and pipe closure.
+The scan inspected 12 source files and passed with 100% compliance.

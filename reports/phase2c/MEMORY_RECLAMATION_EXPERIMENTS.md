@@ -29,7 +29,9 @@ In accordance with architectural review findings, AMR uses a **dual-layer accoun
 2. **Process-Local Causal Metric (`nova_process_working_set_delta_bytes` & `nova_process_private_commit_delta_bytes`)**:
    - Sampled directly for the NOVA runtime PID via `GetProcessMemoryInfo`.
    - Captures the exact resident working set and private commit before and after `gc.collect(2)`.
-   - **Qualification Rule:** `RECLAMATION_COMPLETED` is reported **if and only if** NOVA's own process working set decreases by $\ge 1\text{ MiB}$ ($1,048,576\text{ bytes}$). If the working set decrease is $< 1\text{ MiB}$, status is reported truthfully as `NO_MEASURABLE_IMPROVEMENT`.
+   - **Qualification Rule:** `RECLAMATION_COMPLETED` is reported **if and only if** both pre- and post-snapshots succeed with PID verification, and NOVA's process private commit decreases by $\ge 1\text{ MiB}$ ($1,048,576\text{ bytes}$).
+   - **Working Set Semantics:** Working set measures physical memory residency (which Windows can shift independently). Working set reduction alone NEVER qualifies as `RECLAMATION_COMPLETED`.
+   - **Unverified & No Improvement Semantics:** If either process snapshot fails or is malformed, measured deltas are set to `None` and status is reported as `RECLAMATION_UNVERIFIED`. If private commit decrease is $< 1\text{ MiB}$, status is reported truthfully as `NO_MEASURABLE_IMPROVEMENT`. Concurrent process activity is acknowledged, and no exclusive causality is claimed.
 
 ---
 

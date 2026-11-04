@@ -34,6 +34,28 @@ def _safe_int(val: Any) -> Optional[int]:
         return val
     return None
 
+def _is_valid_byte_counter(val: Any) -> bool:
+    """Returns True if val is a valid non-boolean integer >= 0."""
+    return val is not None and isinstance(val, int) and not isinstance(val, bool) and val >= 0
+
+def _validate_process_snapshot(snapshot: Optional[ProcessResourceSnapshot], expected_pid: int) -> bool:
+    """
+    Validates process snapshot integrity before calculating memory deltas:
+    1. Snapshot exists and is not None.
+    2. Status is TelemetryStatus.SUCCESS.
+    3. Snapshot PID matches expected NOVA runtime PID.
+    4. working_set_bytes is a valid non-boolean integer >= 0, and not 0 (0 indicates failed fallback).
+    """
+    if snapshot is None:
+        return False
+    if snapshot.status != TelemetryStatus.SUCCESS:
+        return False
+    if snapshot.pid != expected_pid:
+        return False
+    if not _is_valid_byte_counter(snapshot.working_set_bytes) or snapshot.working_set_bytes == 0:
+        return False
+    return True
+
 class MemoryPressureDetector:
     """Classifies system memory pressure into hierarchical operational tiers."""
 
@@ -52,7 +74,7 @@ class MemoryPressureDetector:
         avail_bytes = snapshot.avail_phys_bytes
         commit_pct = snapshot.commit_pct
 
-        # Validate numeric types and finite bounds
+        # Validate numeric types and finite bounds for RAM
         if (avail_ram is None or isinstance(avail_ram, bool) or not isinstance(avail_ram, (int, float)) or
             math.isnan(avail_ram) or math.isinf(avail_ram) or avail_ram < 0):
             return MemoryPressureLevel.CRITICAL
@@ -61,13 +83,13 @@ class MemoryPressureDetector:
             avail_bytes < 0):
             return MemoryPressureLevel.CRITICAL
 
-        if commit_pct is not None:
-            if (isinstance(commit_pct, bool) or not isinstance(commit_pct, (int, float)) or
-                math.isnan(commit_pct) or math.isinf(commit_pct) or not (0.0 <= commit_pct <= 100.0)):
-                return MemoryPressureLevel.CRITICAL
+        # Commit percentage validation: MUST be present, non-bool numeric, finite, and in [0.0, 100.0]
+        if (commit_pct is None or isinstance(commit_pct, bool) or not isinstance(commit_pct, (int, float)) or
+            math.isnan(commit_pct) or math.isinf(commit_pct) or not (0.0 <= commit_pct <= 100.0)):
+            return MemoryPressureLevel.CRITICAL
 
         # 1. Critical threshold: RAM < critical_ram_gib (e.g. 2.0 GiB) or commit >= critical_commit_pct (90%)
-        if avail_ram < self.policy.critical_ram_gib or (commit_pct is not None and commit_pct >= self.policy.critical_commit_pct):
+        if avail_ram < self.policy.critical_ram_gib or commit_pct >= self.policy.critical_commit_pct:
             return MemoryPressureLevel.CRITICAL
 
         # 2. Constrained threshold: RAM < minimum_inference_ram_gib (e.g. 10.0 GiB)
@@ -176,11 +198,13 @@ class AdaptiveMemoryController:
         cooldown_mgr: Optional[ReclamationCooldownManager] = None,
         reclaimer: Optional[SafeMemoryReclaimer] = None,
         reports_dir: Optional[str] = None,
-        clock: Callable[[], float] = time.monotonic
+        clock: Callable[[], float] = time.monotonic,
+        target_pid: Optional[int] = None
     ):
         self.policy = policy or DEFAULT_POLICY
         self.monitor = monitor or ResourceMonitor()
         self.clock = clock
+        self.target_pid = target_pid
         self.detector = MemoryPressureDetector(self.policy)
         self.cooldown_mgr = cooldown_mgr or ReclamationCooldownManager(
             cooldown_seconds=self.policy.reclamation_cooldown_seconds,
@@ -199,7 +223,8 @@ class AdaptiveMemoryController:
     def evaluate_and_reclaim(
         self,
         trigger_reason: str = "Preflight memory pressure check",
-        force: bool = False
+        force: bool = False,
+        target_pid: Optional[int] = None
     ) -> MemoryReclaimReport:
         """
         Runs a complete evaluation and safe reclamation pass.
@@ -210,6 +235,7 @@ class AdaptiveMemoryController:
         5. Measure post-reclamation system and process-local telemetry.
         6. Compute verified deltas and log report safely.
         """
+        pid_to_check = target_pid if target_pid is not None else (self.target_pid if self.target_pid is not None else os.getpid())
         timestamp_utc = current_iso_utc()
         safety_notes: List[str] = [
             "Policy: SAFE_AUTO (Strictly NOVA-owned resources only).",
@@ -224,7 +250,7 @@ class AdaptiveMemoryController:
         pre_ram = self.monitor.get_system_memory()
         pre_proc = None
         try:
-            pre_proc = self.monitor.get_process_memory(os.getpid())
+            pre_proc = self.monitor.get_process_memory(pid_to_check)
         except Exception:
             pass
 
@@ -248,17 +274,19 @@ class AdaptiveMemoryController:
                 reclamation_duration_seconds=0.0,
                 cooldown_applied=False,
                 overall_status=ReclamationStatus.RECLAMATION_FAILED,
-                safety_notes=safety_notes + ["Fail-closed: Pre-reclamation telemetry unavailable."]
+                safety_notes=safety_notes + ["Fail-closed: Pre-reclamation telemetry unavailable."],
+                process_telemetry_verified=False
             )
             self.save_report(rep)
             return rep
 
         pressure = self.detector.evaluate_pressure(pre_ram)
 
-        # 2. Check if reclamation is necessary
+        # 2. Check if reclamation is necessary (Normal RAM)
         if pressure == MemoryPressureLevel.NORMAL and not force:
-            ws_bytes = _safe_int(getattr(pre_proc, "working_set_bytes", None)) if pre_proc else None
-            priv_bytes = _safe_int(getattr(pre_proc, "private_commit_bytes", None)) if pre_proc else None
+            pre_valid = _validate_process_snapshot(pre_proc, pid_to_check)
+            ws_bytes = pre_proc.working_set_bytes if pre_valid else None
+            priv_bytes = pre_proc.private_commit_bytes if (pre_valid and _is_valid_byte_counter(pre_proc.private_commit_bytes)) else None
             rep = MemoryReclaimReport(
                 timestamp_utc=timestamp_utc,
                 trigger_reason=trigger_reason,
@@ -276,15 +304,16 @@ class AdaptiveMemoryController:
                 nova_process_working_set_bytes_after=ws_bytes,
                 nova_process_private_bytes_before=priv_bytes,
                 nova_process_private_bytes_after=priv_bytes,
-                nova_process_working_set_delta_bytes=0,
-                nova_process_private_delta_bytes=0,
+                nova_process_working_set_delta_bytes=0 if pre_valid else None,
+                nova_process_private_delta_bytes=0 if (pre_valid and priv_bytes is not None) else None,
                 actions_attempted=[],
                 actions_completed=[],
                 actions_failed=[],
                 reclamation_duration_seconds=0.0,
                 cooldown_applied=False,
                 overall_status=ReclamationStatus.NO_ACTION_REQUIRED,
-                safety_notes=safety_notes + [f"System RAM healthy ({pre_ram.avail_phys_gib:.2f} GiB >= {self.policy.preferred_inference_ram_gib:.1f} GiB). No action needed."]
+                safety_notes=safety_notes + [f"System RAM healthy ({pre_ram.avail_phys_gib:.2f} GiB >= {self.policy.preferred_inference_ram_gib:.1f} GiB). No action needed."],
+                process_telemetry_verified=pre_valid
             )
             self.save_report(rep)
             return rep
@@ -292,8 +321,9 @@ class AdaptiveMemoryController:
         # 3. Check cooldown
         if not self.cooldown_mgr.can_reclaim() and not force:
             remaining = self.cooldown_mgr.remaining_cooldown_seconds
-            ws_bytes = _safe_int(getattr(pre_proc, "working_set_bytes", None)) if pre_proc else None
-            priv_bytes = _safe_int(getattr(pre_proc, "private_commit_bytes", None)) if pre_proc else None
+            pre_valid = _validate_process_snapshot(pre_proc, pid_to_check)
+            ws_bytes = pre_proc.working_set_bytes if pre_valid else None
+            priv_bytes = pre_proc.private_commit_bytes if (pre_valid and _is_valid_byte_counter(pre_proc.private_commit_bytes)) else None
             rep = MemoryReclaimReport(
                 timestamp_utc=timestamp_utc,
                 trigger_reason=trigger_reason,
@@ -311,15 +341,16 @@ class AdaptiveMemoryController:
                 nova_process_working_set_bytes_after=ws_bytes,
                 nova_process_private_bytes_before=priv_bytes,
                 nova_process_private_bytes_after=priv_bytes,
-                nova_process_working_set_delta_bytes=0,
-                nova_process_private_delta_bytes=0,
+                nova_process_working_set_delta_bytes=0 if pre_valid else None,
+                nova_process_private_delta_bytes=0 if (pre_valid and priv_bytes is not None) else None,
                 actions_attempted=[],
                 actions_completed=[],
                 actions_failed=[],
                 reclamation_duration_seconds=0.0,
                 cooldown_applied=True,
                 overall_status=ReclamationStatus.NO_ACTION_REQUIRED,
-                safety_notes=safety_notes + [f"Reclamation throttled by cooldown ({remaining:.1f}s remaining)."]
+                safety_notes=safety_notes + [f"Reclamation throttled by cooldown ({remaining:.1f}s remaining)."],
+                process_telemetry_verified=pre_valid
             )
             self.save_report(rep)
             return rep
@@ -331,7 +362,7 @@ class AdaptiveMemoryController:
         # 5. Post-reclamation telemetry
         post_proc = None
         try:
-            post_proc = self.monitor.get_process_memory(os.getpid())
+            post_proc = self.monitor.get_process_memory(pid_to_check)
         except Exception:
             pass
         post_ram = self.monitor.get_system_memory()
@@ -356,7 +387,8 @@ class AdaptiveMemoryController:
                 reclamation_duration_seconds=duration,
                 cooldown_applied=False,
                 overall_status=ReclamationStatus.RECLAMATION_UNVERIFIED,
-                safety_notes=safety_notes + ["Post-reclamation verification failed. Fail-closed: outcome unverified."]
+                safety_notes=safety_notes + ["Post-reclamation verification failed. Fail-closed: outcome unverified."],
+                process_telemetry_verified=False
             )
             self.save_report(rep)
             return rep
@@ -366,23 +398,62 @@ class AdaptiveMemoryController:
         sys_delta_mib = round(sys_delta_bytes / (1024 * 1024), 2)
         ram_delta_gib = round(sys_delta_bytes / (1024**3), 4)
 
-        # Process-local memory delta calculation (exact bytes)
-        nova_ws_before = _safe_int(getattr(pre_proc, "working_set_bytes", None)) if pre_proc else None
-        nova_ws_after = _safe_int(getattr(post_proc, "working_set_bytes", None)) if post_proc else None
-        nova_priv_before = _safe_int(getattr(pre_proc, "private_commit_bytes", None)) if pre_proc else None
-        nova_priv_after = _safe_int(getattr(post_proc, "private_commit_bytes", None)) if post_proc else None
+        # Process-local memory verification
+        pre_proc_valid = _validate_process_snapshot(pre_proc, pid_to_check)
+        post_proc_valid = _validate_process_snapshot(post_proc, pid_to_check)
 
-        nova_ws_delta_bytes = (nova_ws_before - nova_ws_after) if (nova_ws_before is not None and nova_ws_after is not None) else None
-        nova_priv_delta_bytes = (nova_priv_before - nova_priv_after) if (nova_priv_before is not None and nova_priv_after is not None) else None
-
-        # Determine reclamation status based strictly on demonstrably released NOVA process memory
-        # (Never attribute unrelated host background activity or browser closures to AMR)
-        min_proc_delta_bytes = 1024 * 1024 # 1 MiB threshold for demonstrable process memory release
-        if ((nova_ws_delta_bytes is not None and nova_ws_delta_bytes >= min_proc_delta_bytes) or
-            (nova_priv_delta_bytes is not None and nova_priv_delta_bytes >= min_proc_delta_bytes)):
-            status = ReclamationStatus.RECLAMATION_COMPLETED
+        if not pre_proc_valid or not post_proc_valid:
+            # If either process measurement failed or was malformed, never calculate false deltas from zero fields!
+            nova_ws_before = pre_proc.working_set_bytes if pre_proc_valid else None
+            nova_ws_after = post_proc.working_set_bytes if post_proc_valid else None
+            nova_priv_before = pre_proc.private_commit_bytes if (pre_proc_valid and _is_valid_byte_counter(pre_proc.private_commit_bytes)) else None
+            nova_priv_after = post_proc.private_commit_bytes if (post_proc_valid and _is_valid_byte_counter(post_proc.private_commit_bytes)) else None
+            nova_ws_delta_bytes = None
+            nova_priv_delta_bytes = None
+            status = ReclamationStatus.RECLAMATION_UNVERIFIED
+            process_telemetry_verified = False
+            safety_notes.append(
+                "Process-local memory telemetry failed or malformed (status != SUCCESS, PID mismatch, or invalid byte counters). "
+                "Measured deltas set to None. Outcome unverified despite gc.collect(2) execution."
+            )
         else:
-            status = ReclamationStatus.NO_MEASURABLE_IMPROVEMENT
+            nova_ws_before = pre_proc.working_set_bytes
+            nova_ws_after = post_proc.working_set_bytes
+            nova_ws_delta_bytes = nova_ws_before - nova_ws_after # Kept for diagnostics
+
+            pre_priv_valid = _is_valid_byte_counter(pre_proc.private_commit_bytes)
+            post_priv_valid = _is_valid_byte_counter(post_proc.private_commit_bytes)
+
+            if not pre_priv_valid or not post_priv_valid:
+                nova_priv_before = pre_proc.private_commit_bytes if pre_priv_valid else None
+                nova_priv_after = post_proc.private_commit_bytes if post_priv_valid else None
+                nova_priv_delta_bytes = None
+                status = ReclamationStatus.RECLAMATION_UNVERIFIED
+                process_telemetry_verified = False
+                safety_notes.append("Process private commit telemetry was unavailable or invalid. Outcome unverified.")
+            else:
+                nova_priv_before = pre_proc.private_commit_bytes
+                nova_priv_after = post_proc.private_commit_bytes
+                nova_priv_delta_bytes = nova_priv_before - nova_priv_after
+                process_telemetry_verified = True
+
+                # Evaluate completion status based strictly on validated private-commit reduction
+                min_proc_delta_bytes = int(self.policy.min_reclamation_delta_mib * 1024 * 1024)
+                if nova_priv_delta_bytes >= min_proc_delta_bytes:
+                    status = ReclamationStatus.RECLAMATION_COMPLETED
+                    safety_notes.append(
+                        f"Demonstrable process-private-commit decrease observed ({nova_priv_delta_bytes / (1024**2):.2f} MiB >= "
+                        f"{self.policy.min_reclamation_delta_mib:.1f} MiB). Note: Concurrent process activity may also affect counters."
+                    )
+                else:
+                    status = ReclamationStatus.NO_MEASURABLE_IMPROVEMENT
+                    if nova_ws_delta_bytes is not None and nova_ws_delta_bytes >= min_proc_delta_bytes:
+                        safety_notes.append(
+                            "Working set physical residency decreased, but private commit showed no measurable improvement (>= 1 MiB). "
+                            "Working set alone does not prove memory release; status truthfully reported as NO_MEASURABLE_IMPROVEMENT."
+                        )
+                    else:
+                        safety_notes.append("No measurable decrease in process private commit observed (>= 1 MiB).")
 
         paging_before = {
             "pages_input_per_sec": pre_ram.pages_input_per_sec,
@@ -413,6 +484,7 @@ class AdaptiveMemoryController:
             nova_process_private_bytes_after=nova_priv_after,
             nova_process_working_set_delta_bytes=nova_ws_delta_bytes,
             nova_process_private_delta_bytes=nova_priv_delta_bytes,
+            process_telemetry_verified=process_telemetry_verified,
             actions_attempted=attempted,
             actions_completed=completed,
             actions_failed=failed,

@@ -181,6 +181,8 @@ class RecoveryReport:
     reader_thread_stopped: bool                   # Reader thread joined cleanly
     sampler_thread_stopped: bool                  # Sampler thread joined cleanly
     pipes_closed: bool                            # All owned pipes verified closed
+    reader_eof_reached: bool = True               # Reader thread confirmed verified EOF
+    reader_read_failed: bool = False              # Reader thread encountered no I/O exception
     gpu_verification_status: str = "VERIFIED"     # "VERIFIED", "FAILED", "UNVERIFIED"
     process_verification_status: str = "VERIFIED" # "VERIFIED", "FAILED", "UNKNOWN"
     recovery_successful: bool = False             # Full resource recovery verified
@@ -198,6 +200,10 @@ class SupervisorResult:
     duration_seconds: float
     output_lines: List[str] = field(default_factory=list)
     reader_thread_stopped: bool = True
+    reader_eof_reached: bool = True
+    reader_read_failed: bool = False
+    reader_timed_out: bool = False
+    reader_exception: Optional[str] = None
 
 @dataclass
 class MemoryReclaimReport:
@@ -221,6 +227,7 @@ class MemoryReclaimReport:
     nova_process_private_bytes_after: Optional[int] = None
     nova_process_working_set_delta_bytes: Optional[int] = None
     nova_process_private_delta_bytes: Optional[int] = None
+    process_telemetry_verified: bool = True
     # Action accounting
     actions_attempted: List[str] = field(default_factory=list)
     actions_completed: List[str] = field(default_factory=list)
@@ -252,6 +259,7 @@ class MemoryReclaimReport:
             "nova_process_private_bytes_after": self.nova_process_private_bytes_after,
             "nova_process_working_set_delta_bytes": self.nova_process_working_set_delta_bytes,
             "nova_process_private_delta_bytes": self.nova_process_private_delta_bytes,
+            "process_telemetry_verified": self.process_telemetry_verified,
             "actions_attempted": self.actions_attempted,
             "actions_completed": self.actions_completed,
             "actions_failed": self.actions_failed,

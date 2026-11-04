@@ -100,6 +100,6 @@ critical_ram_gib: float = 2.0             # CRITICAL tier threshold (sustained a
 
 # AMR operational parameters
 reclamation_cooldown_seconds: float = 30.0 # Minimum interval between automatic passes
-min_reclamation_delta_mb: float = 1.0     # Minimum process working set reduction (1 MiB)
+min_reclamation_delta_mib: float = 1.0     # Minimum private commit reduction (1 MiB)
 auto_reclaim_enabled: bool = True          # Master switch for AMR during preflight
 ```

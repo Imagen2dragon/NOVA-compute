@@ -237,9 +237,18 @@ def supervise_child_process(
 
     # Wait for reader thread to reach EOF if provided and not aborted
     reader_thread_stopped = True
+    reader_eof_reached = True
+    reader_read_failed = False
+    reader_timed_out = False
+    reader_exception = None
+
     if reader_thread is not None and not abort_triggered:
         reader_thread.join(timeout=reader_timeout_sec)
         reader_thread_stopped = not reader_thread.is_alive()
+        reader_timed_out = not reader_thread_stopped
+        reader_eof_reached = getattr(reader_thread, "eof_reached", False) and reader_thread_stopped
+        reader_read_failed = getattr(reader_thread, "read_failed", False) or reader_timed_out
+        reader_exception = getattr(reader_thread, "error_message", None)
 
     # Final post-loop output drain (drains any trailing lines from EOF)
     while True:
@@ -269,5 +278,9 @@ def supervise_child_process(
         processed_samples_count=processed_samples_count,
         duration_seconds=dur,
         output_lines=output_lines,
-        reader_thread_stopped=reader_thread_stopped
+        reader_thread_stopped=reader_thread_stopped,
+        reader_eof_reached=reader_eof_reached,
+        reader_read_failed=reader_read_failed,
+        reader_timed_out=reader_timed_out,
+        reader_exception=reader_exception
     )

@@ -27,8 +27,13 @@ class ResourcePolicy:
     execution_mode: ExecutionMode = ExecutionMode.WORKSPACE_SAFE
     # Adaptive Memory Reclaimer (AMR) configurations
     reclamation_cooldown_seconds: float = 30.0
-    min_reclamation_delta_mb: float = 10.0
+    min_reclamation_delta_mib: float = 1.0  # Demonstrable process-local memory release threshold (MiB)
     auto_reclaim_enabled: bool = True
+
+    @property
+    def min_reclamation_delta_mb(self) -> float:
+        """Backward-compatibility alias for min_reclamation_delta_mib."""
+        return self.min_reclamation_delta_mib
 
     @property
     def ram_pressure_optimization_gib(self) -> float:
@@ -55,6 +60,8 @@ class ResourcePolicy:
         data_copy = dict(data)
         if "execution_mode" in data_copy and isinstance(data_copy["execution_mode"], str):
             data_copy["execution_mode"] = ExecutionMode(data_copy["execution_mode"])
+        if "min_reclamation_delta_mb" in data_copy and "min_reclamation_delta_mib" not in data_copy:
+            data_copy["min_reclamation_delta_mib"] = data_copy.pop("min_reclamation_delta_mb")
         return cls(**data_copy)
 
     @classmethod

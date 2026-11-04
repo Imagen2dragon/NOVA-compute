@@ -73,6 +73,8 @@ class TestResourceSteward(unittest.TestCase):
 
     def setUp(self):
         # Isolate all tests to a temporary directory so tracked reports are never modified
+        self._orig_env_report_dir = os.environ.get("NOVA_REPORT_DIR")
+        self._orig_env_amr_dir = os.environ.get("NOVA_AMR_REPORT_DIR")
         self.temp_test_dir = tempfile.TemporaryDirectory()
         self.inference_reports_dir = os.path.join(self.temp_test_dir.name, "first_inference")
         self.amr_reports_dir = os.path.join(self.temp_test_dir.name, "memory_reclamation")
@@ -94,8 +96,17 @@ class TestResourceSteward(unittest.TestCase):
         self.budget_mgr = MemoryBudgetManager(self.policy)
 
     def tearDown(self):
-        os.environ.pop("NOVA_REPORT_DIR", None)
-        os.environ.pop("NOVA_AMR_REPORT_DIR", None)
+        # Restore original environment variables rather than unconditionally deleting
+        if self._orig_env_report_dir is not None:
+            os.environ["NOVA_REPORT_DIR"] = self._orig_env_report_dir
+        else:
+            os.environ.pop("NOVA_REPORT_DIR", None)
+
+        if self._orig_env_amr_dir is not None:
+            os.environ["NOVA_AMR_REPORT_DIR"] = self._orig_env_amr_dir
+        else:
+            os.environ.pop("NOVA_AMR_REPORT_DIR", None)
+
         self.temp_test_dir.cleanup()
 
     def _make_healthy_ram(self, avail_gib: float = 12.0, commit_pct: float = 40.0,
@@ -943,7 +954,7 @@ class TestResourceSteward(unittest.TestCase):
             self.assertEqual(detector.evaluate_pressure(snap_bad), MemoryPressureLevel.CRITICAL,
                              f"Failed to reject bad avail_phys_bytes {bad_bytes!r}")
 
-        for bad_commit in [True, False, "40.0", float("nan"), float("inf"), -5.0, 105.0]:
+        for bad_commit in [None, True, False, "40.0", float("nan"), float("inf"), -5.0, 105.0]:
             snap_bad = self._make_healthy_ram(avail_gib=12.0)
             snap_bad.commit_pct = bad_commit
             self.assertEqual(detector.evaluate_pressure(snap_bad), MemoryPressureLevel.CRITICAL,
@@ -989,6 +1000,7 @@ class TestResourceSteward(unittest.TestCase):
     def test_30_amr_delta_measurement_and_status(self):
         clock = FakeClock(100.0)
         mock_monitor = MagicMock()
+        curr_pid = os.getpid()
         with tempfile.TemporaryDirectory() as tmp_dir:
             controller = AdaptiveMemoryController(
                 policy=self.policy,
@@ -999,42 +1011,51 @@ class TestResourceSteward(unittest.TestCase):
 
             # Scenario A: Normal RAM -> NO_ACTION_REQUIRED
             mock_monitor.get_system_memory.return_value = self._make_healthy_ram(avail_gib=12.5)
+            mock_monitor.get_process_memory.return_value = MagicMock(
+                pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024
+            )
             rep_a = controller.evaluate_and_reclaim()
             self.assertEqual(rep_a.overall_status, ReclamationStatus.NO_ACTION_REQUIRED)
             self.assertEqual(rep_a.observed_system_avail_delta_bytes, 0)
             self.assertEqual(rep_a.ram_delta_gib, 0.0)
 
-            # Scenario B: Optimization RAM with demonstrable process-local memory reduction (>= 1 MiB)
+            # Scenario B: Optimization RAM with demonstrable private-commit reduction (>= 1 MiB)
             # -> RECLAMATION_COMPLETED
             mock_monitor.get_system_memory.side_effect = [
                 self._make_healthy_ram(avail_gib=11.00), # Pre
                 self._make_healthy_ram(avail_gib=11.05)  # Post
             ]
-            # Mock process memory showing 2 MB working set reduction
-            mock_proc_pre = MagicMock(working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
-            mock_proc_post = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            # Mock process memory showing 2 MB working set and 2 MB private commit reduction
+            mock_proc_pre = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                      working_set_bytes=20 * 1024 * 1024, private_commit_bytes=12 * 1024 * 1024)
+            mock_proc_post = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                       working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
             mock_monitor.get_process_memory.side_effect = [mock_proc_pre, mock_proc_post]
 
             rep_b = controller.evaluate_and_reclaim(force=True)
             self.assertEqual(rep_b.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
             self.assertEqual(rep_b.nova_process_working_set_delta_bytes, 2 * 1024 * 1024)
-            # Exact byte delta verification from avail_phys_bytes
+            self.assertEqual(rep_b.nova_process_private_delta_bytes, 2 * 1024 * 1024)
             self.assertGreater(rep_b.observed_system_avail_delta_bytes, 0)
 
-            # Scenario C: Process memory shows no measurable reduction (< 1 MiB)
+            # Scenario C: Process private commit shows no measurable reduction (< 1 MiB)
             # -> NO_MEASURABLE_IMPROVEMENT (truthful reporting: do not attribute external RAM changes to AMR)
             mock_monitor.get_system_memory.side_effect = [
                 self._make_healthy_ram(avail_gib=9.000), # Pre
                 self._make_healthy_ram(avail_gib=9.050)  # Post (host RAM grew, but not from NOVA)
             ]
-            mock_proc_flat = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_proc_flat = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                       working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
             mock_monitor.get_process_memory.side_effect = [mock_proc_flat, mock_proc_flat]
 
             rep_c = controller.evaluate_and_reclaim(force=True)
             self.assertEqual(rep_c.overall_status, ReclamationStatus.NO_MEASURABLE_IMPROVEMENT)
             self.assertEqual(rep_c.nova_process_working_set_delta_bytes, 0)
+            self.assertEqual(rep_c.nova_process_private_delta_bytes, 0)
 
     def test_31_amr_reports_saved_to_json_across_all_outcomes(self):
+        curr_pid = os.getpid()
         with tempfile.TemporaryDirectory() as tmp_dir:
             mock_monitor = MagicMock()
             controller = AdaptiveMemoryController(
@@ -1042,15 +1063,18 @@ class TestResourceSteward(unittest.TestCase):
                 monitor=mock_monitor,
                 reports_dir=tmp_dir
             )
-            mock_proc_flat = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_proc_flat = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                       working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
 
-            # 1. Action outcome
+            # 1. Action outcome with verified private commit reduction
             mock_monitor.get_system_memory.side_effect = [
                 self._make_healthy_ram(avail_gib=11.0),
                 self._make_healthy_ram(avail_gib=11.1)
             ]
-            mock_proc_pre = MagicMock(working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
-            mock_proc_post = MagicMock(working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_proc_pre = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                      working_set_bytes=20 * 1024 * 1024, private_commit_bytes=12 * 1024 * 1024)
+            mock_proc_post = MagicMock(pid=curr_pid, status=TelemetryStatus.SUCCESS,
+                                       working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
             mock_monitor.get_process_memory.side_effect = [mock_proc_pre, mock_proc_post]
             rep_action = controller.evaluate_and_reclaim()
             latest_path = os.path.join(tmp_dir, "reclaim_latest.json")
@@ -1061,6 +1085,8 @@ class TestResourceSteward(unittest.TestCase):
             self.assertEqual(data["overall_status"], ReclamationStatus.RECLAMATION_COMPLETED.value)
             self.assertIn("observed_system_avail_delta_bytes", data)
             self.assertIn("nova_process_working_set_delta_bytes", data)
+            self.assertIn("nova_process_private_delta_bytes", data)
+            self.assertEqual(data["nova_process_private_delta_bytes"], 2 * 1024 * 1024)
 
             # 2. Cooldown outcome (second call within cooldown)
             mock_monitor.get_system_memory.side_effect = None
@@ -1234,6 +1260,418 @@ class TestResourceSteward(unittest.TestCase):
         outcome, reason = verify_inference_success(supervisor_res, rec_mock)
         self.assertEqual(outcome, InferenceOutcome.ABORTED)
         self.assertIn("CUDA OOM / Error detected", reason)
+
+    # =======================================================================
+    # SECTION I: AMR PROCESS-LOCAL MEMORY ACCOUNTING & INTEGRITY (REMEDIATION)
+    # =======================================================================
+
+    def test_35_amr_failed_pre_reclamation_process_snapshot(self):
+        """Proves failed pre-reclamation process snapshot sets deltas to None and reports RECLAMATION_UNVERIFIED."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.1)
+        ]
+        failed_proc = MagicMock(
+            pid=os.getpid(), status=TelemetryStatus.FAILED,
+            working_set_bytes=0, private_commit_bytes=None
+        )
+        post_proc = MagicMock(
+            pid=os.getpid(), status=TelemetryStatus.SUCCESS,
+            working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024
+        )
+        mock_monitor.get_process_memory.side_effect = [failed_proc, post_proc]
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+        self.assertIsNone(rep.nova_process_working_set_delta_bytes)
+        self.assertIsNone(rep.nova_process_private_delta_bytes)
+        self.assertFalse(rep.process_telemetry_verified)
+
+    def test_36_amr_failed_post_reclamation_process_snapshot(self):
+        """Proves failed post-reclamation process snapshot sets deltas to None and reports RECLAMATION_UNVERIFIED."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.1)
+        ]
+        pre_proc = MagicMock(
+            pid=os.getpid(), status=TelemetryStatus.SUCCESS,
+            working_set_bytes=20 * 1024 * 1024, private_commit_bytes=12 * 1024 * 1024
+        )
+        failed_proc = MagicMock(
+            pid=os.getpid(), status=TelemetryStatus.FAILED,
+            working_set_bytes=0, private_commit_bytes=None
+        )
+        mock_monitor.get_process_memory.side_effect = [pre_proc, failed_proc]
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+        self.assertIsNone(rep.nova_process_working_set_delta_bytes)
+        self.assertIsNone(rep.nova_process_private_delta_bytes)
+        self.assertFalse(rep.process_telemetry_verified)
+
+    def test_37_amr_before_after_pid_mismatch(self):
+        """Proves before/after PID mismatch invalidates measurement and reports RECLAMATION_UNVERIFIED."""
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.1)
+        ]
+        curr_pid = os.getpid()
+        pre_proc = MagicMock(
+            pid=curr_pid, status=TelemetryStatus.SUCCESS,
+            working_set_bytes=20 * 1024 * 1024, private_commit_bytes=12 * 1024 * 1024
+        )
+        mismatched_post = MagicMock(
+            pid=curr_pid + 9999, status=TelemetryStatus.SUCCESS,
+            working_set_bytes=18 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024
+        )
+        mock_monitor.get_process_memory.side_effect = [pre_proc, mismatched_post]
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+        self.assertIsNone(rep.nova_process_working_set_delta_bytes)
+        self.assertIsNone(rep.nova_process_private_delta_bytes)
+        self.assertFalse(rep.process_telemetry_verified)
+
+    def test_38_amr_zero_default_working_set_from_failed_snapshot(self):
+        """
+        Proves that a failed snapshot reporting working_set_bytes=0 cannot be used
+        to calculate a false-positive freed memory delta.
+        """
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.0)
+        ]
+        pre_proc = MagicMock(
+            pid=os.getpid(), status=TelemetryStatus.SUCCESS,
+            working_set_bytes=50 * 1024 * 1024, private_commit_bytes=30 * 1024 * 1024
+        )
+        # Malformed snapshot with working_set_bytes=0
+        zero_post = MagicMock(
+            pid=os.getpid(), status=TelemetryStatus.SUCCESS,
+            working_set_bytes=0, private_commit_bytes=0
+        )
+        mock_monitor.get_process_memory.side_effect = [pre_proc, zero_post]
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+        self.assertIsNone(rep.nova_process_working_set_delta_bytes)
+        self.assertIsNone(rep.nova_process_private_delta_bytes)
+        self.assertNotEqual(rep.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
+
+    def test_39_amr_working_set_decrease_without_private_commit_decrease(self):
+        """
+        Proves that working-set reduction alone NEVER classifies RECLAMATION_COMPLETED.
+        When working set drops (e.g. 20 MB) but private commit is unchanged, status is NO_MEASURABLE_IMPROVEMENT.
+        """
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.0)
+        ]
+        curr_pid = os.getpid()
+        pre_proc = MagicMock(
+            pid=curr_pid, status=TelemetryStatus.SUCCESS,
+            working_set_bytes=40 * 1024 * 1024, private_commit_bytes=20 * 1024 * 1024
+        )
+        # Working set drops by 20 MB, but private commit remains identical
+        post_proc = MagicMock(
+            pid=curr_pid, status=TelemetryStatus.SUCCESS,
+            working_set_bytes=20 * 1024 * 1024, private_commit_bytes=20 * 1024 * 1024
+        )
+        mock_monitor.get_process_memory.side_effect = [pre_proc, post_proc]
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.NO_MEASURABLE_IMPROVEMENT)
+        self.assertEqual(rep.nova_process_working_set_delta_bytes, 20 * 1024 * 1024)
+        self.assertEqual(rep.nova_process_private_delta_bytes, 0)
+        self.assertNotEqual(rep.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
+
+    def test_40_amr_private_commit_decrease_with_both_snapshots_successful(self):
+        """
+        Proves that when both snapshots succeed and private commit decreases by >= 1 MiB,
+        RECLAMATION_COMPLETED is correctly reported with verified deltas.
+        """
+        mock_monitor = MagicMock()
+        mock_monitor.get_system_memory.side_effect = [
+            self._make_healthy_ram(avail_gib=11.0),
+            self._make_healthy_ram(avail_gib=11.0)
+        ]
+        curr_pid = os.getpid()
+        pre_proc = MagicMock(
+            pid=curr_pid, status=TelemetryStatus.SUCCESS,
+            working_set_bytes=30 * 1024 * 1024, private_commit_bytes=20 * 1024 * 1024
+        )
+        # Private commit decreases by 2 MiB
+        post_proc = MagicMock(
+            pid=curr_pid, status=TelemetryStatus.SUCCESS,
+            working_set_bytes=28 * 1024 * 1024, private_commit_bytes=18 * 1024 * 1024
+        )
+        mock_monitor.get_process_memory.side_effect = [pre_proc, post_proc]
+
+        controller = AdaptiveMemoryController(
+            policy=self.policy,
+            monitor=mock_monitor,
+            reports_dir=self.amr_reports_dir
+        )
+        rep = controller.evaluate_and_reclaim(force=True)
+        self.assertEqual(rep.overall_status, ReclamationStatus.RECLAMATION_COMPLETED)
+        self.assertEqual(rep.nova_process_working_set_delta_bytes, 2 * 1024 * 1024)
+        self.assertEqual(rep.nova_process_private_delta_bytes, 2 * 1024 * 1024)
+        self.assertTrue(rep.process_telemetry_verified)
+
+    def test_41_pressure_detector_missing_and_invalid_commit_pct(self):
+        """
+        Proves MemoryPressureDetector.evaluate_pressure() strictly fails closed (CRITICAL)
+        on missing, non-numeric, boolean, NaN, inf, negative, or > 100 commit percentages.
+        """
+        detector = MemoryPressureDetector(self.policy)
+        snap = self._make_healthy_ram(avail_gib=13.0)
+
+        # Missing commit_pct (None)
+        snap.commit_pct = None
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+
+        # Boolean commit_pct
+        snap.commit_pct = True
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+        snap.commit_pct = False
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+
+        # String commit_pct
+        snap.commit_pct = "75.0"
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+
+        # NaN / inf
+        snap.commit_pct = float("nan")
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+        snap.commit_pct = float("inf")
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+        snap.commit_pct = float("-inf")
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+
+        # Out of bounds
+        snap.commit_pct = -0.1
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+        snap.commit_pct = 100.1
+        self.assertEqual(detector.evaluate_pressure(snap), MemoryPressureLevel.CRITICAL)
+
+    # =======================================================================
+    # SECTION J: DETERMINISTIC EOF, READER EXCEPTIONS & TIMEOUTS
+    # =======================================================================
+
+    def test_42_deterministic_delayed_output_arriving_after_direct_child_exit(self):
+        """
+        Deterministic regression test:
+        Direct child exits, pipe remains open, reader has not yet delivered final line,
+        final line arrives afterward, supervisor waits for reader, drains trailing output,
+        detects fatal CUDA OOM, and triggers abort.
+        """
+        from scripts.run_inference_with_telemetry import start_output_reader
+
+        class ControlledDelayedStream:
+            def __init__(self):
+                self.child_exited_event = threading.Event()
+                self._lines = ["line 1: prompt eval time = 50.0 ms / 5 runs\n"]
+                self._trailing_line = "CUDA error: out of memory in trailing child stream\n"
+                self._sent_trailing = False
+
+            def readline(self) -> str:
+                if self._lines:
+                    return self._lines.pop(0)
+                # Wait until parent has observed that the child process has exited
+                self.child_exited_event.wait(timeout=2.0)
+                if not self._sent_trailing:
+                    self._sent_trailing = True
+                    return self._trailing_line
+                return ""
+
+        stream = ControlledDelayedStream()
+        out_queue = queue.Queue()
+        reader_stop = threading.Event()
+        reader_thread = start_output_reader(stream, out_queue, reader_stop)
+
+        mock_proc = MagicMock()
+        # Direct child is running for 1 poll, then exits (code 0)
+        poll_results = [None, 0, 0, 0]
+        def mock_poll():
+            res = poll_results.pop(0) if poll_results else 0
+            if res == 0:
+                # Direct child has exited! Signal the delayed stream that child is dead
+                stream.child_exited_event.set()
+            return res
+        mock_proc.poll.side_effect = mock_poll
+
+        s_queue = queue.Queue()
+        clock = FakeClock(100.0)
+        s_queue.put(self._make_sample(1, 100.0))
+
+        supervisor_res = supervise_child_process(
+            proc=mock_proc,
+            sample_queue=s_queue,
+            output_queue=out_queue,
+            policy=self.policy,
+            clock=clock,
+            poll_sleep_sec=0.01,
+            reader_thread=reader_thread,
+            reader_timeout_sec=2.0
+        )
+
+        # 1. Proves direct child exited
+        self.assertEqual(supervisor_res.exit_code, 0)
+        # 2. Proves reader reached verified EOF
+        self.assertTrue(supervisor_res.reader_eof_reached)
+        self.assertTrue(supervisor_res.reader_thread_stopped)
+        # 3. Proves trailing line arrived and was retained
+        full_output = "".join(supervisor_res.output_lines)
+        self.assertIn("CUDA error: out of memory in trailing child stream", full_output)
+        # 4. Proves trailing CUDA error triggered abort
+        self.assertTrue(supervisor_res.abort_triggered)
+        self.assertIn("CUDA OOM / Error detected", supervisor_res.abort_reason)
+
+    def test_43_reader_exception_versus_successful_eof(self):
+        """
+        Proves that an output reader encountering an exception (e.g. broken pipe / I/O error)
+        is marked as read_failed=True, eof_reached=False, and verify_inference_success
+        reports UNVERIFIED (never SUCCESS).
+        """
+        from scripts.run_inference_with_telemetry import start_output_reader
+
+        class BrokenStream:
+            def readline(self):
+                raise IOError("Simulated pipe read failure before EOF")
+
+        out_queue = queue.Queue()
+        reader_stop = threading.Event()
+        reader_thread = start_output_reader(BrokenStream(), out_queue, reader_stop)
+        reader_thread.join(timeout=2.0)
+
+        # Reader stopped, but failed due to exception
+        self.assertFalse(reader_thread.is_alive())
+        self.assertTrue(reader_thread.read_failed)
+        self.assertFalse(reader_thread.eof_reached)
+
+        # Verify supervisor records read_failed and verify_inference_success rejects as UNVERIFIED
+        sup_res = SupervisorResult(
+            abort_triggered=False,
+            abort_reason="",
+            exit_code=0,
+            peak_ram_gib=11.0,
+            peak_vram_mib=2000.0,
+            processed_samples_count=5,
+            duration_seconds=1.0,
+            output_lines=["eval time = 50.00 ms / 1 runs\n", "print_timings: ok\n"],
+            reader_thread_stopped=True,
+            reader_eof_reached=False,
+            reader_read_failed=True,
+            reader_exception="Simulated pipe read failure before EOF"
+        )
+        rec_mock = MagicMock(recovery_successful=True, reader_thread_stopped=True)
+        outcome, reason = verify_inference_success(sup_res, rec_mock)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+        self.assertIn("Output reader encountered an exception", reason)
+
+    def test_44_reader_timeout_results_in_unverified(self):
+        """
+        Proves that when an output reader hangs and times out during supervisor join,
+        reader_timed_out is set and verify_inference_success reports UNVERIFIED.
+        """
+        sup_res = SupervisorResult(
+            abort_triggered=False,
+            abort_reason="",
+            exit_code=0,
+            peak_ram_gib=11.0,
+            peak_vram_mib=2000.0,
+            processed_samples_count=5,
+            duration_seconds=1.0,
+            output_lines=["eval time = 50.00 ms / 1 runs\n", "print_timings: ok\n"],
+            reader_thread_stopped=False,
+            reader_eof_reached=False,
+            reader_read_failed=True,
+            reader_timed_out=True
+        )
+        rec_mock = MagicMock(recovery_successful=True, reader_thread_stopped=False)
+        outcome, reason = verify_inference_success(sup_res, rec_mock)
+        self.assertEqual(outcome, InferenceOutcome.UNVERIFIED)
+        self.assertIn("timed out", reason)
+
+    def test_45_amr_no_measurable_improvement_and_unverified_persistence(self):
+        """
+        Proves that both NO_MEASURABLE_IMPROVEMENT and RECLAMATION_UNVERIFIED reports
+        are correctly persisted to disk with valid JSON schema.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            mock_monitor = MagicMock()
+            controller = AdaptiveMemoryController(
+                policy=self.policy,
+                monitor=mock_monitor,
+                reports_dir=tmp_dir
+            )
+
+            # 1. NO_MEASURABLE_IMPROVEMENT persistence
+            mock_monitor.get_system_memory.side_effect = [
+                self._make_healthy_ram(avail_gib=11.0),
+                self._make_healthy_ram(avail_gib=11.0)
+            ]
+            mock_proc_flat = MagicMock(pid=os.getpid(), status=TelemetryStatus.SUCCESS,
+                                       working_set_bytes=20 * 1024 * 1024, private_commit_bytes=10 * 1024 * 1024)
+            mock_monitor.get_process_memory.side_effect = [mock_proc_flat, mock_proc_flat]
+
+            rep_none = controller.evaluate_and_reclaim(force=True)
+            self.assertEqual(rep_none.overall_status, ReclamationStatus.NO_MEASURABLE_IMPROVEMENT)
+            latest_path = os.path.join(tmp_dir, "reclaim_latest.json")
+            self.assertTrue(os.path.exists(latest_path))
+            with open(latest_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.assertEqual(data["overall_status"], ReclamationStatus.NO_MEASURABLE_IMPROVEMENT.value)
+            self.assertEqual(data["nova_process_private_delta_bytes"], 0)
+
+            # 2. RECLAMATION_UNVERIFIED persistence
+            controller.cooldown_mgr.reset()
+            mock_monitor.get_system_memory.side_effect = [
+                self._make_healthy_ram(avail_gib=11.0),
+                self._make_healthy_ram(avail_gib=11.0)
+            ]
+            failed_proc = MagicMock(pid=os.getpid(), status=TelemetryStatus.FAILED,
+                                    working_set_bytes=0, private_commit_bytes=None)
+            mock_monitor.get_process_memory.side_effect = [failed_proc, mock_proc_flat]
+
+            rep_unv = controller.evaluate_and_reclaim(force=True)
+            self.assertEqual(rep_unv.overall_status, ReclamationStatus.RECLAMATION_UNVERIFIED)
+            with open(latest_path, "r", encoding="utf-8") as f:
+                data_unv = json.load(f)
+            self.assertEqual(data_unv["overall_status"], ReclamationStatus.RECLAMATION_UNVERIFIED.value)
+            self.assertIsNone(data_unv["nova_process_private_delta_bytes"])
+            self.assertIsNone(data_unv["nova_process_working_set_delta_bytes"])
+            self.assertFalse(data_unv["process_telemetry_verified"])
 
 if __name__ == "__main__":
     unittest.main()

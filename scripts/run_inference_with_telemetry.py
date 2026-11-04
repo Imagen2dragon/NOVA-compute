@@ -222,18 +222,23 @@ def run_memory_report(steward: ResourceSteward) -> int:
     return 0 if report.passed else 1
 
 def start_output_reader(pipe, out_queue: queue.Queue, stop_event: Optional[threading.Event] = None) -> threading.Thread:
-    """Dedicated background thread reading child stdout to prevent blocking the supervisor."""
+    """Dedicated background thread reading child stdout to prevent blocking the supervisor until EOF."""
     def _reader():
         try:
             for line in iter(pipe.readline, ''):
                 out_queue.put(line)
-        except Exception:
-            pass
+            t.eof_reached = True
+        except Exception as e:
+            t.read_failed = True
+            t.error_message = str(e)
         finally:
             if stop_event is not None:
                 stop_event.set()
 
     t = threading.Thread(target=_reader, daemon=True)
+    t.eof_reached = False
+    t.read_failed = False
+    t.error_message = None
     t.start()
     return t
 
@@ -311,9 +316,20 @@ def verify_inference_success(
     if supervisor_res.processed_samples_count == 0:
         return InferenceOutcome.UNVERIFIED, "Execution telemetry lacks valid processed samples."
 
-    # If reader thread did not stop cleanly or recovery failed, do not report success
+    # Explicit reader completion and EOF verification
+    reader_eof = getattr(supervisor_res, "reader_eof_reached", True)
     reader_stopped = getattr(supervisor_res, "reader_thread_stopped", True) and recovery_report.reader_thread_stopped
-    if not recovery_report.recovery_successful or not reader_stopped:
+    reader_timed_out = getattr(supervisor_res, "reader_timed_out", False)
+    reader_read_failed = getattr(supervisor_res, "reader_read_failed", False)
+
+    if reader_timed_out:
+        return InferenceOutcome.UNVERIFIED, "Output reader thread timed out waiting for EOF."
+    if reader_read_failed:
+        err = getattr(supervisor_res, "reader_exception", None) or "I/O error"
+        return InferenceOutcome.UNVERIFIED, f"Output reader encountered an exception ({err}); EOF could not be verified."
+    if not reader_eof:
+        return InferenceOutcome.UNVERIFIED, "Output reader stopped without reaching verified EOF."
+    if not reader_stopped or not recovery_report.recovery_successful:
         return InferenceOutcome.UNVERIFIED, "Full resource recovery could not be verified (residual resources, telemetry failure, or unverified thread shutdown)."
 
     return InferenceOutcome.SUCCESS, f"Inference smoke test succeeded: token generated ({generated_count} run(s)), telemetry valid, and clean recovery verified."
@@ -428,7 +444,15 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
     reader_stop.set()
     reader_thread.join(timeout=2.0)
     reader_stopped = not reader_thread.is_alive()
+    reader_timed_out = not reader_stopped
+    reader_eof = getattr(reader_thread, "eof_reached", False) and reader_stopped
+    reader_failed = getattr(reader_thread, "read_failed", False) or reader_timed_out
     supervisor_res.reader_thread_stopped = reader_stopped
+    supervisor_res.reader_eof_reached = reader_eof
+    supervisor_res.reader_read_failed = reader_failed
+    supervisor_res.reader_timed_out = reader_timed_out
+    if getattr(reader_thread, "error_message", None):
+        supervisor_res.reader_exception = getattr(reader_thread, "error_message", None)
 
     # Stage 3: Drain ALL remaining queued lines after reader has finished
     while True:

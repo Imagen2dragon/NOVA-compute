@@ -1,6 +1,6 @@
 # NOVA Compute — Phase 2C-B: Adaptive Memory Reclaimer (AMR) Architecture Design
 
-**Reference:** Phase 2C-B Review Remediation  
+**Reference:** Phase 2C-B Final Review Micro-Fix  
 **Author:** Antigravity (Implementation Engineer)  
 **Governance:** User (Project Owner) & ChatGPT (Lead Architect / Technical Reviewer)  
 **Status:** IMPLEMENTED & VERIFIED (Software Only — Model Inference Not Launched)
@@ -41,7 +41,7 @@ Both utilities operate by issuing Windows native API calls to forcefully reduce 
 | **System Privileges (`SeProfileSingleProcessPrivilege` / `SeIncreaseQuotaPrivilege`)** | Requires Administrator / elevated token | **UNPRIVILEGED USER-SPACE ONLY** | NOVA must never require elevated privileges to run safely on workstation laptops. |
 | **Multi-Tier Pressure Monitoring** | Monitored via percentage threshold triggers | **ADOPTED & ADAPTED** | Hierarchical operational pressure tiers based on physical GiB and commit ratio, reusing primary policy fields (`preferred_inference_ram_gib`, `minimum_inference_ram_gib`, `critical_ram_gib`). |
 | **Cooldown Throttling** | Timer-based periodic cleanups | **ADOPTED** | Enforces a strict 30-second cooldown to prevent CPU and allocator thrashing. |
-| **Before / After Delta Verification** | Computes freed memory percentage | **ADOPTED & HARDENED** | Dual-layer accounting: captures exact `avail_phys_bytes` system delta as an observational metric, while tracking process-local working set and private commit deltas. |
+| **Before / After Delta Verification** | Computes freed memory percentage | **ADOPTED & HARDENED** | Dual-layer accounting: captures exact `avail_phys_bytes` system delta as an observational metric, while tracking process-local private commit and working set deltas. |
 
 ---
 
@@ -63,13 +63,13 @@ AMR operates exclusively under the **`SAFE_AUTO`** execution policy. The operati
 
 ## 4. Multi-Tier Memory Pressure Classification & Input Validation
 
-The `MemoryPressureDetector` categorizes system memory into four deterministic operational tiers with strict input validation:
+The `MemoryPressureDetector` categorizes system memory into four deterministic operational tiers with strict fail-closed input validation:
 
 ```mermaid
 flowchart TD
     A["System Memory Telemetry"] --> B{"Status == SUCCESS?"}
     B -- No --> C["CRITICAL Tier (Fail-Closed)"]
-    B -- Yes --> VAL{"Input Valid?\n(non-bool, finite, >= 0)"}
+    B -- Yes --> VAL{"Input Valid?\n(non-null, non-bool, finite, in bounds)"}
     VAL -- No --> C
     VAL -- Yes --> D{"Avail RAM < 2.0 GiB OR Commit >= 90%?"}
     D -- Yes --> C
@@ -81,7 +81,7 @@ flowchart TD
 ```
 
 ### Input Validation
-If `avail_phys_gib` or `commit_pct` is non-finite (`NaN`, `inf`, `-inf`), boolean, negative, string, or missing, `evaluate_pressure` treats this as a sensor anomaly and returns `CRITICAL` (fail-closed).
+If `avail_phys_gib`, `avail_phys_bytes`, or `commit_pct` is missing (`None`), non-numeric, boolean, non-finite (`NaN`, `inf`, `-inf`), negative, or `commit_pct > 100.0`, `evaluate_pressure` treats this as a sensor anomaly and returns `CRITICAL` (fail-closed).
 
 ### Operational Tiers
 1. **NORMAL Tier ($\ge 12.0\text{ GiB}$)**:
@@ -120,15 +120,23 @@ Every AMR execution follows a strict transactional flow:
 3. **Post-reclamation snapshot**:
    - Captures fresh system memory (`system_avail_bytes_after = avail_phys_bytes`).
    - Captures fresh process-local memory (`nova_process_working_set_bytes_after`, `nova_process_private_commit_bytes_after`).
-4. **Mathematical delta evaluation**:
-   - **Observed System Delta**:
-     $$\text{observed\_system\_avail\_delta\_bytes} = \text{avail\_bytes}_{\text{post}} - \text{avail\_bytes}_{\text{pre}}$$
-     *(Note: This is an observational system-wide metric subject to external OS fluctuations.)*
-   - **Process-Local Working Set Delta**:
-     $$\text{ws\_delta\_bytes} = \text{ws\_bytes}_{\text{pre}} - \text{ws\_bytes}_{\text{post}}$$
-   - **Status Qualification**:
-     - `RECLAMATION_COMPLETED`: Reported **only** when process-local working set demonstrably decreases by $\ge 1\text{ MiB}$ ($1,048,576\text{ bytes}$).
-     - `NO_MEASURABLE_IMPROVEMENT`: Reported when process-local working set delta is $< 1\text{ MiB}$, ensuring NOVA never falsely attributes external host RAM fluctuations to its own actions.
-5. **Atomic Audit Logging**:
-   - Every outcome (`RECLAMATION_COMPLETED`, `NO_ACTION_REQUIRED`, `NO_MEASURABLE_IMPROVEMENT`, `RECLAMATION_FAILED`) writes `MemoryReclaimReport` atomically to disk using a temporary `.tmp` file, `fsync()`, and `os.replace()` to prevent partial writes.
+4. **Validation Before Delta Calculation**:
+   - Pre-snapshot must exist, have `status == TelemetryStatus.SUCCESS`, match expected PID, and have non-zero non-boolean byte counters.
+   - Post-snapshot must exist, have `status == TelemetryStatus.SUCCESS`, match expected PID, and have non-zero non-boolean byte counters.
+   - If either measurement fails, is malformed, or PID mismatches:
+     - `nova_process_working_set_delta_bytes = None`
+     - `nova_process_private_delta_bytes = None`
+     - `process_telemetry_verified = False`
+     - `overall_status = RECLAMATION_UNVERIFIED`
+     *(Zero default fields from failed snapshots are never interpreted as valid measurements).*
+5. **Private Commit vs. Working Set Status Semantics**:
+   - **Working Set Delta**: $\text{ws}_{\text{pre}} - \text{ws}_{\text{post}}$ is retained for diagnostics. Working set measures physical memory residency; it can decline because Windows trims working sets or pages memory, so **working set reduction alone NEVER classifies `RECLAMATION_COMPLETED`**.
+   - **Private Commit Delta**: $\text{priv}_{\text{pre}} - \text{priv}_{\text{post}}$ is the required causal indicator.
+   - If $\Delta_{\text{priv}} \ge 1\text{ MiB}$ ($1,048,576\text{ bytes}$) and both measurements are verified:
+     `overall_status = RECLAMATION_COMPLETED`.
+     *(Note: Concurrent process activity may also affect counters; no exclusive causality by GC is claimed).*
+   - If $\Delta_{\text{priv}} < 1\text{ MiB}$:
+     `overall_status = NO_MEASURABLE_IMPROVEMENT`.
+6. **Atomic Audit Logging**:
+   - Every outcome (`RECLAMATION_COMPLETED`, `NO_ACTION_REQUIRED`, `NO_MEASURABLE_IMPROVEMENT`, `RECLAMATION_FAILED`, `RECLAMATION_UNVERIFIED`) writes `MemoryReclaimReport` atomically to disk using a temporary `.tmp` file, `fsync()`, and `os.replace()`.
    - Respects `NOVA_AMR_REPORT_DIR` environment variable to ensure test runs do not pollute tracked project reports.
