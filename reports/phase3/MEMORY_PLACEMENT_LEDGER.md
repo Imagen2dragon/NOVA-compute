@@ -16,7 +16,8 @@
 ## 1. Classification & Measurement Label Definitions
 
 To ensure complete empirical transparency, every quantity in this ledger is strictly categorized:
-- **[Measured]:** Obtained directly from verified GGUF binary headers, Win32 API system queries, or NVML hardware queries.
+- **[Measured]:** Obtained directly from verified live system or hardware queries (e.g. Win32 API queries, NVML hardware queries, file stat on disk).
+- **[Derived — GGUF tensor inventory]:** Calculated from the verified static GGUF tensor header inventory and exact layer dimensions; calculates the static tensor weight payload. Actual runtime VRAM residency, memory alignment/padding, and dynamic allocation overhead remain **[UNKNOWN]** until measured during an authorized live execution.
 - **[Derived]:** Calculated from verified closed-form mathematical equations and exact architectural tensor specifications.
 - **[Estimated]:** Approximated from typical runtime characteristics reported in community baselines or similar model architectures; subject to live measurement.
 - **[Unknown]:** Cannot be known or verified without spawning an active inference execution and instrumenting live memory allocators.
@@ -74,16 +75,16 @@ In Configuration D, `-ncmoe 40` directs the runtime to keep the MoE expert weigh
 | **Static GGUF Model File** | Tier 4 (NVMe) | 18,632,184,480 B | 17.353 GiB (18.632 GB) | **Measured** | File stat / SHA256 audit | `-m <path>` | Read-only backing store. Requires $\ge 25.0\text{ GiB}$ free disk gate. |
 | **GGUF Header & Metadata** | Tier 3 (Virtual Mapping) / RAM | 5,970,560 B | 5.694 MiB | **Measured** | GGUF header parser | `-lm mmap` | Negligible size. Parsed at startup. |
 | **Virtual Address Reservation** | Process Virtual Memory | 18,632,184,480 B | 17.353 GiB | **Derived** | Win32 `MapViewOfFile` | `-lm mmap` | Virtual reservation only. Consumes 0 bytes physical RAM until touched. |
-| **Token Embeddings (`tok_embd`)** | Tier 1 (GPU VRAM) | 175,030,272 B | 166.922 MiB | **Measured** | GGUF record `[2048, 151936]` Q4_K | `-ngl 48` | Offloaded to VRAM. Essential for prompt ingestion. |
-| **LM Output Head (`output`)** | Tier 1 (GPU VRAM) | 255,252,480 B | 243.428 MiB | **Measured** | GGUF record `[2048, 151936]` Q6_K | `-ngl 48` | Offloaded to VRAM. Evaluated on every generated token. |
-| **Output RMSNorm (`output_norm`)** | Tier 1 (GPU VRAM) | 8,192 B | 0.008 MiB | **Measured** | GGUF record `[2048]` F32 | `-ngl 48` | Negligible size. |
-| **Attention Q Projections (48L)** | Tier 1 (GPU VRAM) | 226,492,416 B | 216.000 MiB | **Measured** | 48 records `[2048, 4096]` Q4_K | `-ngl 48` | Locked in VRAM across all 48 layers. |
-| **Attention K Projections (48L)** | Tier 1 (GPU VRAM) | 53,477,376 B | 51.000 MiB | **Measured** | 48 records `[2048, 512]` Q8_0 | `-ngl 48` | GQA compressed (4 heads). Locked in VRAM. |
-| **Attention V Projections (48L)** | Tier 1 (GPU VRAM) | 34,799,616 B | 33.188 MiB | **Measured** | 48 records `[2048, 512]` Q6_K | `-ngl 48` | GQA compressed (4 heads). Locked in VRAM. |
-| **Attention Out Projections (48L)**| Tier 1 (GPU VRAM) | 276,824,064 B | 264.000 MiB | **Measured** | 48 records `[4096, 2048]` Q5_K | `-ngl 48` | Locked in VRAM across all 48 layers. |
-| **Router Gate Weights (48L)** | Tier 1 (GPU VRAM) | 50,331,648 B | 48.000 MiB | **Measured** | 48 records `[2048, 128]` F32 | `-ngl 48` | Dense gating must run on GPU for every token. |
-| **Layer RMSNorms (48L)** | Tier 1 (GPU VRAM) | 835,584 B | 0.797 MiB | **Measured** | 192 records across 48 layers F32 | `-ngl 48` | Negligible size. |
-| **Total Dense Model Weights** | **Tier 1 (GPU VRAM)** | **1,072,217,856 B** | **1,022.545 MiB (~1.00 GiB)**| **Derived** | Sum of dense GGUF records | `-ngl 48` | Stable, fixed VRAM allocation. |
+| **Token Embeddings (`tok_embd`)** | Tier 1 (GPU VRAM) | 175,030,272 B | 166.922 MiB | **Derived — GGUF tensor inventory** | GGUF record `[2048, 151936]` Q4_K | `-ngl 48` | Offloaded to VRAM. Essential for prompt ingestion. |
+| **LM Output Head (`output`)** | Tier 1 (GPU VRAM) | 255,252,480 B | 243.428 MiB | **Derived — GGUF tensor inventory** | GGUF record `[2048, 151936]` Q6_K | `-ngl 48` | Offloaded to VRAM. Evaluated on every generated token. |
+| **Output RMSNorm (`output_norm`)** | Tier 1 (GPU VRAM) | 8,192 B | 0.008 MiB | **Derived — GGUF tensor inventory** | GGUF record `[2048]` F32 | `-ngl 48` | Negligible size. |
+| **Attention Q Projections (48L)** | Tier 1 (GPU VRAM) | 226,492,416 B | 216.000 MiB | **Derived — GGUF tensor inventory** | 48 records `[2048, 4096]` Q4_K | `-ngl 48` | Offloaded to VRAM across all 48 layers. |
+| **Attention K Projections (48L)** | Tier 1 (GPU VRAM) | 53,477,376 B | 51.000 MiB | **Derived — GGUF tensor inventory** | 48 records `[2048, 512]` Q8_0 | `-ngl 48` | GQA compressed (4 heads). Offloaded to VRAM. |
+| **Attention V Projections (48L)** | Tier 1 (GPU VRAM) | 34,799,616 B | 33.188 MiB | **Derived — GGUF tensor inventory** | 48 records `[2048, 512]` Q6_K | `-ngl 48` | GQA compressed (4 heads). Offloaded to VRAM. |
+| **Attention Out Projections (48L)**| Tier 1 (GPU VRAM) | 276,824,064 B | 264.000 MiB | **Derived — GGUF tensor inventory** | 48 records `[4096, 2048]` Q5_K | `-ngl 48` | Offloaded to VRAM across all 48 layers. |
+| **Router Gate Weights (48L)** | Tier 1 (GPU VRAM) | 50,331,648 B | 48.000 MiB | **Derived — GGUF tensor inventory** | 48 records `[2048, 128]` F32 | `-ngl 48` | Dense gating must run on GPU for every token. |
+| **Layer RMSNorms (48L)** | Tier 1 (GPU VRAM) | 835,584 B | 0.797 MiB | **Derived — GGUF tensor inventory** | 192 records across 48 layers F32 | `-ngl 48` | Negligible size. |
+| **Total Dense Model Weights** | **Tier 1 (GPU VRAM)** | **1,072,217,856 B** | **1,022.545 MiB (~1.00 GiB)**| **Derived — GGUF tensor inventory** | Sum of dense GGUF records | `-ngl 48` | Target offload size. Actual runtime VRAM residency and dynamic allocation overhead remain **UNKNOWN** until measured during an authorized run. |
 | **GPU MoE Experts (Layers 40–47)**| **Tier 1 (GPU VRAM)** | **3,081,240,576 B** | **2,938.500 MiB (~2.87 GiB)**| **Derived** | Layers 40–47 stacked records | `-ngl 48 -ncmoe 40` | Layer 40 is 324 MiB; Layers 41–47 are 373.5 MiB. |
 | **CPU MoE Experts (Layers 0–39)** | **Tier 2/3 (RAM / mmap)** | **14,471,921,664 B**| **13,801.500 MiB (~13.48 GiB)**|**Derived** | Layers 0–39 stacked records | `-ncmoe 40` | Stored in file-backed virtual memory. NOT pinned in RAM. |
 | **KV Cache (`ctx=512`, `q8_0`)** | Tier 1 (GPU VRAM) | 26,738,688 B | 25.500 MiB | **Derived** | $512 \times 48 \times 4 \times 128 \times 2 \times \frac{34}{32}$ | `-c 512 -ctk q8_0 -ctv q8_0`| Exact Q8_0 block formula ($34\text{ B} / 32\text{ vals}$). |
@@ -107,7 +108,7 @@ The VRAM budget must not rely on an unsupported nominal ceiling. Instead, it is 
 
 ### 4.1 Known Model & KV Allocations (Configuration D: `-ngl 48 -ncmoe 40 -c 512`)
 $$\begin{aligned}
-\text{Dense Model Weights (All 48 Layers)} &= 1,022.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
+\text{Dense Model Weights (All 48 Layers)} &= 1,022.5\text{ MiB} \quad \text{\textbf{[Derived — GGUF tensor inventory]}} \\
 \text{GPU MoE Experts (Layers 40–47: 8 Layers)} &= 2,938.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
 \text{KV Cache (512 Context, Q8\_0: } 34/32\text{ bytes/value)} &= 25.5\text{ MiB} \quad \text{\textbf{[Derived]}} \\
 \text{GPU Expert Cache (`--moe-cache-mib 0`)} &= 0.0\text{ MiB} \quad \text{\textbf{[Controlled]}} \\
@@ -127,7 +128,8 @@ $$\begin{aligned}
 \end{aligned}$$
 
 ### 4.3 Material Dynamic Overheads (Unknowns)
-The $1,421.5\text{ MiB}$ unallocated buffer must accommodate all remaining runtime components:
+The $1,421.5\text{ MiB}$ unallocated buffer must accommodate all remaining runtime components. Actual runtime VRAM residency for offloaded dense weights ($1,022.5\text{ MiB}$ [Derived — GGUF tensor inventory]) and dynamic allocation overheads remain **UNKNOWN** until measured during an authorized live execution:
+- **Actual Dense-Weight Runtime VRAM Residency:** Target offload payload is $1,022.5\text{ MiB}$; actual device memory allocated by the runtime depends on internal page alignment and tensor padding **[UNKNOWN]**
 - **CUDA Context Overhead:** Typically $\sim 150\text{--}250\text{ MiB}$ **[UNKNOWN]**
 - **Compute Scratchpad / FlashAttention Activations:** Typically $\sim 200\text{--}450\text{ MiB}$ **[UNKNOWN]**
 

@@ -68,7 +68,7 @@ Feasible local execution without catastrophic system thrashing or out-of-memory 
 - **Latency:** Sub-nanosecond to single-digit nanoseconds for register and L2 cache access; ~10–20 ns for GDDR6 fetches.
 - **Usable Budget:** Total dedicated VRAM is 6,141 MiB. Pre-run free VRAM on clean desktop idle is ~5,920 MiB (Windows DWM consumes ~200–350 MiB). The project enforces a mandatory safety reserve floor of 512 MiB, leaving an operational envelope of ~5,408 MiB. Headroom cannot be declared safe until CUDA context initialization overhead (~150–250 MiB) and compute scratchpad memory (~200–450 MiB) are empirically measured.
 - **Residency:**
-  - Dense model weights: embedding (`tok_embd.weight`), output head (`output.weight`), pre/post norms, and self-attention projections (`attn_q`, `attn_k`, `attn_v`, `attn_output`) across all 48 layers ($1,022.5\text{ MiB}$ in Q4_K_M/Q6_K).
+  - Dense model weights: embedding (`tok_embd.weight`), output head (`output.weight`), pre/post norms, and self-attention projections (`attn_q`, `attn_k`, `attn_v`, `attn_output`) across all 48 layers ($1,022.5\text{ MiB}$ in Q4_K_M/Q6_K [Derived — GGUF tensor inventory]; actual runtime VRAM residency and allocation overhead remain UNKNOWN until measured).
   - Dense MoE router gates (`ffn_gate_inp.weight`) across 48 layers ($50.3\text{ MiB}$, included within the dense total).
   - Key-Value (KV) Cache: At context length 512 with `q8_0` quantization (`-ctk q8_0 -ctv q8_0`), precisely **25.50 MiB** ($26,738,688\text{ bytes}$) across 48 layers (accounting for GGML 34-byte block overhead per 32 values). At ctx 1024: 51.00 MiB; at ctx 2048: 102.00 MiB; at ctx 4096: 204.00 MiB.
   - CUDA compute and activation scratch buffers: ~200–450 MiB [Estimated, to be measured].
@@ -76,7 +76,7 @@ Feasible local execution without catastrophic system thrashing or out-of-memory 
   - Optional GPU Expert Cache: Dynamic expert cache via `--moe-cache-mib` (runtime-managed internal cache; eviction heuristics are internal to the runtime and must not be assumed to be strictly LRU without binary-level verification). A 1,024 MiB allocation must NOT be configured prematurely, as it risks breaching the 512 MiB safety reserve floor.
 - **Operating Constraints:**
   - VRAM allocations via `cudaMalloc` are **locked physical GPU pages**.
-  - WDDM driver paging (evicting GPU buffers to system RAM) causes severe execution stalls ($10\times\text{--}50\times$ slowdown) and must be strictly avoided. If total VRAM demand exceeds available capacity, a CUDA Out-of-Memory (`cudaErrorMemoryAllocation`) abort occurs immediately.
+  - Dedicated GPU memory allocated via `cudaMalloc` must remain within available physical VRAM. Exceeding available capacity triggers a CUDA Out-of-Memory (`cudaErrorMemoryAllocation`) failure or invokes OS/driver fallback memory eviction to host RAM, causing severe execution latency. Operating with a strict safety reserve ($\ge 512\text{ MiB}$) is required to prevent allocation failures.
 
 ### 2.2 Tier 2: Host System Physical RAM
 - **Physical Hardware:** 16.0 GB total physical memory (16,802,582,528 bytes; 15.65 GB visible to OS; ~358 MB hardware reserved) across 2× 8 GB Micron DDR4-3200 SODIMMs operating in Dual-Channel mode.
@@ -218,15 +218,20 @@ Another critical distinction is the difference between CUDA Unified Memory (`cud
    - The GPU memory controller (MMU) on the RTX 4050 has **zero visibility** into these host virtual mappings.
    - The GPU cannot page-fault into a Win32 mmap address. Any tensor executed on CUDA cores must be explicitly copied across the PCIe bus into dedicated VRAM allocated via `cudaMalloc` or `cudaMemcpyAsync`.
 2. **CUDA Unified Memory (`cudaMallocManaged`):**
-   - UVM allocates a unified virtual address pointer accessible to both CPU and GPU.
-   - On Linux systems with Hardware Memory Management (HMM), the NVIDIA driver and PCIe bus can theoretically migrate pages between host RAM and GPU VRAM on demand via GPU hardware page faults.
-   - **Windows WDDM Limitation:** Under Microsoft Windows, the Windows Display Driver Model (WDDM 3.x) governs all GPU memory allocations. WDDM does **not** support fine-grained, low-latency GPU page-fault migration over PCIe in the same manner as Linux native kernel drivers. Attempting to oversubscribe VRAM via WDDM results in coarse-grained segment eviction to system RAM, inducing severe driver-level lock contention and execution freezes.
+   - Unified Memory provides a single pointer to data that can be accessed by both CPU and GPU code.
+   - On platforms that support hardware page faulting and concurrent access (such as Linux systems with native NVIDIA kernel drivers and `concurrentManagedAccess = 1`), the CUDA driver and GPU memory management unit can dynamically migrate individual pages between host RAM and GPU memory on demand, enabling fine-grained demand paging and memory oversubscription.
+   - **Documented Windows Unified Memory Limitations:** On Windows platforms and devices where the `concurrentManagedAccess` device property is 0, Unified Memory operates in a documented limited mode:
+     * **No Fine-Grained Page-Fault Migration:** Fine-grained GPU page-fault migration is not supported in this mode. The GPU MMU does not fault on demand during kernel execution to fetch missing pages across the PCIe bus.
+     * **Pre-Kernel Bulk Transfers:** Managed data generally must be transferred to GPU memory when a kernel launches (or prior to execution), and synchronized back upon completion.
+     * **No GPU Memory Oversubscription:** GPU-memory oversubscription is not supported in this mode. The cumulative size of all managed allocations, combined with other active device memory allocations, cannot exceed the physical capacity of dedicated GPU VRAM.
+     * **CPU/GPU Access and Synchronization Restrictions:** Concurrent access to managed allocations between CPU and GPU is subject to additional restrictions. Host CPU access to managed memory while a GPU kernel is executing on that memory is disallowed or results in access violations unless explicit synchronization is performed.
+     * **Platform and Device Specificity:** These constraints are determined by the underlying operating system driver model and hardware device properties, specifically `cudaDeviceProp::concurrentManagedAccess`. They must not be generalized to every WDDM device or CUDA configuration (e.g., enterprise hardware in TCC mode or specific specialized drivers).
 3. **Practical Implication for NOVA:**
    - On Windows with `llama.cpp b12032`, memory tiering is **explicitly managed**:
-     * Dense weights and GPU expert layers reside in locked VRAM allocations.
-     * CPU expert layers reside in host virtual memory backed by mmap.
+     * Dense weights and GPU expert layers reside in dedicated VRAM allocations allocated via `cudaMalloc`.
+     * CPU expert layers reside in host virtual memory backed by Win32 `mmap` (`MapViewOfFile`).
      * Active expert slices move between CPU RAM and GPU VRAM strictly via explicit PCIe staging or the dynamic `--moe-cache-mib` GPU buffer.
-     * No magical unified memory pool exists on this operating system.
+     * Unified Memory cannot serve as an automatic, transparent oversubscription mechanism on this target configuration.
 
 ---
 
@@ -234,7 +239,7 @@ Another critical distinction is the difference between CUDA Unified Memory (`cud
 
 To achieve safe and reproducible execution on the target hardware:
 
-1. **Tier 1 (GPU VRAM):** Offload all dense layers (attention, norms, routers, embeddings, output head: $1,022.5\text{ MiB}$), the entire KV cache (Q8_0, **25.50 MiB** at ctx 512), and 8 layers of MoE experts (layers 40–47: $2,938.50\text{ MiB}$ via `-ncmoe 40`), consuming $3,986.5\text{ MiB}$. Out of ~5,920 MiB clean free VRAM, this leaves ~1,933.5 MiB gross margin, comfortably covering the 512 MiB mandatory safety floor, CUDA context (~150–250 MiB), and compute scratchpad (~200–450 MiB), yielding ~720–1,070 MiB of estimated net safety headroom.
+1. **Tier 1 (GPU VRAM):** Offload all dense layers (attention, norms, routers, embeddings, output head: $1,022.5\text{ MiB}$ [Derived — GGUF tensor inventory]), the entire KV cache (Q8_0, **25.50 MiB** at ctx 512), and 8 layers of MoE experts (layers 40–47: $2,938.50\text{ MiB}$ via `-ncmoe 40`), consuming $3,986.5\text{ MiB}$. Out of ~5,920 MiB clean free VRAM, this leaves ~1,933.5 MiB gross margin, comfortably covering the 512 MiB mandatory safety floor, CUDA context (~150–250 MiB), and compute scratchpad (~200–450 MiB), yielding ~720–1,070 MiB of estimated net safety headroom.
 2. **Tier 2 (System RAM):** Host the remaining 40 layers of MoE expert weights ($13,801.50\text{ MiB}$) in memory-mapped virtual address space, ensuring that the logical active expert working set touched per token (~862.6 MiB) operates within measured available physical RAM (measured at 8.66–9.91 GiB during preflight; must be verified dynamically at runtime).
 3. **Tier 3 (Windows File Cache):** Allow the OS Cache Manager to maintain unaccessed expert pages in the clean Standby list, knowing that Windows can discard them instantly without write overhead if memory pressure occurs.
 4. **Tier 4 (NVMe SSD):** Serve as the static read-only backing store for the 17.35 GiB GGUF file. Zero reliance is placed on `pagefile.sys` for dynamic tensor swapping; anonymous private commit is kept strictly under ~400 MB.

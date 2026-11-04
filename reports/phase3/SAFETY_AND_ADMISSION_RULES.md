@@ -47,7 +47,7 @@ Prior to launching any inference executable or benchmark process, NOVA's `Memory
    - Prevents memory-allocation failures in background desktop components and driver staging buffers.
 4. **Gate 4: Available Dedicated VRAM Gate ($\ge 5,500.0\text{ MiB}$):**
    - Requires at least 5,500 MiB of unallocated GDDR6 memory on the RTX 4050 GPU.
-   - Ensures sufficient capacity for offloaded dense layers ($1,022.5\text{ MiB}$), GPU MoE layers ($2,938.5\text{ MiB} \approx 2.87\text{ GiB}$ in Config D), KV cache ($25.5\text{ MiB}$ at ctx 512), and compute scratch buffers.
+   - Ensures sufficient capacity for offloaded dense layers ($1,022.5\text{ MiB}$ [Derived — GGUF tensor inventory]), GPU MoE layers ($2,938.5\text{ MiB} \approx 2.87\text{ GiB}$ in Config D), KV cache ($25.5\text{ MiB}$ at ctx 512), and compute scratch buffers.
 5. **Gate 5: Competing GPU Compute Gate ($== 0$ Apps):**
    - Verifies via NVML that zero external compute processes are running on the discrete GPU.
    - Prevents VRAM allocation race conditions and CUDA context contention.
