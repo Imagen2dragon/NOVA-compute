@@ -10,6 +10,7 @@ EXECUTION MODES:
   --execute         : Executes inference ONLY if a fresh live preflight passes all gates
   --memory-report   : Generates detailed memory and recommendation report
   --dry-run         : Validates command syntax and file existence without starting llama-cli
+  --guided-start    : Interactive guided low-memory startup and progressive admission
 """
 
 import os
@@ -42,7 +43,9 @@ from nova.resource_steward import (
     InferenceOutcome,
     LiveTelemetrySampler,
     SafeReclamationManager,
-    supervise_child_process
+    supervise_child_process,
+    StartupState,
+    GuidedStartupController
 )
 
 LLAMA_CLI = os.path.join(PROJECT_ROOT, "runtime", "windows", "llama-cpp", "llama-cli.exe")
@@ -586,6 +589,11 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
 
     print(f"\nExecution finished. Outcome: {outcome.value}. Telemetry and reports saved to: {out_dir}")
 
+def run_guided_startup(steward: ResourceSteward) -> int:
+    """Runs interactive guided low-memory startup and admission workflow."""
+    controller = GuidedStartupController(steward=steward)
+    return controller.run_interactive()
+
 def main():
     parser = argparse.ArgumentParser(
         description="NOVA Compute — Phase 2C-B Inference Runner & Resource Steward",
@@ -597,6 +605,7 @@ def main():
     group.add_argument("--dry-run", action="store_true", help="Validate command syntax without launching inference.")
     group.add_argument("--memory-report", action="store_true", help="Generate detailed memory and process recommendation report.")
     group.add_argument("--advisor", action="store_true", help="Run read-only Intelligent Memory Advisor diagnostics and recommendations.")
+    group.add_argument("--guided-start", action="store_true", help="Launch interactive guided low-memory startup and progressive admission.")
 
     args = parser.parse_args()
     steward = ResourceSteward()
@@ -609,6 +618,9 @@ def main():
         sys.exit(code)
     elif args.advisor or args.memory_report:
         code = run_memory_report(steward)
+        sys.exit(code)
+    elif args.guided_start:
+        code = run_guided_startup(steward)
         sys.exit(code)
     elif args.preflight:
         code = run_preflight_only(steward)
