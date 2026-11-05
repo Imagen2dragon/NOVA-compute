@@ -589,10 +589,15 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
 
     print(f"\nExecution finished. Outcome: {outcome.value}. Telemetry and reports saved to: {out_dir}")
 
-def run_guided_startup(steward: ResourceSteward) -> int:
+def run_guided_startup(steward: ResourceSteward, early_sample: Optional[Any] = None) -> int:
     """Runs interactive guided low-memory startup and admission workflow."""
-    controller = GuidedStartupController(steward=steward)
-    return controller.run_interactive()
+    controller = GuidedStartupController(steward=steward, early_sample=early_sample)
+    ret = controller.run_interactive()
+    
+    # Save controller memory profile report
+    profile_path = os.path.join(PROJECT_ROOT, "reports", "phase3", "PHASE3B2_CONTROLLER_MEMORY_PROFILE.md")
+    controller.save_memory_profile_report(profile_path)
+    return ret
 
 def main():
     parser = argparse.ArgumentParser(
@@ -608,6 +613,16 @@ def main():
     group.add_argument("--guided-start", action="store_true", help="Launch interactive guided low-memory startup and progressive admission.")
 
     args = parser.parse_args()
+
+    # Capture Checkpoint A as early as practical in guided-start mode
+    early_sample = None
+    if args.guided_start:
+        from nova.resource_steward.monitor import ResourceMonitor
+        early_sample = ResourceMonitor.sample_controller_memory(
+            "CHECKPOINT_A",
+            "Earliest controller initialization in guided-start entrypoint"
+        )
+
     steward = ResourceSteward()
 
     if args.execute:
@@ -620,7 +635,7 @@ def main():
         code = run_memory_report(steward)
         sys.exit(code)
     elif args.guided_start:
-        code = run_guided_startup(steward)
+        code = run_guided_startup(steward, early_sample=early_sample)
         sys.exit(code)
     elif args.preflight:
         code = run_preflight_only(steward)

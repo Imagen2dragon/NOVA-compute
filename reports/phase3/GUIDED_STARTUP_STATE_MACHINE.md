@@ -94,17 +94,18 @@ stateDiagram-v2
 | `SMOKE_TEST_COMPLETE` | `ABORTED` | Teardown complete |
 | `ABORTED` | *None (Terminal)* | Terminal state |
 
-### 4.2 Rejection of Illegal Transitions
-The state machine implements strict runtime validation in `StartupStateMachine.transition_to()`:
+### 4.2 Rejection of Illegal Transitions & Single-Use Authorization
+The state machine implements strict runtime validation in `StartupStateMachine.transition_to()` and `StartupStateMachine.grant_authorization()`:
 - **Direct Leap to Model Loading**: Attempting `BOOTSTRAPPING -> MODEL_INITIALIZATION` or `LOW_MEMORY_WAIT -> MODEL_INITIALIZATION` raises `InvalidStateTransitionError`.
-- **Bypassing Authorization**: Attempting `READY_FOR_AUTHORIZATION -> MODEL_INITIALIZATION` without passing `authorized=True` raises `UnauthorizedInferenceError`.
+- **Bypassing Authorization**: Attempting `READY_FOR_AUTHORIZATION -> MODEL_INITIALIZATION` without passing `authorized=True` or a granted authorization token raises `UnauthorizedInferenceError`.
+- **Single-Use Token Consumption**: Once `grant_authorization(token)` is invoked and the transition to `MODEL_INITIALIZATION` occurs, the pending token is cleared immediately. Any subsequent model launch attempt requires fresh authorization.
 - **Bypassing Gates**: Attempting `PREFLIGHT_RUNNING -> READY_FOR_AUTHORIZATION` when one or more gates failed raises `InvalidStateTransitionError`.
 
 ---
 
 ## 5. Verification Test Suite Coverage
 
-The state machine and guided controller are verified by 13 dedicated unit tests in `tests/test_guided_startup.py`:
+The state machine and guided controller are verified by 16 dedicated unit tests in `tests/test_guided_startup.py`:
 
 | Test Name | Validated Behavior | Result |
 |---|---|---|
@@ -121,6 +122,11 @@ The state machine and guided controller are verified by 13 dedicated unit tests 
 | `test_09_user_exits_guided_mode_safe_shutdown` | User presses 'q'; safe shutdown to `ABORTED`; returns 0 | **PASS** |
 | `test_10_unauthorized_inference_transition_rejected` | Unauthorized `MODEL_INITIALIZATION` raises `UnauthorizedInferenceError` | **PASS** |
 | `test_11_cli_guided_start_mutual_exclusivity` | CLI flags `--guided-start` and `--execute` mutually exclusive | **PASS** |
+| `test_12_controller_memory_profile_checkpoints_and_deltas` | Checkpoints A–D sampled, startup and idle deltas calculated | **PASS** |
+| `test_13_controller_memory_profile_unknown_handling` | Failed telemetry marked UNKNOWN in tables without inventing numbers | **PASS** |
+| `test_14_single_use_authorization_boundary_and_no_binary_launch` | Single-use token consumed; simulated auth never launches binary | **PASS** |
+| `test_15_ready_display_configuration_d_and_safety_summary` | READY state displays full Configuration D command & safety parameters | **PASS** |
+| `test_16_process_working_set_and_private_commit_reported_separately` | Process recommendations separately label working set & private commit | **PASS** |
 
 ---
 

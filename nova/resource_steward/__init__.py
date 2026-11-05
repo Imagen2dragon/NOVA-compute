@@ -25,7 +25,9 @@ from .models import (
     PreflightReport,
     RecoveryReport,
     SupervisorResult,
-    StartupState
+    StartupState,
+    ControllerMemorySample,
+    ControllerMemoryProfile
 )
 
 from .state_machine import (

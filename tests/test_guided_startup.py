@@ -24,7 +24,9 @@ from nova.resource_steward.models import (
     ProcessResourceSnapshot,
     ProcessCategory,
     GateResult,
-    PreflightReport
+    PreflightReport,
+    ControllerMemorySample,
+    ControllerMemoryProfile
 )
 from nova.resource_steward.policy import ResourcePolicy, DEFAULT_POLICY
 from nova.resource_steward.state_machine import (
@@ -471,6 +473,151 @@ class TestGuidedStartup(unittest.TestCase):
             with self.assertRaises(SystemExit) as cm:
                 main()
             self.assertEqual(cm.exception.code, 2)
+
+    def test_12_controller_memory_profile_checkpoints_and_deltas(self):
+        """Test 12: Checkpoints A, B, C, D sampling and delta calculations."""
+        ram, gpu, disk, procs = make_test_snapshots(avail_ram_gib=8.0)
+        mock_steward = MockResourceSteward(ram, gpu, disk, procs)
+
+        cp_a = ControllerMemorySample(
+            checkpoint_id="CHECKPOINT_A",
+            description="Earliest",
+            pid=1234,
+            working_set_bytes=10 * 1024 * 1024,
+            working_set_mb=10.0,
+            private_commit_bytes=8 * 1024 * 1024,
+            private_commit_mb=8.0,
+            page_fault_count=1000,
+            cpu_time_seconds=0.05,
+            system_avail_ram_gib=8.0,
+            system_commit_pct=40.0,
+            status=TelemetryStatus.SUCCESS
+        )
+
+        controller = GuidedStartupController(
+            steward=mock_steward,
+            early_sample=cp_a,
+            input_fn=lambda _: "q",
+            output_fn=lambda _: None
+        )
+
+        # Checkpoints A and B exist
+        prof = controller.memory_profile
+        self.assertIn("CHECKPOINT_A", prof.checkpoints)
+        self.assertIn("CHECKPOINT_B", prof.checkpoints)
+        self.assertEqual(prof.checkpoints["CHECKPOINT_A"].working_set_mb, 10.0)
+
+        # Startup deltas are computed
+        self.assertIsNotNone(prof.working_set_delta_startup_mb)
+        self.assertIsNotNone(prof.private_commit_delta_startup_mb)
+
+        # Start controller (transitions to LOW_MEMORY_WAIT, captures Checkpoint C)
+        controller.start()
+        self.assertIn("CHECKPOINT_C", prof.checkpoints)
+        self.assertEqual(len(prof.idle_samples), 3)
+        self.assertIsNotNone(prof.average_idle_working_set_mb)
+
+        # Recheck captures Checkpoint D
+        controller.recheck()
+        self.assertIn("CHECKPOINT_D", prof.checkpoints)
+
+    def test_13_controller_memory_profile_unknown_handling(self):
+        """Test 13: Measurements are labeled UNKNOWN when unavailable."""
+        prof = ControllerMemoryProfile()
+        prof.checkpoints["CHECKPOINT_A"] = ControllerMemorySample(
+            checkpoint_id="CHECKPOINT_A",
+            description="Failed sample",
+            pid=9999,
+            working_set_bytes=0,
+            working_set_mb=0.0,
+            private_commit_bytes=None,
+            private_commit_mb=None,
+            page_fault_count=None,
+            cpu_time_seconds=None,
+            system_avail_ram_gib=0.0,
+            system_commit_pct=0.0,
+            status=TelemetryStatus.FAILED,
+            error_message="Sensor offline"
+        )
+        prof.compute_deltas()
+
+        self.assertIsNone(prof.working_set_delta_startup_mb)
+        self.assertIsNone(prof.private_commit_delta_startup_mb)
+
+        md = prof.format_profile_markdown()
+        self.assertIn("UNKNOWN", md)
+
+    def test_14_single_use_authorization_boundary_and_no_binary_launch(self):
+        """Test 14: Single-use authorization boundary and zero binary invocation."""
+        sm = StartupStateMachine(StartupState.READY_FOR_AUTHORIZATION)
+        sm._last_preflight_passed = True
+
+        # Empty or whitespace token is rejected
+        with self.assertRaises(UnauthorizedInferenceError):
+            sm.grant_authorization("")
+
+        with self.assertRaises(UnauthorizedInferenceError):
+            sm.grant_authorization("   ")
+
+        # Grant valid single-use authorization
+        sm.grant_authorization("AUTH-RUN-001")
+        self.assertEqual(sm._pending_authorization_token, "AUTH-RUN-001")
+
+        # First transition consumes the authorization
+        with patch("subprocess.Popen") as mock_popen, patch("subprocess.run") as mock_run:
+            sm.transition_to(StartupState.MODEL_INITIALIZATION)
+            self.assertEqual(sm.current_state, StartupState.MODEL_INITIALIZATION)
+            self.assertIsNone(sm._pending_authorization_token)
+            # Binary is strictly never launched
+            mock_popen.assert_not_called()
+            mock_run.assert_not_called()
+
+        # Second transition attempt without re-authorization is rejected
+        sm._current_state = StartupState.READY_FOR_AUTHORIZATION
+        with self.assertRaises(UnauthorizedInferenceError):
+            sm.transition_to(StartupState.MODEL_INITIALIZATION)
+
+    def test_15_ready_display_configuration_d_and_safety_summary(self):
+        """Test 15: READY state displays Configuration D command and safety summary."""
+        ram, gpu, disk, procs = make_test_snapshots(avail_ram_gib=10.5)
+        mock_steward = MockResourceSteward(ram, gpu, disk, procs)
+
+        output_lines = []
+        controller = GuidedStartupController(
+            steward=mock_steward,
+            output_fn=output_lines.append
+        )
+
+        controller.start()
+        self.assertEqual(controller.current_state, StartupState.READY_FOR_AUTHORIZATION)
+
+        output_text = "\n".join(output_lines)
+        self.assertIn("SYSTEM QUALIFIED", output_text)
+        self.assertIn("Status: ALL ADMISSION GATES PASSED", output_text)
+        self.assertIn("llama-cli.exe -m Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -ncmoe 40 -c 512 -b 64 -ub 16 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Hello\"", output_text)
+        self.assertIn("Runtime Safety Summary:", output_text)
+        self.assertIn("CRITICAL SAFETY GOVERNANCE:", output_text)
+        self.assertIn("Inference state: BLOCKED UNTIL AUTHORIZED", output_text)
+
+    def test_16_process_working_set_and_private_commit_reported_separately(self):
+        """Test 16: Working set and private commit are reported separately in advice."""
+        ram, gpu, disk, procs = make_test_snapshots(avail_ram_gib=8.0)
+        mock_steward = MockResourceSteward(ram, gpu, disk, procs)
+
+        output_lines = []
+        controller = GuidedStartupController(
+            steward=mock_steward,
+            output_fn=output_lines.append
+        )
+
+        controller.start()
+        output_text = "\n".join(output_lines)
+
+        self.assertIn("Working Set:", output_text)
+        self.assertIn("Private Commit:", output_text)
+        self.assertIn("Why:", output_text)
+        self.assertIn("Action:", output_text)
+
 
 
 if __name__ == "__main__":

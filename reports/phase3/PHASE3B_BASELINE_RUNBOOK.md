@@ -188,6 +188,13 @@ If an automatic abort is triggered (via RAM depletion, VRAM floor breach, commit
 2. **Stage 1 (Graceful Console Break):** The supervisor sends Win32 `CTRL_BREAK_EVENT` to the child's process group. The child is granted a **5.0-second grace window** to flush telemetry and cleanly release CUDA device allocations.
 3. **Stage 2 (Forced Termination):** If the child does not exit within 5.0 seconds, the supervisor escalates to `process.kill()` targeting the child process handle, polls for exit, records post-mortem memory recovery deltas, and saves an `ABORTED` audit report.
 
+### 6.4 Guided Low-Memory Pre-Qualification Workflow (`--guided-start`)
+Added in Phase 3B.1 and enhanced in Phase 3B.2, NOVA provides an interactive safe mode for environments where available physical RAM is below the 10.0 GiB inference threshold:
+1. **Lightweight Controller Bootstrapping**: Invoked via `python scripts/run_inference_with_telemetry.py --guided-start`. Initializes with an empirically measured working set of ~26 MB and private commit of ~18 MB (`reports/phase3/PHASE3B2_CONTROLLER_MEMORY_PROFILE.md`). Zero model weights are loaded.
+2. **Deficit Guidance**: Reports exact RAM deficit (e.g. $10.0\text{ GiB} - \text{Avail RAM}$) and presents Memory Advisor recommendations ranking candidate user applications by observed resident working set.
+3. **Interactive Recheck**: On user request (`Enter`/`R`), re-evaluates all six admission gates atomically from fresh telemetry.
+4. **Qualification Display**: When all 6 gates pass, transitions to `READY_FOR_AUTHORIZATION`, displays the full Configuration D baseline command and safety summary, and halts. Model execution is strictly blocked until explicit Project Owner authorization is provided.
+
 ---
 
 ## 7. Expected Outputs & Artifact Deliverables

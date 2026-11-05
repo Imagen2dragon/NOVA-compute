@@ -1,19 +1,24 @@
 """
 NOVA Compute — Startup State Machine & Guided Low-Memory Controller
-Phase 3B.1: Implements formal lifecycle states, strict transition validation,
+Phase 3B.1 & Phase 3B.2: Implements formal lifecycle states, strict transition validation,
 safe lightweight low-memory bootstrapping, read-only memory recovery guidance,
+controller process memory footprint measurement (Checkpoints A-D),
 and decoupling of qualification from model inference execution.
 """
 
 from typing import List, Dict, Optional, Set, Any, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import os
 import math
+import time
 
 from .models import (
     StartupState,
     TelemetryStatus,
     PreflightReport,
+    ControllerMemorySample,
+    ControllerMemoryProfile,
     current_iso_utc
 )
 from .policy import ResourcePolicy, enforce_mandatory_admission_floors
@@ -124,6 +129,7 @@ class StartupStateMachine:
         self._current_state = initial_state
         self._history: List[StateTransitionRecord] = []
         self._last_preflight_passed: bool = False
+        self._pending_authorization_token: Optional[str] = None
 
     @property
     def current_state(self) -> StartupState:
@@ -146,6 +152,25 @@ class StartupStateMachine:
     def inference_blocked(self) -> bool:
         """Inference is strictly blocked in all states except MODEL_RUNTIME."""
         return self._current_state != StartupState.MODEL_RUNTIME
+
+    def grant_authorization(self, authorization_token: str) -> None:
+        """
+        Grants explicit, single-use, per-run Project Owner authorization for model initialization.
+        Requires state to be READY_FOR_AUTHORIZATION with all 6 gates passed.
+        """
+        if self._current_state != StartupState.READY_FOR_AUTHORIZATION:
+            raise InvalidStateTransitionError(
+                f"Cannot authorize model initialization from state {self._current_state.value}. "
+                "Must be in READY_FOR_AUTHORIZATION."
+            )
+        if not self._last_preflight_passed:
+            raise InvalidStateTransitionError(
+                "Cannot authorize model initialization when preflight gates have failed."
+            )
+        if not authorization_token or not isinstance(authorization_token, str) or not authorization_token.strip():
+            raise UnauthorizedInferenceError("Authorization token must be a non-empty string.")
+        
+        self._pending_authorization_token = authorization_token.strip()
 
     def transition_to(
         self,
@@ -179,7 +204,8 @@ class StartupStateMachine:
 
         # Authorization check for MODEL_INITIALIZATION
         if target_state == StartupState.MODEL_INITIALIZATION:
-            if not authorized:
+            effective_auth = authorized or (self._pending_authorization_token is not None)
+            if not effective_auth:
                 raise UnauthorizedInferenceError(
                     "Model initialization strictly blocked: requires explicit Project Owner authorization."
                 )
@@ -187,6 +213,8 @@ class StartupStateMachine:
                 raise UnauthorizedInferenceError(
                     "Model initialization strictly blocked: preflight admission gates are unmet."
                 )
+            # Consume authorization token (single-use guarantee)
+            self._pending_authorization_token = None
 
         if preflight_passed is not None:
             self._last_preflight_passed = preflight_passed
@@ -206,7 +234,8 @@ class GuidedStartupController:
     """
     Lightweight startup controller for NOVA Compute.
     Allows startup under low RAM, measures resources, explains deficits,
-    presents Memory Advisor recommendations, and rechecks admission gates on demand.
+    presents Memory Advisor recommendations, tracks controller process memory footprint (Checkpoints A-D),
+    and rechecks admission gates on demand.
     Never spawns model inference or llama-cli.
     """
 
@@ -215,7 +244,8 @@ class GuidedStartupController:
         steward: Optional[Any] = None,
         input_fn: Optional[Callable[[str], str]] = None,
         output_fn: Optional[Callable[[str], None]] = None,
-        state_machine: Optional[StartupStateMachine] = None
+        state_machine: Optional[StartupStateMachine] = None,
+        early_sample: Optional[ControllerMemorySample] = None
     ):
         from . import ResourceSteward
         self.steward = steward or ResourceSteward()
@@ -223,6 +253,31 @@ class GuidedStartupController:
         self.output_fn = output_fn or print
         self.state_machine = state_machine or StartupStateMachine()
         self.last_preflight_report: Optional[PreflightReport] = None
+
+        # Controller Memory Profile (Phase 3B.2)
+        self.memory_profile = ControllerMemoryProfile()
+        
+        # Checkpoint A: Earliest controller initialization
+        cp_a = early_sample or self._sample_memory(
+            "CHECKPOINT_A",
+            "Earliest controller initialization in guided-start entrypoint"
+        )
+        self.memory_profile.checkpoints["CHECKPOINT_A"] = cp_a
+
+        # Checkpoint B: After core controller initialization
+        cp_b = self._sample_memory(
+            "CHECKPOINT_B",
+            "After core controller initialization"
+        )
+        self.memory_profile.checkpoints["CHECKPOINT_B"] = cp_b
+        self.memory_profile.compute_deltas()
+
+    def _sample_memory(self, checkpoint_id: str, description: str = "") -> ControllerMemorySample:
+        """Safely samples controller memory via steward monitor or ResourceMonitor classmethod."""
+        monitor = getattr(self.steward, "monitor", None)
+        if monitor and hasattr(monitor, "sample_controller_memory"):
+            return monitor.sample_controller_memory(checkpoint_id, description)
+        return ResourceMonitor.sample_controller_memory(checkpoint_id, description)
 
     @property
     def current_state(self) -> StartupState:
@@ -239,9 +294,10 @@ class GuidedStartupController:
     def print_banner(self) -> None:
         self.output_fn("========================================================================")
         self.output_fn("NOVA COMPUTE — GUIDED STARTUP")
-        self.output_fn("Startup mode: LOW-MEMORY SAFE MODE")
-        self.output_fn("Model state: NOT LOADED")
-        self.output_fn("Inference state: BLOCKED UNTIL QUALIFIED")
+        self.output_fn("Startup Mode: LOW-MEMORY SAFE MODE")
+        self.output_fn("Model: Qwen3-30B-A3B Q4_K_M")
+        self.output_fn("Model State: NOT LOADED")
+        self.output_fn("Inference: BLOCKED")
         self.output_fn("========================================================================")
 
     def evaluate_admission(self) -> bool:
@@ -252,6 +308,20 @@ class GuidedStartupController:
         report = self.steward.run_preflight(run_auto_reclaim=False)
         self.last_preflight_report = report
         return report.passed
+
+    def sample_idle_footprint(self, num_samples: int = 3) -> None:
+        """Captures Checkpoint C idle samples while awaiting user action."""
+        idle_samples = []
+        for i in range(1, num_samples + 1):
+            s = self._sample_memory(
+                f"CHECKPOINT_C_IDLE_{i}",
+                f"Idle waiting state sample {i}"
+            )
+            idle_samples.append(s)
+        self.memory_profile.idle_samples = idle_samples
+        if idle_samples:
+            self.memory_profile.checkpoints["CHECKPOINT_C"] = idle_samples[0]
+        self.memory_profile.compute_deltas()
 
     def start(self) -> StartupState:
         """
@@ -278,6 +348,7 @@ class GuidedStartupController:
                 preflight_passed=True
             )
             self._display_qualified_status()
+            self.sample_idle_footprint()
             return self.state_machine.current_state
         else:
             self.state_machine.transition_to(
@@ -290,12 +361,14 @@ class GuidedStartupController:
                 StartupState.LOW_MEMORY_WAIT,
                 reason="Awaiting user memory recovery or recheck"
             )
+            self.sample_idle_footprint()
             return self.state_machine.current_state
 
     def recheck(self) -> StartupState:
         """
         Re-measures all 6 hardware gates after user action.
         Transitions: LOW_MEMORY_WAIT -> RESOURCE_RECOVERY -> PREFLIGHT_RUNNING -> (READY | PREFLIGHT_FAILED -> LOW_MEMORY_WAIT).
+        Captures Checkpoint D post-recheck footprint.
         """
         if self.state_machine.current_state != StartupState.LOW_MEMORY_WAIT:
             # If in READY_FOR_AUTHORIZATION or other state, allow rechecking by transitioning safely
@@ -322,6 +395,14 @@ class GuidedStartupController:
 
         passed = self.evaluate_admission()
 
+        # Checkpoint D: After user-requested recheck telemetry collection
+        cp_d = self._sample_memory(
+            "CHECKPOINT_D",
+            "After user-requested recheck telemetry collection"
+        )
+        self.memory_profile.checkpoints["CHECKPOINT_D"] = cp_d
+        self.memory_profile.compute_deltas()
+
         if passed:
             self.state_machine.transition_to(
                 StartupState.READY_FOR_AUTHORIZATION,
@@ -344,10 +425,39 @@ class GuidedStartupController:
             return self.state_machine.current_state
 
     def _display_qualified_status(self) -> None:
+        report = self.last_preflight_report
+        ram_str = f"{report.system_ram.avail_phys_gib:.2f} GiB" if report else "UNKNOWN"
+        vram_str = f"{report.gpu.vram_free_mib:.1f} MiB" if report and report.gpu else "UNKNOWN"
+        commit_str = f"{report.system_ram.commit_pct:.1f}%" if report else "UNKNOWN"
+        disk_str = f"{report.disk.free_gib:.2f} GiB" if report and report.disk else "UNKNOWN"
+
         self.output_fn("\n========================================================================")
-        self.output_fn("NOVA COMPUTE — HARDWARE QUALIFICATION AUDIT: PASSED")
+        self.output_fn("NOVA COMPUTE — SYSTEM QUALIFIED")
+        self.output_fn("HARDWARE QUALIFICATION AUDIT: PASSED")
         self.output_fn("========================================================================")
+        self.output_fn("Status: ALL ADMISSION GATES PASSED")
         self.output_fn("All 6 admission gates PASSED. System is qualified for Configuration D smoke test.")
+        self.output_fn("")
+        self.output_fn(f"Available RAM: {ram_str}")
+        self.output_fn(f"Free VRAM: {vram_str}")
+        self.output_fn(f"System Commit: {commit_str}")
+        self.output_fn(f"Free Disk: {disk_str}")
+        self.output_fn("Competing GPU Processes: ZERO")
+        self.output_fn("")
+        self.output_fn("Model: NOT LOADED")
+        self.output_fn("Smoke Test: READY FOR AUTHORIZATION")
+        self.output_fn("========================================================================")
+        self.output_fn("")
+        self.output_fn("Exact Configuration D Command:")
+        self.output_fn("llama-cli.exe -m Qwen_Qwen3-30B-A3B-Q4_K_M.gguf -ngl 48 -ncmoe 40 -c 512 -b 64 -ub 16 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1 --simple-io --perf -p \"Hello\"")
+        self.output_fn("")
+        self.output_fn("Runtime Safety Summary:")
+        self.output_fn("- Target Binary: runtime\\windows\\llama-cpp\\llama-cli.exe")
+        self.output_fn("- Target Model:  models\\qwen3-30b\\Qwen_Qwen3-30B-A3B-Q4_K_M.gguf (~18.25 GiB)")
+        self.output_fn("- Parameters:    -ngl 48 -ncmoe 40 -c 512 -b 64 -ub 16 -ctk q8_0 -ctv q8_0 -fa auto -lm mmap -n 1")
+        self.output_fn("- Constraints:   1 token limit | Zero expert cache | Clean text I/O")
+        self.output_fn("- Supervisor:    Abort on VRAM < 512 MiB, RAM < 2 GiB for >= 5s, Commit >= 90.0%")
+        self.output_fn("- Silence Rule:  30s console silence is WARNING ONLY (never terminates)")
         self.output_fn("")
         self.output_fn("CRITICAL SAFETY GOVERNANCE:")
         self.output_fn("Inference state: BLOCKED UNTIL AUTHORIZED")
@@ -381,9 +491,16 @@ class GuidedStartupController:
             deficit = max(0.0, round(req_ram - cur_ram, 2))
 
             self.output_fn("\n[!] Available physical RAM is below the required threshold. Close unused applications to make more memory available.")
+            self.output_fn(f"Available RAM: {cur_ram:.2f} GiB")
             self.output_fn(f"Current available RAM: {cur_ram:.2f} GiB")
             self.output_fn(f"Required RAM: {req_ram:.2f} GiB")
+            self.output_fn(f"RAM Deficit: {deficit:.2f} GiB")
             self.output_fn(f"Additional available RAM required: {deficit:.2f} GiB")
+            self.output_fn("Next Action: Free memory and request another measurement.")
+            self.output_fn("")
+            self.output_fn("NOVA's lightweight controller is running in safe mode.")
+            self.output_fn("The Qwen3-30B-A3B model (18.25 GiB) has NOT been loaded into memory.")
+            self.output_fn("Inference execution is strictly blocked.")
             self.output_fn("\nSuggested actions:")
             self.output_fn("1. Save work and close unused browser tabs/windows.")
             self.output_fn("2. Close unused IDE projects.")
@@ -394,9 +511,11 @@ class GuidedStartupController:
                 self.output_fn("\nTop candidate applications for manual closure:")
                 for rec in report.recommendations[:5]:
                     pids_str = f"PID {rec.pids[0]}" if len(rec.pids) == 1 else f"{len(rec.pids)} instances"
-                    priv_str = f", Private Commit: {rec.total_private_commit_mb:.1f} MB" if rec.total_private_commit_mb is not None else ""
+                    priv_str = f", Private Commit: {rec.total_private_commit_mb:.1f} MB" if rec.total_private_commit_mb is not None else ", Private Commit: UNKNOWN"
                     self.output_fn(f"  - {rec.process_name} ({pids_str}): Working Set: {rec.observed_working_set_mb:.1f} MB{priv_str}")
-                    action_text = rec.action_guidance or rec.recommendation_text
+                    reason_text = rec.why_recommended or "High resident memory consumer"
+                    action_text = rec.action_guidance or rec.recommendation_text or "Save work and close through normal interface if unused."
+                    self.output_fn(f"    Why: {reason_text}")
                     self.output_fn(f"    Action: {action_text}")
 
             self.output_fn("\nImportant telemetry interpretation:")
@@ -477,3 +596,14 @@ class GuidedStartupController:
             return 0
 
         return 0
+
+    def format_memory_profile_markdown(self) -> str:
+        """Renders the controller memory footprint report in markdown."""
+        return self.memory_profile.format_profile_markdown()
+
+    def save_memory_profile_report(self, output_path: str) -> None:
+        """Saves the memory profile markdown report to disk."""
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        content = self.format_memory_profile_markdown()
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)

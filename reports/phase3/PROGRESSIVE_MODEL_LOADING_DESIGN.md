@@ -101,11 +101,12 @@ flowchart TD
 - `-ctk q8_0 -ctv q8_0`: Q8_0 KV cache quantization.
 - `-fa auto`: Flash Attention auto-dispatch.
 
-#### Memory Budget Verification:
+#### Memory Budget Verification & Measurement Status:
 - **Theoretical KV Cache Allocation**:
   $$\text{KV Size} = 2 \times n_{\text{layers}} \times n_{\text{heads\_kv}} \times d_{\text{head}} \times c_{\text{ctx}} \times \text{bytes\_per\_elem}$$
-  For Q8_0 at context 512, this evaluates to **24.0 MiB**, well within safe limits.
-- **Compute Scratch Graph**: Scratch memory is dynamically allocated. Telemetry sampler tracks peak VRAM to ensure scratch allocations do not breach the 512 MiB minimum free VRAM floor.
+  For Q8_0 at context 512, theoretical calculations yield approximately **24.0–25.5 MiB** (dependent on padding and alignment).
+- **Actual Runtime Allocation Status**: Marked **`[UNKNOWN]`** until empirical measurement during the authorized smoke test.
+- **Compute Scratch Graph**: Marked **`[UNKNOWN]`** until empirical measurement during the authorized smoke test. Scratch memory is dynamically allocated by GGML; telemetry sampling will track peak VRAM to ensure scratch allocations do not breach the 512 MiB minimum free VRAM floor.
 
 ---
 
@@ -169,3 +170,24 @@ During Stages B through E, the external supervisor monitors live hardware teleme
 ### Safety Clarifications:
 1. **30-Second Console Silence Rule**: A period of 30 seconds without stdout output is documented as normal behavior during initial model weight mapping, page fault resolution, and CUDA graph construction. It emits a warning to the log but **must never** terminate the process.
 2. **Strict Process Containment**: Termination targets **only** the NOVA-owned child PID. External processes (browsers, IDEs, system services) are never terminated, suspended, or altered.
+
+---
+
+## 5. Evidence Classification & Parameter Ledger
+
+Per Phase 3B.2 governance, parameters and metrics are explicitly categorized:
+
+| Category | Parameter / Metric | Value / Status | Source & Evidence |
+|---|---|---|---|
+| **Verified Implementation** | Mandatory admission gates (6) | RAM $\ge 10.0$ GiB, Commit $< 90\%$, VRAM $\ge 5500$ MiB, Procs $= 0$, Disk $\ge 25$ GiB, Telemetry SUCCESS | `nova/resource_steward/memory_budget.py`, 96 regression tests |
+| **Verified Implementation** | Guided startup & state machine | 11 states, strict transitions, single-use auth token | `nova/resource_steward/state_machine.py`, `test_guided_startup.py` |
+| **Simulated Tests** | Multi-gate failure paths | Mocked RAM, VRAM, commit, storage, telemetry failures | `tests/test_guided_startup.py` (16 test cases) |
+| **Historical Measurement** | Peak hardware capabilities | RTX 4050 Laptop (6,141 MiB), Intel i7-13620H, 16 GB RAM | Initial hardware qualification diagnostics |
+| **Current Measurement** | Controller process footprint | Working set: 25.80 MB, Private commit: 17.90 MB, Startup delta: +5.70 MB WS | `reports/phase3/PHASE3B2_CONTROLLER_MEMORY_PROFILE.md` |
+| **Theoretical Calculation** | Q8_0 KV Cache size (ctx 512) | ~24.0–25.5 MiB | Derived from architectural tensor dimensions |
+| **Theoretical Calculation** | Offloaded dense weight size | ~1,022.5 MiB | Derived from GGUF tensor ledger |
+| **Unknown Runtime Allocation**| CUDA Context Init overhead | **`[UNKNOWN]`** (~150–250 MiB estimated) | To be empirically measured in authorized smoke test |
+| **Unknown Runtime Allocation**| Actual runtime KV buffer | **`[UNKNOWN]`** | To be empirically measured in authorized smoke test |
+| **Unknown Runtime Allocation**| Compute scratchpad graph peak | **`[UNKNOWN]`** (~200–450 MiB estimated) | To be empirically measured in authorized smoke test |
+| **Unknown Runtime Allocation**| First-token decode latency | **`[UNKNOWN]`** | To be empirically measured in authorized smoke test |
+| **Unknown Runtime Allocation**| Net unallocated VRAM margin | **`[UNKNOWN]`** (Must exceed 512 MiB floor) | To be empirically measured in authorized smoke test |

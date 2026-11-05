@@ -22,6 +22,7 @@ from .models import (
     GPUSnapshot,
     GPUProcessInfo,
     DiskSnapshot,
+    ControllerMemorySample,
     current_iso_utc
 )
 
@@ -382,6 +383,54 @@ class ResourceMonitor:
             )
         finally:
             ctypes.windll.kernel32.CloseHandle(h_proc)
+
+    @classmethod
+    def sample_controller_memory(cls, checkpoint_id: str, description: str = "") -> ControllerMemorySample:
+        """
+        Samples memory metrics for the current NOVA controller process and system state.
+        Collects working set, private commit, page faults, CPU time, and system RAM/commit.
+        """
+        pid = os.getpid()
+        proc_snap = cls.get_process_memory(pid)
+        ram_snap = cls.get_system_memory()
+        cpu_time = None
+        try:
+            cpu_time = round(time.process_time(), 4)
+        except Exception:
+            pass
+
+        if proc_snap.status != TelemetryStatus.SUCCESS or ram_snap.status != TelemetryStatus.SUCCESS:
+            status = TelemetryStatus.FAILED if (proc_snap.status == TelemetryStatus.FAILED or ram_snap.status == TelemetryStatus.FAILED) else TelemetryStatus.UNKNOWN
+            return ControllerMemorySample(
+                checkpoint_id=checkpoint_id,
+                description=description,
+                pid=pid,
+                working_set_bytes=proc_snap.working_set_bytes if proc_snap else 0,
+                working_set_mb=proc_snap.working_set_mb if proc_snap else 0.0,
+                private_commit_bytes=proc_snap.private_commit_bytes if proc_snap else None,
+                private_commit_mb=proc_snap.private_commit_mb if proc_snap else None,
+                page_fault_count=proc_snap.page_fault_count if proc_snap else None,
+                cpu_time_seconds=cpu_time,
+                system_avail_ram_gib=ram_snap.avail_phys_gib if ram_snap else 0.0,
+                system_commit_pct=ram_snap.commit_pct if ram_snap else 0.0,
+                status=status,
+                error_message=proc_snap.error_message or ram_snap.error_message
+            )
+
+        return ControllerMemorySample(
+            checkpoint_id=checkpoint_id,
+            description=description,
+            pid=pid,
+            working_set_bytes=proc_snap.working_set_bytes,
+            working_set_mb=proc_snap.working_set_mb,
+            private_commit_bytes=proc_snap.private_commit_bytes,
+            private_commit_mb=proc_snap.private_commit_mb,
+            page_fault_count=proc_snap.page_fault_count,
+            cpu_time_seconds=cpu_time,
+            system_avail_ram_gib=ram_snap.avail_phys_gib,
+            system_commit_pct=ram_snap.commit_pct,
+            status=TelemetryStatus.SUCCESS
+        )
 
     @staticmethod
     def list_top_processes(limit: int = 15) -> List[ProcessResourceSnapshot]:

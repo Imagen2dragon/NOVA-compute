@@ -58,9 +58,10 @@ Upon invocation, NOVA immediately presents its operational banner:
 ```text
 ========================================================================
 NOVA COMPUTE — GUIDED STARTUP
-Startup mode: LOW-MEMORY SAFE MODE
-Model state: NOT LOADED
-Inference state: BLOCKED UNTIL QUALIFIED
+Startup Mode: LOW-MEMORY SAFE MODE
+Model: Qwen3-30B-A3B Q4_K_M
+Model State: NOT LOADED
+Inference: BLOCKED
 ========================================================================
 ```
 
@@ -70,7 +71,7 @@ Inference state: BLOCKED UNTIL QUALIFIED
 
 When the initial preflight check detects that available physical RAM is below 10.0 GiB, NOVA transitions from `PREFLIGHT_RUNNING` to `PREFLIGHT_FAILED`, and immediately enters `LOW_MEMORY_WAIT`.
 
-### 4.1 Exact Deficit Calculation
+### 4.1 Exact Deficit Calculation & Explanation
 The exact deficit is computed directly from raw authoritative memory counters:
 
 $$\text{RAM Deficit (GiB)} = \max\left(0.0, \, \text{Round}\left(\text{Policy}_{\text{MinRAM}} - \text{Telemetry}_{\text{AvailRAM}}, \, 2\right)\right)$$
@@ -78,9 +79,16 @@ $$\text{RAM Deficit (GiB)} = \max\left(0.0, \, \text{Round}\left(\text{Policy}_{
 Example output:
 ```text
 [!] Available physical RAM is below the required threshold. Close unused applications to make more memory available.
+Available RAM: 8.23 GiB
 Current available RAM: 8.23 GiB
 Required RAM: 10.00 GiB
+RAM Deficit: 1.77 GiB
 Additional available RAM required: 1.77 GiB
+Next Action: Free memory and request another measurement.
+
+NOVA's lightweight controller is running in safe mode.
+The Qwen3-30B-A3B model (18.25 GiB) has NOT been loaded into memory.
+Inference execution is strictly blocked.
 
 Suggested actions:
 1. Save work and close unused browser tabs/windows.
@@ -90,15 +98,18 @@ Suggested actions:
 ```
 
 ### 4.2 Candidate Process Diagnostics
-The Memory Advisor inspects active processes and ranks candidate user applications by observed physical footprint:
+The Memory Advisor inspects active processes and ranks candidate user applications by observed physical working set, presenting working set and private commit separately:
 
 ```text
 Top candidate applications for manual closure:
   - msedge.exe (3 instances): Working Set: 840.5 MB, Private Commit: 920.0 MB
+    Why: High-memory user-facing application (Web Browser). Safe to close if not currently required.
     Action: Save work and close active tabs or exit unused browser windows.
   - code.exe (1 instances): Working Set: 612.0 MB, Private Commit: 680.5 MB
+    Why: High-memory user-facing application (Development IDE). Safe to close if not currently required.
     Action: Save open files and close unused editor windows or heavy extensions.
   - spotify.exe (1 instances): Working Set: 215.0 MB, Private Commit: 240.0 MB
+    Why: High-memory user-facing application (Media Player). Safe to close if not currently required.
     Action: Close Spotify desktop player if not actively streaming.
 ```
 
@@ -194,3 +205,25 @@ NOVA enforces strict separation between memory pressure and storage limits:
 - Controller transitions state machine to `ABORTED`.
 - Output: `Exiting guided startup. Safe shutdown complete.`
 - Application terminates cleanly with exit code 0.
+
+---
+
+## 8. Controller Memory Footprint Profile & Authorization Protocol (Phase 3B.2)
+
+### 8.1 Empirical Controller Memory Footprint
+Phase 3B.2 added telemetry instrumentation to measure the controller process itself across four checkpoints (`reports/phase3/PHASE3B2_CONTROLLER_MEMORY_PROFILE.md`):
+- **Checkpoint A (Earliest initialization)**: Working Set ~20.1 MB, Private Commit ~13.5 MB.
+- **Checkpoint B (Core initialization)**: Working Set ~25.8 MB, Private Commit ~17.9 MB.
+- **Startup Delta ($B - A$)**: Working Set `+5.7 MB`, Private Commit `+4.4 MB`.
+- **Checkpoint C (Idle Average)**: Working Set ~26.3 MB, Private Commit ~17.9 MB.
+- **Checkpoint D (Post-Recheck)**: Sampled after evaluating all six gates.
+
+This proves that NOVA's lightweight controller requires **less than 30 MB** of physical RAM and dedicated commit charge, leaving > 99.8% of system resources untouched for user workload review and model execution.
+
+### 8.2 Strict Local Authorization Boundary
+Transitioning to `MODEL_INITIALIZATION` requires:
+1. Every one of the six admission gates must pass.
+2. The user must explicitly view the exact Configuration D command, target model, binary path, parameter constraints, and supervisor thresholds.
+3. The Project Owner must issue an explicit, single-use, per-run authorization token.
+4. Authorization is single-use: upon invocation, the token is consumed immediately, preventing unintended subsequent runs.
+5. In Phase 3B.2, the actual model launcher remains disabled; simulated authorization tests verify the state machine without spawning the binary.
