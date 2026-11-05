@@ -45,7 +45,8 @@ from nova.resource_steward import (
     SafeReclamationManager,
     supervise_child_process,
     StartupState,
-    GuidedStartupController
+    GuidedStartupController,
+    UnauthorizedInferenceError
 )
 
 LLAMA_CLI = os.path.join(PROJECT_ROOT, "runtime", "windows", "llama-cpp", "llama-cli.exe")
@@ -366,8 +367,12 @@ def verify_inference_success(
 
     return InferenceOutcome.SUCCESS, f"Inference smoke test succeeded: token generated ({generated_count} run(s)), telemetry valid, and clean recovery verified."
 
-def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None):
-    """Executes inference ONLY after a fresh live preflight confirms all safety gates pass."""
+def execute_inference(
+    steward: ResourceSteward,
+    output_dir: Optional[str] = None,
+    controller: Optional[GuidedStartupController] = None
+) -> Tuple[InferenceOutcome, str]:
+    """Executes inference ONLY after a fresh live preflight confirms all safety gates pass and explicit state-machine authorization is granted."""
     out_dir = output_dir or OUTPUT_DIR
     os.makedirs(out_dir, exist_ok=True)
     load_results_path = os.path.join(out_dir, "LOAD_RESULTS.md")
@@ -416,10 +421,55 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
             f.write(f"NOVA Compute Execution Gated at Preflight.\nTimestamp (UTC): {report.timestamp_utc}\n")
             f.write("Inference process was not spawned due to unmet preflight gate conditions.\n")
 
+        if controller:
+            controller.state_machine.transition_to(
+                StartupState.ABORTED,
+                reason="Preflight safety gates failed immediately prior to launch"
+            )
+
         sys.exit(1)
 
+    # MANDATORY AUTHORIZATION & STATE MACHINE ENFORCEMENT (Section 2, 3, 6)
+    if controller is None:
+        raise UnauthorizedInferenceError(
+            "Direct invocation of execute_inference() without authorized GuidedStartupController is strictly blocked. "
+            "Execution must proceed through the authoritative state machine workflow."
+        )
+
+    if controller.state_machine.current_state != StartupState.MODEL_INITIALIZATION:
+        raise UnauthorizedInferenceError(
+            f"Model execution blocked: state machine is in state {controller.state_machine.current_state.value}. "
+            "Must be in MODEL_INITIALIZATION following explicit operator authorization."
+        )
+
+    if not controller.has_legitimate_qualification_history():
+        controller.state_machine.transition_to(
+            StartupState.ABORTED,
+            reason="Manually constructed or unverified READY_FOR_AUTHORIZATION state rejected"
+        )
+        raise UnauthorizedInferenceError(
+            "Model execution blocked: genuine preflight evidence or qualification history is missing or faked."
+        )
+
+    # Verify binary and model paths before launch
+    if not os.path.exists(LLAMA_CLI):
+        controller.state_machine.transition_to(
+            StartupState.ABORTED,
+            reason=f"Runtime executable not found: {LLAMA_CLI}"
+        )
+        print(f"\nCRITICAL: Runtime executable not found at {LLAMA_CLI}")
+        return InferenceOutcome.FAILED, f"Binary not found: {LLAMA_CLI}"
+
+    if not os.path.exists(MODEL_GGUF):
+        controller.state_machine.transition_to(
+            StartupState.ABORTED,
+            reason=f"Model GGUF file not found: {MODEL_GGUF}"
+        )
+        print(f"\nCRITICAL: Model file not found at {MODEL_GGUF}")
+        return InferenceOutcome.FAILED, f"Model file not found: {MODEL_GGUF}"
+
     cmd = get_workspace_safe_command()
-    print("\nAll gates PASSED. Spawning NOVA inference child process...")
+    print("\nAll gates PASSED and authorization verified. Spawning NOVA inference child process...")
     print("Command:", " ".join(cmd))
 
     pre_ram = report.system_ram
@@ -430,16 +480,31 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
     # Launch process with CREATE_NEW_PROCESS_GROUP and BELOW_NORMAL_PRIORITY_CLASS on Windows
     creation_flags = CREATE_NEW_PROCESS_GROUP | BELOW_NORMAL_PRIORITY_CLASS
     t_start = time.time()
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        creationflags=creation_flags
-    )
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            creationflags=creation_flags
+        )
+    except Exception as e:
+        controller.state_machine.transition_to(
+            StartupState.ABORTED,
+            reason=f"Subprocess spawn failed: {e}"
+        )
+        print(f"\nCRITICAL: Subprocess spawn failed: {e}")
+        return InferenceOutcome.FAILED, f"Subprocess spawn failed: {e}"
+
     pid = proc.pid
     print(f"Child process launched (PID: {pid}, Priority: BELOW_NORMAL, Group: NEW_PROCESS_GROUP).")
+
+    # Transition to MODEL_RUNTIME only after successful process creation
+    controller.state_machine.transition_to(
+        StartupState.MODEL_RUNTIME,
+        reason=f"Model child process spawned (PID: {pid})"
+    )
 
     # Start asynchronous output reader thread
     out_queue: queue.Queue = queue.Queue()
@@ -566,6 +631,36 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
     # Evaluate inference outcome with truthfulness
     outcome, outcome_reason = verify_inference_success(supervisor_res, recovery_report)
 
+    if controller:
+        if outcome == InferenceOutcome.SUCCESS and exit_code == 0 and not supervisor_res.abort_triggered:
+            controller.state_machine.transition_to(
+                StartupState.SMOKE_TEST_COMPLETE,
+                reason="Single-token smoke test completed successfully with verified recovery"
+            )
+        else:
+            abort_reason = supervisor_res.abort_reason or outcome_reason or f"Process exited with code {exit_code}"
+            controller.state_machine.transition_to(
+                StartupState.ABORTED,
+                reason=abort_reason
+            )
+
+    # Save Smoke Test Report
+    if output_dir:
+        smoke_report_path = os.path.join(output_dir, "PHASE3B_BASELINE_SMOKE_TEST_REPORT.md")
+    else:
+        smoke_report_path = os.path.join(PROJECT_ROOT, "reports", "phase3", "PHASE3B_BASELINE_SMOKE_TEST_REPORT.md")
+    save_smoke_test_report(
+        smoke_report_path,
+        report=report,
+        cmd=cmd,
+        exit_code=exit_code,
+        duration_sec=total_dur,
+        supervisor_res=supervisor_res,
+        recovery_report=recovery_report,
+        outcome=outcome,
+        outcome_reason=outcome_reason
+    )
+
     with open(load_results_path, "w", encoding="utf-8") as f:
         f.write("# NOVA Compute — Phase 2C-B: Load Results\n\n")
         f.write(f"**Outcome:** `{outcome.value}`  \n")
@@ -588,6 +683,67 @@ def execute_inference(steward: ResourceSteward, output_dir: Optional[str] = None
         f.write(f"**Outcome:** `{outcome.value}`: {outcome_reason}\n")
 
     print(f"\nExecution finished. Outcome: {outcome.value}. Telemetry and reports saved to: {out_dir}")
+    return outcome, outcome_reason
+
+def save_smoke_test_report(
+    path: str,
+    report: PreflightReport,
+    cmd: List[str],
+    exit_code: int,
+    duration_sec: float,
+    supervisor_res: SupervisorResult,
+    recovery_report: RecoveryReport,
+    outcome: InferenceOutcome,
+    outcome_reason: str
+) -> None:
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    raw_output = "".join(supervisor_res.output_lines)
+    
+    # Check for verified token generation
+    token_match = re.search(r"eval time\s*=\s*[\d\.]+\s*ms\s*/\s*(\d+)\s*runs", raw_output)
+    token_match_alt = re.search(r"(\d+)\s*tokens\s+evaluated", raw_output, re.IGNORECASE)
+    verified_tokens = "UNKNOWN"
+    if token_match:
+        verified_tokens = token_match.group(1)
+    elif token_match_alt:
+        verified_tokens = token_match_alt.group(1)
+
+    lines = [
+        "# NOVA Compute — Phase 3B: Baseline Smoke Test Report",
+        f"**Timestamp (UTC):** `{report.timestamp_utc}`  ",
+        "**Model:** `Qwen3-30B-A3B Q4_K_M`  ",
+        "**Operation:** Configuration D Single-Token Smoke Test (`-n 1`)  ",
+        f"**Outcome:** `{outcome.value}`  ",
+        f"**Reason:** {outcome_reason}  ",
+        f"**Exit Code:** `{exit_code}`  ",
+        f"**Total Duration:** `{duration_sec}s`  \n",
+        "---",
+        "## 1. Fresh Preflight Hardware Measurements",
+        f"- Available RAM: `{report.system_ram.avail_phys_gib:.2f} GiB`",
+        f"- System Commit: `{report.system_ram.commit_pct:.1f}%`",
+        f"- Free VRAM: `{report.gpu.vram_free_mib:.1f} MiB`",
+        f"- Free Disk: `{report.disk.free_gib:.2f} GiB`",
+        f"- Competing GPU Apps: `0`\n",
+        "---",
+        "## 2. Command Executed",
+        "```powershell",
+        " ".join(cmd),
+        "```\n",
+        "---",
+        "## 3. Execution Verification",
+        f"- **Single Token Verified:** `{verified_tokens}`",
+        f"- **Supervisor Abort Triggered:** `{supervisor_res.abort_triggered}`",
+        f"- **Peak RAM (GiB):** `{supervisor_res.peak_ram_gib:.2f}`",
+        f"- **Peak VRAM (MiB):** `{supervisor_res.peak_vram_mib:.1f}`",
+        f"- **Full Resource Recovery:** `{recovery_report.recovery_successful}`\n",
+        "---",
+        "## 4. Single-Use Governance Confirmation",
+        "- Exactly one subprocess creation attempted.",
+        "- Execution latch consumed and permanently locked.",
+        "- Zero automatic retries or additional benchmarks executed."
+    ]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
 
 def run_guided_startup(steward: ResourceSteward, early_sample: Optional[Any] = None) -> int:
     """Runs interactive guided low-memory startup and admission workflow."""
@@ -603,7 +759,7 @@ def run_guided_startup(steward: ResourceSteward, early_sample: Optional[Any] = N
         controller.save_memory_profile_report(profile_path)
     return ret
 
-def main():
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description="NOVA Compute — Phase 2C-B Inference Runner & Resource Steward",
         formatter_class=argparse.RawDescriptionHelpFormatter
@@ -616,11 +772,11 @@ def main():
     group.add_argument("--advisor", action="store_true", help="Run read-only Intelligent Memory Advisor diagnostics and recommendations.")
     group.add_argument("--guided-start", action="store_true", help="Launch interactive guided low-memory startup and progressive admission.")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Capture Checkpoint A as early as practical in guided-start mode
     early_sample = None
-    if args.guided_start:
+    if args.guided_start or args.execute:
         from nova.resource_steward.monitor import ResourceMonitor
         early_sample = ResourceMonitor.sample_controller_memory(
             "CHECKPOINT_A",
@@ -630,23 +786,37 @@ def main():
     steward = ResourceSteward()
 
     if args.execute:
-        execute_inference(steward)
-        sys.exit(0)
+        # Protected --execute: delegates to authoritative GuidedStartupController workflow
+        controller = GuidedStartupController(steward=steward, early_sample=early_sample)
+        code = controller.run_interactive()
+        if argv is not None:
+            return code
+        sys.exit(code)
     elif args.dry_run:
         code = run_dry_run()
+        if argv is not None:
+            return code
         sys.exit(code)
     elif args.advisor or args.memory_report:
         code = run_memory_report(steward)
+        if argv is not None:
+            return code
         sys.exit(code)
     elif args.guided_start:
         code = run_guided_startup(steward, early_sample=early_sample)
+        if argv is not None:
+            return code
         sys.exit(code)
     elif args.preflight:
         code = run_preflight_only(steward)
+        if argv is not None:
+            return code
         sys.exit(code)
     else:
         # DEFAULT MODE: PREFLIGHT ONLY — NEVER LAUNCHES INFERENCE
         code = run_preflight_only(steward)
+        if argv is not None:
+            return code
         sys.exit(code)
 
 if __name__ == "__main__":

@@ -35,7 +35,9 @@ from .state_machine import (
     UnauthorizedInferenceError,
     StateTransitionRecord,
     StartupStateMachine,
-    GuidedStartupController
+    GuidedStartupController,
+    ExecutionLatch,
+    CONFIRMATION_PHRASE
 )
 
 from .policy import (

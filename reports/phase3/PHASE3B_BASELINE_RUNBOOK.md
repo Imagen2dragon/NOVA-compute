@@ -195,6 +195,19 @@ Added in Phase 3B.1 and enhanced in Phase 3B.2, NOVA provides an interactive saf
 3. **Interactive Recheck**: On user request (`Enter`/`R`), re-evaluates all six admission gates atomically from fresh telemetry.
 4. **Qualification Display**: When all 6 gates pass, transitions to `READY_FOR_AUTHORIZATION`, displays the full Configuration D baseline command and safety summary, and halts. Model execution is strictly blocked until explicit Project Owner authorization is provided.
 
+### 6.5 Integrated Authorized Execution & Session Latch (Phase 3B.4)
+Implemented in Phase 3B.4, all inference execution pathways are unified under strict state-machine governance:
+1. **Mandatory State Machine Routing**: The `--execute` CLI route delegates directly to `GuidedStartupController.run_interactive()`. Direct calls to `execute_inference()` without an authorized controller raise `UnauthorizedInferenceError`.
+2. **Explicit Operator Confirmation**: Following qualification, the controller prompts the operator to type the exact confirmation phrase:
+   ```
+   RUN CONFIGURATION D SMOKE TEST ONCE
+   ```
+   Any mismatch, blank input, or cancel entry aborts execution cleanly without spawning a child process.
+3. **Session-Scoped Execution Latch**: An `ExecutionLatch` guarantees that **exactly one** model child process can be created per controller session. Any secondary launch attempt raises `UnauthorizedInferenceError`. Automatic retries are strictly prohibited.
+4. **Preflight Freshness Guarantee**: Preflight qualification evidence older than 300.0 seconds is rejected as stale, requiring fresh hardware qualification prior to authorization.
+5. **Strict Process Targeting & Containment**: The supervisor strictly targets the direct NOVA child process handle (`proc.pid`) using console control routing (`CREATE_NEW_PROCESS_GROUP`). No Windows Job Object is implemented, and no tree-wide descendant containment is claimed. External applications are never touched.
+6. **Single-Token Verification**: The output must contain verified token generation (`eval time = ... / 1 runs`). Ambiguous or prompt-only executions are classified as `InferenceOutcome.UNVERIFIED` and transition to `ABORTED`.
+
 ---
 
 ## 7. Expected Outputs & Artifact Deliverables

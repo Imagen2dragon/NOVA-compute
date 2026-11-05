@@ -38,6 +38,36 @@ class UnauthorizedInferenceError(InvalidStateTransitionError):
     pass
 
 
+CONFIRMATION_PHRASE: str = "RUN CONFIGURATION D SMOKE TEST ONCE"
+
+
+class ExecutionLatch:
+    """
+    Per-session execution latch ensuring exactly one model subprocess creation attempt.
+    - The latch begins unused (is_consumed == False).
+    - It is consumed immediately before the one authorized process creation attempt.
+    - It cannot be reset after an abort.
+    - It cannot be reused after completion.
+    - A failed spawn does not reset the latch.
+    - Exiting the application does not restore consumed authorization.
+    """
+    def __init__(self):
+        self._consumed: bool = False
+        self._consumed_at: Optional[float] = None
+
+    @property
+    def is_consumed(self) -> bool:
+        return self._consumed
+
+    def consume(self) -> None:
+        if self._consumed:
+            raise UnauthorizedInferenceError(
+                "Execution latch already consumed: exactly one model subprocess creation is permitted per session."
+            )
+        self._consumed = True
+        self._consumed_at = time.time()
+
+
 @dataclass
 class StateTransitionRecord:
     """Audit log entry capturing state machine transitions."""
@@ -125,11 +155,19 @@ class StartupStateMachine:
         StartupState.ABORTED: set()
     }
 
-    def __init__(self, initial_state: StartupState = StartupState.BOOTSTRAPPING):
+    def __init__(
+        self,
+        initial_state: StartupState = StartupState.BOOTSTRAPPING,
+        clock: Callable[[], float] = time.monotonic
+    ):
         self._current_state = initial_state
         self._history: List[StateTransitionRecord] = []
         self._last_preflight_passed: bool = False
+        self._last_preflight_report: Optional[Any] = None
         self._pending_authorization_token: Optional[str] = None
+        self._preflight_timestamp_monotonic: Optional[float] = None
+        self._max_preflight_age_seconds: float = 300.0
+        self.clock: Callable[[], float] = clock
 
     @property
     def current_state(self) -> StartupState:
@@ -138,6 +176,15 @@ class StartupStateMachine:
     @property
     def history(self) -> List[StateTransitionRecord]:
         return list(self._history)
+
+    @property
+    def last_preflight_report(self) -> Optional[Any]:
+        return self._last_preflight_report
+
+    @property
+    def has_valid_authorization(self) -> bool:
+        """Returns True if a valid pending authorization token is held and not yet consumed."""
+        return self._pending_authorization_token is not None
 
     @property
     def model_loaded(self) -> bool:
@@ -157,6 +204,7 @@ class StartupStateMachine:
         """
         Grants explicit, single-use, per-run Project Owner authorization for model initialization.
         Requires state to be READY_FOR_AUTHORIZATION with all 6 gates passed.
+        Rejects stale preflight evidence.
         """
         if self._current_state != StartupState.READY_FOR_AUTHORIZATION:
             raise InvalidStateTransitionError(
@@ -169,7 +217,16 @@ class StartupStateMachine:
             )
         if not authorization_token or not isinstance(authorization_token, str) or not authorization_token.strip():
             raise UnauthorizedInferenceError("Authorization token must be a non-empty string.")
-        
+
+        # Stale preflight evidence check (Section 4 & Section 11 Test 5)
+        if self._preflight_timestamp_monotonic is not None:
+            now_mono = self.clock()
+            if now_mono - self._preflight_timestamp_monotonic > self._max_preflight_age_seconds:
+                raise UnauthorizedInferenceError(
+                    f"Preflight evidence is stale ({now_mono - self._preflight_timestamp_monotonic:.1f}s > {self._max_preflight_age_seconds}s). "
+                    "Fresh hardware qualification required before authorization."
+                )
+
         self._pending_authorization_token = authorization_token.strip()
 
     def transition_to(
@@ -178,6 +235,7 @@ class StartupStateMachine:
         reason: str = "",
         authorized: bool = False,
         preflight_passed: Optional[bool] = None,
+        preflight_report: Optional[Any] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> StartupState:
         """
@@ -196,11 +254,24 @@ class StartupStateMachine:
 
         # Gate check for READY_FOR_AUTHORIZATION
         if target_state == StartupState.READY_FOR_AUTHORIZATION:
-            effective_preflight = preflight_passed if preflight_passed is not None else self._last_preflight_passed
-            if not effective_preflight:
-                raise InvalidStateTransitionError(
-                    "Cannot enter READY_FOR_AUTHORIZATION when preflight gates have failed."
-                )
+            if preflight_report is not None:
+                if not getattr(preflight_report, "passed", False):
+                    raise InvalidStateTransitionError("Cannot enter READY_FOR_AUTHORIZATION when preflight report indicates failure.")
+                gates = getattr(preflight_report, "gates", {})
+                required_gates = ("telemetry_integrity", "avail_ram", "system_commit", "avail_vram", "no_competing_gpu", "disk_free")
+                for g_name in required_gates:
+                    g = gates.get(g_name)
+                    if g is None or not getattr(g, "passed", False):
+                        raise InvalidStateTransitionError(f"Cannot enter READY_FOR_AUTHORIZATION: gate {g_name} failed or missing.")
+                self._last_preflight_report = preflight_report
+                self._preflight_timestamp_monotonic = self.clock()
+                effective_preflight = True
+            else:
+                effective_preflight = preflight_passed if preflight_passed is not None else self._last_preflight_passed
+                if not effective_preflight:
+                    raise InvalidStateTransitionError(
+                        "Cannot enter READY_FOR_AUTHORIZATION when preflight gates have failed."
+                    )
 
         # Authorization check for MODEL_INITIALIZATION
         if target_state == StartupState.MODEL_INITIALIZATION:
@@ -245,7 +316,8 @@ class GuidedStartupController:
         input_fn: Optional[Callable[[str], str]] = None,
         output_fn: Optional[Callable[[str], None]] = None,
         state_machine: Optional[StartupStateMachine] = None,
-        early_sample: Optional[ControllerMemorySample] = None
+        early_sample: Optional[ControllerMemorySample] = None,
+        execution_runner: Optional[Callable[..., Any]] = None
     ):
         from . import ResourceSteward
         self.steward = steward or ResourceSteward()
@@ -253,6 +325,8 @@ class GuidedStartupController:
         self.output_fn = output_fn or print
         self.state_machine = state_machine or StartupStateMachine()
         self.last_preflight_report: Optional[PreflightReport] = None
+        self.execution_latch = ExecutionLatch()
+        self.execution_runner = execution_runner
 
         # Controller Memory Profile (Phase 3B.2)
         self.memory_profile = ControllerMemoryProfile()
@@ -282,6 +356,10 @@ class GuidedStartupController:
     @property
     def current_state(self) -> StartupState:
         return self.state_machine.current_state
+
+    @property
+    def has_valid_authorization(self) -> bool:
+        return self.state_machine.has_valid_authorization
 
     @property
     def model_loaded(self) -> bool:
@@ -345,7 +423,8 @@ class GuidedStartupController:
             self.state_machine.transition_to(
                 StartupState.READY_FOR_AUTHORIZATION,
                 reason="All six admission gates passed",
-                preflight_passed=True
+                preflight_passed=True,
+                preflight_report=self.last_preflight_report
             )
             self._display_qualified_status()
             self.sample_idle_footprint()
@@ -407,7 +486,8 @@ class GuidedStartupController:
             self.state_machine.transition_to(
                 StartupState.READY_FOR_AUTHORIZATION,
                 reason="All six admission gates passed on recheck",
-                preflight_passed=True
+                preflight_passed=True,
+                preflight_report=self.last_preflight_report
             )
             self._display_qualified_status()
             return self.state_machine.current_state
@@ -590,12 +670,155 @@ class GuidedStartupController:
                 self.output_fn(f"Unrecognized option: '{user_choice}'. Enter 'R' to recheck memory or 'Q' to quit.")
 
         if self.state_machine.current_state == StartupState.READY_FOR_AUTHORIZATION:
-            self.output_fn("\nNOVA Compute is now in READY state. Inference will not run without explicit authorization.")
-            return 0
+            self.display_execution_confirmation()
+            try:
+                user_confirm = self.input_fn(
+                    f"\n[Confirm Execution] Type '{CONFIRMATION_PHRASE}' to authorize, or 'Q' to cancel: "
+                ).strip()
+            except (EOFError, KeyboardInterrupt):
+                self.output_fn("\nInterrupted by user.")
+                user_confirm = "q"
+
+            if user_confirm.upper() == CONFIRMATION_PHRASE:
+                import uuid
+                token = f"AUTH-SMOKE-{uuid.uuid4().hex[:8].upper()}"
+                self.state_machine.grant_authorization(token)
+                self.output_fn(f"\n[AUTHORIZATION] Single-use authorization granted (token: {token[:16]}...).")
+                res = self.launch_authorized_inference()
+                outcome = res[0] if isinstance(res, tuple) else res
+                outcome_val = getattr(outcome, "value", str(outcome))
+                return 0 if outcome_val == "SUCCESS" else 1
+            elif user_confirm.lower() in ("q", "quit", "exit"):
+                self.state_machine.transition_to(
+                    StartupState.ABORTED,
+                    reason="User cancelled at execution confirmation"
+                )
+                self.output_fn("Execution cancelled. Safe shutdown complete.")
+                return 0
+            else:
+                self.output_fn(f"Confirmation phrase mismatch (entered: '{user_confirm}'). Execution blocked.")
+                self.state_machine.transition_to(
+                    StartupState.ABORTED,
+                    reason="Execution confirmation phrase mismatch"
+                )
+                return 1
+
         elif self.state_machine.current_state == StartupState.ABORTED:
             return 0
 
         return 0
+
+    def has_legitimate_qualification_history(self) -> bool:
+        """
+        Verifies that READY_FOR_AUTHORIZATION was reached via legitimate qualification lifecycle
+        (BOOTSTRAPPING -> SAFE_STARTUP -> PREFLIGHT_RUNNING -> READY_FOR_AUTHORIZATION)
+        with genuine passing preflight report evidence.
+        Rejects manually initialized or fabricated states.
+        """
+        if not self.last_preflight_report or not getattr(self.last_preflight_report, "passed", False):
+            return False
+
+        # Verify history transitions contain PREFLIGHT_RUNNING and READY_FOR_AUTHORIZATION
+        history_states = [rec.to_state for rec in self.state_machine.history]
+        if StartupState.PREFLIGHT_RUNNING not in history_states:
+            return False
+        if StartupState.READY_FOR_AUTHORIZATION not in history_states:
+            return False
+
+        # Verify all 6 mandatory gates exist and passed
+        gates = getattr(self.last_preflight_report, "gates", {})
+        required_gates = {
+            "telemetry_integrity",
+            "avail_ram",
+            "system_commit",
+            "avail_vram",
+            "no_competing_gpu",
+            "disk_free"
+        }
+        if not required_gates.issubset(set(gates.keys())):
+            return False
+        for g_name in required_gates:
+            if not getattr(gates[g_name], "passed", False):
+                return False
+
+        # Reject non-finite measurements
+        ram = getattr(self.last_preflight_report, "system_ram", None)
+        if ram and (not math.isfinite(getattr(ram, "avail_phys_gib", 0.0)) or ram.avail_phys_gib < 0):
+            return False
+
+        return True
+
+    def display_execution_confirmation(self) -> None:
+        """Displays the mandatory pre-execution confirmation screen."""
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        llama_cli = os.path.join(project_root, "runtime", "windows", "llama-cpp", "llama-cli.exe")
+        model_gguf = os.path.join(project_root, "models", "qwen3-30b", "Qwen_Qwen3-30B-A3B-Q4_K_M.gguf")
+
+        self.output_fn("\n========================================================================")
+        self.output_fn("NOVA COMPUTE — EXECUTION CONFIRMATION")
+        self.output_fn("========================================================================")
+        self.output_fn("Operation: CONFIGURATION D SMOKE TEST")
+        self.output_fn("Model: Qwen3-30B-A3B Q4_K_M")
+        self.output_fn("")
+        self.output_fn("Executable:")
+        self.output_fn(f"  {llama_cli}")
+        self.output_fn("Model:")
+        self.output_fn(f"  {model_gguf}")
+        self.output_fn("")
+        self.output_fn("Parameters:")
+        self.output_fn("  - Generated tokens: 1 (-n 1)")
+        self.output_fn("  - GPU layers: 48 (-ngl 48)")
+        self.output_fn("  - CPU MoE layers: 40 (-ncmoe 40)")
+        self.output_fn("  - Context: 512 (-c 512)")
+        self.output_fn("  - Batch: 64 (-b 64)")
+        self.output_fn("  - Micro-batch: 16 (-ub 16)")
+        self.output_fn("  - KV cache: Q8_0 / Q8_0 (-ctk q8_0 -ctv q8_0)")
+        self.output_fn("  - Flash Attention: auto (-fa auto)")
+        self.output_fn("  - Loading mode: mmap (-lm mmap)")
+        self.output_fn("  - GPU expert cache: disabled (--moe-cache-mib 0)")
+        self.output_fn("")
+        self.output_fn("Runtime safeguards:")
+        self.output_fn("  - RAM < 2 GiB for >= 5 seconds.")
+        self.output_fn("  - VRAM < 512 MiB.")
+        self.output_fn("  - Commit >= 90%.")
+        self.output_fn("  - CUDA OOM.")
+        self.output_fn("  - Stale telemetry > 3 seconds.")
+        self.output_fn("========================================================================")
+        self.output_fn("To authorize this single-use execution, type:")
+        self.output_fn(f"  {CONFIRMATION_PHRASE}")
+        self.output_fn("Or press Enter / 'Q' to cancel.")
+
+    def launch_authorized_inference(self, output_dir: Optional[str] = None) -> Any:
+        """
+        Executes authorized inference through the supervised launcher.
+        Enforces execution latch, qualification history, and state transitions.
+        """
+        # Step 1: Enforce session execution latch (Section 8 & Section 11 Test 10)
+        self.execution_latch.consume()
+
+        # Step 2: Validate qualification history (Section 3 & Section 11 Test 6)
+        if not self.has_legitimate_qualification_history():
+            self.state_machine.transition_to(
+                StartupState.ABORTED,
+                reason="Manually constructed or unverified READY_FOR_AUTHORIZATION state rejected"
+            )
+            raise UnauthorizedInferenceError(
+                "Manually initialized or unverified READY_FOR_AUTHORIZATION state is rejected. "
+                "Execution must follow legitimate qualification lifecycle."
+            )
+
+        # Step 3: Transition to MODEL_INITIALIZATION (consumes single-use authorization token)
+        self.state_machine.transition_to(
+            StartupState.MODEL_INITIALIZATION,
+            reason="Operator confirmation verified; single-use authorization token consumed"
+        )
+
+        runner = self.execution_runner
+        if runner is None:
+            from scripts.run_inference_with_telemetry import execute_inference
+            runner = execute_inference
+
+        return runner(self.steward, controller=self, output_dir=output_dir)
 
     def format_memory_profile_markdown(self) -> str:
         """Renders the controller memory footprint report in markdown."""
