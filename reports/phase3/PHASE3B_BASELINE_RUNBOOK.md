@@ -169,7 +169,7 @@ To ensure absolute governance integrity, every abort rule listed in NOVA documen
 |---|---|---|---|:---:|
 | **Available RAM Depletion** | Available RAM $< 2.0\text{ GiB}$ sustained for $\ge 5.0\text{s}$ | `supervisor.py` L185–200 | `test_12`, `test_13` | **IMPLEMENTED AND TESTED** |
 | **CUDA Out-of-Memory** | `"CUDA error"` or `"out of memory"` in stream | `supervisor.py` L62–67, L260–266 | `test_15` | **IMPLEMENTED AND TESTED** |
-| **Telemetry Sampler Stale**| Sampler unasserted for $> 2.0\text{s}$ | `supervisor.py` L224–233 | `test_08`, `test_09`, `test_10` | **IMPLEMENTED AND TESTED** |
+| **Telemetry Sampler Stale**| Sampler unasserted for $> 3.0\text{s}$ (`stale_timeout_sec = 3.0`; reader join timeout is $2.0\text{s}$) | `supervisor.py` L28, L224–233 | `test_08`, `test_09`, `test_10` | **IMPLEMENTED AND TESTED** |
 | **Critical VRAM Depletion** | Free VRAM $< 512.0\text{ MiB}$ at any sample | `supervisor.py` L210–216 | `test_77_supervisor_vram_threshold_boundary_abort` | **IMPLEMENTED AND TESTED** |
 | **Critical System Commit** | System commit $\ge 90.0\%$ of limit | `supervisor.py` L202–208 | `test_78_supervisor_system_commit_boundary_abort` | **IMPLEMENTED AND TESTED** |
 | **Process Silence Watchdog**| No stdout lines emitted for $> 30.0\text{s}$ | *Not present in supervisor logic* (`test_14` verifies silent stdout does NOT abort) | `test_14_supervisor_silent_stdout_does_not_block_telemetry` | **MANUALLY MONITORED (WARNING ONLY)** |

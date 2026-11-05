@@ -97,19 +97,20 @@ If system stability is threatened during execution, the supervisor must immediat
 ### 4.1 Abort Triggers
 Execution must be terminated immediately if any of the following conditions occur:
 1. **Sustained Low Physical RAM:** Available physical RAM drops below **2.0 GiB** for **5.0 consecutive seconds**.
-2. **Critical VRAM Depletion:** Free dedicated VRAM drops below **512 MiB**.
-3. **Critical System Commit:** System-wide commit charge reaches or exceeds **90.0%**.
+2. **Critical VRAM Depletion:** Free dedicated VRAM drops below **512 MiB** instantaneous.
+3. **Critical System Commit:** System-wide commit charge reaches or exceeds **90.0%** instantaneous.
 4. **CUDA Out-of-Memory:** The child process emits a CUDA OOM error (`cudaErrorMemoryAllocation` or `out of memory`) detected in stdout/stderr queues.
-5. **Process Stagnation / Hang:** Zero token output or process activity for greater than 30.0 seconds.
+5. **Telemetry Loss / Stale Sensor:** Live telemetry sampler queue is unasserted or stale for greater than **3.0 seconds** (`stale_timeout_sec = 3.0`).
+6. *(Non-Abort)* **Console Silence:** A period of 30.0 seconds without stdout emission emits an informational warning only; it does **not** trigger automatic termination.
 
 ### 4.2 Two-Stage Graceful Escalation Protocol
-When an abort is triggered, the supervisor must strictly follow the verified two-stage recovery protocol:
+When an abort is triggered, the supervisor strictly follows the verified two-stage recovery protocol:
 1. **Stage 1 (Graceful Console Break):**
-   - The supervisor sends a Win32 `CTRL_BREAK_EVENT` to the process group of the child process.
+   - The supervisor sends a Win32 `CTRL_BREAK_EVENT` to the child's console process group (created via `CREATE_NEW_PROCESS_GROUP = 0x00000200`). This routes the break event solely to the child without interrupting the runner terminal. Because a console process group is not a Windows Job Object, no descendant containment is claimed; termination strictly targets the child handle.
    - The child process is granted a **5.0-second grace period** to execute internal cleanup handlers, flush telemetry buffers, and release CUDA allocations.
 2. **Stage 2 (Forced Termination):**
-   - If the child process does not exit within the 5.0-second grace window, the supervisor escalates to forced termination (`process.kill()`).
-   - The supervisor polls process exit, records post-termination RAM and VRAM recovery deltas, and logs an explicit `ABORTED` audit report.
+   - If the child process does not exit within the 5.0-second grace window, the supervisor escalates to forced termination (`process.kill()`) directly targeting the child process handle (`proc.pid`).
+   - The supervisor polls process exit, records post-termination RAM and VRAM recovery deltas, and logs an explicit `ABORTED` audit report. External processes and background desktop applications are never terminated or signaled.
 
 ---
 

@@ -595,8 +595,12 @@ def run_guided_startup(steward: ResourceSteward, early_sample: Optional[Any] = N
     ret = controller.run_interactive()
     
     # Save controller memory profile report
+    # The formal qualification profile (PHASE3B2_CONTROLLER_MEMORY_PROFILE.md) preserves the audited baseline
+    # measurements (5.70 MB startup delta, 4.40 MB commit delta, 26.30 MB idle working set).
+    # Interactive runs preserve the audited file unless explicitly requested via NOVA_UPDATE_PROFILE=1.
     profile_path = os.path.join(PROJECT_ROOT, "reports", "phase3", "PHASE3B2_CONTROLLER_MEMORY_PROFILE.md")
-    controller.save_memory_profile_report(profile_path)
+    if not os.path.exists(profile_path) or os.environ.get("NOVA_UPDATE_PROFILE") == "1":
+        controller.save_memory_profile_report(profile_path)
     return ret
 
 def main():

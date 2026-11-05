@@ -94,12 +94,20 @@ stateDiagram-v2
 | `SMOKE_TEST_COMPLETE` | `ABORTED` | Teardown complete |
 | `ABORTED` | *None (Terminal)* | Terminal state |
 
-### 4.2 Rejection of Illegal Transitions & Single-Use Authorization
+### 4.2 Rejection of Illegal Transitions & Single-Use Authorization Boundary
 The state machine implements strict runtime validation in `StartupStateMachine.transition_to()` and `StartupStateMachine.grant_authorization()`:
 - **Direct Leap to Model Loading**: Attempting `BOOTSTRAPPING -> MODEL_INITIALIZATION` or `LOW_MEMORY_WAIT -> MODEL_INITIALIZATION` raises `InvalidStateTransitionError`.
 - **Bypassing Authorization**: Attempting `READY_FOR_AUTHORIZATION -> MODEL_INITIALIZATION` without passing `authorized=True` or a granted authorization token raises `UnauthorizedInferenceError`.
+- **Application-Level Authorization Guard**: The single-use authorization token (`grant_authorization(token)`) is strictly an application-level state machine gating mechanism to enforce deliberate sequential operator consent; it does **not** provide cryptographic identity authentication.
+- **Explicit Local Per-Run Confirmation**: Prior to actual live inference integration, an interactive confirmation prompt must display the exact binary path, model path, Configuration D flags, 1-token limit, and supervisor abort thresholds.
 - **Single-Use Token Consumption**: Once `grant_authorization(token)` is invoked and the transition to `MODEL_INITIALIZATION` occurs, the pending token is cleared immediately. Any subsequent model launch attempt requires fresh authorization.
 - **Bypassing Gates**: Attempting `PREFLIGHT_RUNNING -> READY_FOR_AUTHORIZATION` when one or more gates failed raises `InvalidStateTransitionError`.
+- **Launcher Disabled**: In Phase 3B.2, the actual model launcher remains disabled; simulated authorization tests verify the state machine without spawning the binary.
+
+### 4.3 Process Targeting and Signal Routing Architecture
+- **Console Process Group (`CREATE_NEW_PROCESS_GROUP = 0x00000200`)**: Spawning the child with this flag creates a Win32 console process group, which enables routing console control signals (`CTRL_BREAK_EVENT`) to the child process without propagating the event to the parent controller or runner terminal.
+- **Console Control Event vs. Process Termination**: Win32 `CTRL_BREAK_EVENT` is a console process-group control signal delivered via `os.kill(proc.pid, signal.CTRL_BREAK_EVENT)`. Direct child process termination is performed via `proc.kill()` targeting the child process handle.
+- **No Windows Job Object**: A Win32 console process group is purely a console control routing construct and is **not equivalent to a Windows Job Object**. NOVA does not currently implement a Windows Job Object; therefore, no claim of tree-wide descendant process containment is made. Supervision and termination explicitly target the direct NOVA-owned child process handle (`proc.pid`). External user processes and background desktop applications are never terminated or signaled.
 
 ---
 

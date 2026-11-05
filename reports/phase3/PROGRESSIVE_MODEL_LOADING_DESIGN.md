@@ -56,7 +56,7 @@ flowchart TD
 
 ### Stage B — CPU File-Backed Preparation (Subprocess Launch)
 
-**Execution Context:** Subprocess launched with `BELOW_NORMAL_PRIORITY_CLASS` (0x00004000) and `CREATE_NEW_PROCESS_GROUP` (0x00000200).  
+**Execution Context:** Subprocess launched with `BELOW_NORMAL_PRIORITY_CLASS` (0x00004000) and `CREATE_NEW_PROCESS_GROUP` (0x00000200). `CREATE_NEW_PROCESS_GROUP` creates a Win32 console process group for console control signal routing (`CTRL_BREAK_EVENT`); it is not a Windows Job Object and does not provide tree-wide descendant process containment.  
 **Hardware Impact:** Host virtual address space reservation (~18.5 GiB); physical RAM pages faulted in demand-driven fashion.
 
 #### Runtime Parameters:
@@ -164,12 +164,13 @@ During Stages B through E, the external supervisor monitors live hardware teleme
 | **Critical VRAM Floor** | Avail VRAM < 512 MiB instantaneous | Terminate child process | Child PID only (`CTRL_BREAK` $\to$ `kill`) |
 | **System Commit Ceiling** | Commit ratio $\ge 90.0\%$ instantaneous | Terminate child process | Child PID only (`CTRL_BREAK` $\to$ `kill`) |
 | **CUDA OOM / Alloc Error** | Detected in stderr stream | Terminate child process | Child PID only (`CTRL_BREAK` $\to$ `kill`) |
-| **Telemetry Loss** | Sampler queue empty for $> 5.0\text{ s}$ | Terminate child process | Child PID only (`CTRL_BREAK` $\to$ `kill`) |
+| **Telemetry Loss** | Sampler queue empty for $> 3.0\text{ s}$ (`stale_timeout_sec = 3.0`) | Terminate child process | Child PID only (`CTRL_BREAK` $\to$ `kill`) |
 | **Console Silence** | No stdout output for 30.0 seconds | **WARNING ONLY** | **NO TERMINATION** |
 
 ### Safety Clarifications:
 1. **30-Second Console Silence Rule**: A period of 30 seconds without stdout output is documented as normal behavior during initial model weight mapping, page fault resolution, and CUDA graph construction. It emits a warning to the log but **must never** terminate the process.
-2. **Strict Process Containment**: Termination targets **only** the NOVA-owned child PID. External processes (browsers, IDEs, system services) are never terminated, suspended, or altered.
+2. **Supervisor Stale Telemetry Timeout Provenance**: The live supervisor timeout for missing or stale telemetry is strictly **3.0 seconds** (`stale_timeout_sec = 3.0` in `nova/resource_steward/supervisor.py` L28 and `scripts/run_inference_with_telemetry.py` L462, verified in `test_10_supervisor_stale_telemetry_aborts`). The separate 2.0-second timeout (`reader_timeout_sec = 2.0`) governs the join timeout for the asynchronous stdout reader thread, not telemetry freshness.
+3. **Console Process Groups vs. Windows Job Objects**: Subprocesses are launched with `CREATE_NEW_PROCESS_GROUP` (`0x00000200`), which creates a Win32 console process group solely to enable console control break signal routing (`CTRL_BREAK_EVENT`) to the child without interrupting the parent runner terminal. It does **not** provide complete tree-wide descendant process containment like a Windows Job Object. NOVA does not implement a Windows Job Object; supervisor termination strictly targets the direct NOVA-owned child process handle (`proc.pid`) via `os.kill(proc.pid, signal.CTRL_BREAK_EVENT)` followed by `proc.kill()`. External user processes and background desktop applications are never terminated or signaled.
 
 ---
 

@@ -212,18 +212,23 @@ NOVA enforces strict separation between memory pressure and storage limits:
 
 ### 8.1 Empirical Controller Memory Footprint
 Phase 3B.2 added telemetry instrumentation to measure the controller process itself across four checkpoints (`reports/phase3/PHASE3B2_CONTROLLER_MEMORY_PROFILE.md`):
-- **Checkpoint A (Earliest initialization)**: Working Set ~20.1 MB, Private Commit ~13.5 MB.
-- **Checkpoint B (Core initialization)**: Working Set ~25.8 MB, Private Commit ~17.9 MB.
-- **Startup Delta ($B - A$)**: Working Set `+5.7 MB`, Private Commit `+4.4 MB`.
-- **Checkpoint C (Idle Average)**: Working Set ~26.3 MB, Private Commit ~17.9 MB.
-- **Checkpoint D (Post-Recheck)**: Sampled after evaluating all six gates.
+- **Checkpoint A (Earliest initialization)**: Working Set ~20.10 MB, Private Commit ~13.50 MB.
+- **Checkpoint B (Core initialization)**: Working Set ~25.80 MB, Private Commit ~17.90 MB.
+- **Startup Delta ($B - A$)**: Working Set `+5.70 MB`, Private Commit `+4.40 MB`.
+- **Checkpoint C (Idle Average)**: Working Set ~26.30 MB, Private Commit ~17.90 MB.
+- **Checkpoint D (Post-Recheck)**: Marked `UNKNOWN` (no interactive recheck cycle executed in baseline capture run).
 
-This proves that NOVA's lightweight controller requires **less than 30 MB** of physical RAM and dedicated commit charge, leaving > 99.8% of system resources untouched for user workload review and model execution.
+This demonstrates that NOVA's lightweight controller operates with an initialized idle working set of approximately **26.30 MB** and private commit of **17.90 MB**. Controller process resident usage is strictly distinguished from system-wide available physical RAM (~9.06 GiB). Controller memory efficiency does not imply that remaining RAM is freely available; available RAM is dynamically governed by Windows caching, background services, and external desktop processes. Idle baseline sampling was recorded across 3 consecutive samples spaced ~50–100 ms apart (~0.2 s total duration), establishing a quiescent baseline without claiming zero long-term memory leaks.
 
 ### 8.2 Strict Local Authorization Boundary
 Transitioning to `MODEL_INITIALIZATION` requires:
 1. Every one of the six admission gates must pass.
-2. The user must explicitly view the exact Configuration D command, target model, binary path, parameter constraints, and supervisor thresholds.
-3. The Project Owner must issue an explicit, single-use, per-run authorization token.
-4. Authorization is single-use: upon invocation, the token is consumed immediately, preventing unintended subsequent runs.
-5. In Phase 3B.2, the actual model launcher remains disabled; simulated authorization tests verify the state machine without spawning the binary.
+2. **Application-Level Authorization Guard**: The single-use authorization token (`grant_authorization(token)`) functions as an internal application-level lifecycle guard enforcing deliberate sequential operator consent; it does **not** provide cryptographic user identity authentication.
+3. **Explicit Local Per-Run Confirmation**: Prior to actual inference integration, an interactive confirmation prompt must display the exact binary path, model path, Configuration D command flags, 1-token generation limit, and supervisor abort thresholds.
+4. **Single-Use Token Consumption**: Once consumed upon transition to `MODEL_INITIALIZATION`, the pending token is cleared immediately, preventing unintended subsequent runs.
+5. **Launcher Gating**: In Phase 3B.2, the actual model launcher remains disabled; simulated authorization tests verify the state machine without spawning the binary.
+
+### 8.3 Process Containment & Signal Routing Architecture
+- **Console Process Group (`CREATE_NEW_PROCESS_GROUP = 0x00000200`)**: Spawning the child with this flag creates a Win32 console process group, which enables routing console control signals (`CTRL_BREAK_EVENT`) to the child process without propagating the event to the parent controller or runner terminal.
+- **Console Control Event vs. Process Termination**: Win32 `CTRL_BREAK_EVENT` is a console process-group control signal delivered via `os.kill(proc.pid, signal.CTRL_BREAK_EVENT)`. Direct child process termination is performed via `proc.kill()` targeting the child process handle.
+- **No Windows Job Object**: A Win32 console process group is purely a console control routing construct and is **not equivalent to a Windows Job Object**. NOVA does not currently implement a Windows Job Object; therefore, no claim of tree-wide descendant process containment is made. Supervision and termination explicitly target the direct NOVA-owned child process handle (`proc.pid`). External user processes and background desktop applications are never terminated or signaled.

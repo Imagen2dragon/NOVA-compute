@@ -34,11 +34,17 @@ To qualify NOVA Compute for controlled inference on memory-constrained systems (
    - Private Commit Delta ($B - A$): `+4.40 MB`.
    - These deltas represent observed differences during Python runtime setup and initialization of Resource Steward modules. They reflect both NOVA's code path and standard CPython runtime allocations.
 2. **Process Working Set vs. Private Commit**:
-   - **Working Set**: The physical RAM pages mapped into the controller process's address space at measurement time.
-   - **Private Commit**: Dedicated virtual memory allocated exclusively by the process (via `VirtualAlloc` / `malloc`), backed by pagefile space.
-3. **System-Wide Metric Independence**:
-   - System Available RAM and System Commit Ratio reflect overall OS and multi-process states. Fluctuations in available RAM during controller execution are primarily driven by background OS tasks and concurrent desktop applications, not NOVA's lightweight footprint (< 30 MB).
-4. **Zero Model Memory Overhead**:
+   - **Working Set**: The physical RAM pages mapped into the controller process's address space at measurement time (~26.30 MB initialized idle).
+   - **Private Commit**: Dedicated virtual memory allocated exclusively by the process (via `VirtualAlloc` / `malloc`), backed by pagefile space (~17.90 MB).
+3. **Controller Process Footprint vs. System-Wide Available RAM**:
+   - Controller process resident usage (~26.30 MB working set, ~17.90 MB private commit) is strictly decoupled from system-wide available physical RAM (~9.06 GiB) and commit ratio (~35.7%).
+   - A lightweight controller footprint does not imply that all remaining physical RAM is freely available for inference workloads; system available RAM is dynamically governed by Windows caching, kernel pools, background system services, and concurrent desktop applications.
+4. **Idle Sampling Methodology & Observation Boundary**:
+   - Checkpoint C (Idle Waiting State) was recorded across 3 consecutive quiescent samples spaced ~50–100 ms apart (~0.2 s total observation period).
+   - This short idle sampling window establishes an empirical baseline footprint for the quiescent controller, but does NOT prove the absence of slow or long-term memory leaks over prolonged execution.
+5. **Checkpoint D (Post-Recheck State) Status**:
+   - Checkpoint D is marked as `UNKNOWN` because no interactive recheck cycle was executed during this automated capture run.
+6. **Zero Model Memory Overhead**:
    - At all checkpoints prior to explicit authorization, model weights remain strictly **NOT LOADED**.
    - Zero VRAM and zero GGUF file mappings are active in the controller process.
 
