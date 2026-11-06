@@ -73,6 +73,7 @@ NOVA Chat implements a resource-governed desktop AI workstation designed to run 
    - **`resource_advisor.rs`:** Non-invasive process scanner identifying memory-heavy background applications, estimating reclaimable RAM/VRAM, and providing step-by-step user instructions.
    - **`server_manager.rs`:** Process supervisor wrapping `llama-server.exe` in Win32 Job Objects configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. Ensures complete process cleanup upon crash or exit.
    - **`chat_service.rs`:** HTTP client streaming SSE tokens from local loopback (`127.0.0.1`), featuring per-request cancellation tokens to eliminate cancellation races.
+   - **`model_integrity.rs`:** Cryptographic SHA-256 verification and Win32 restrictive model lock management. Enforces strict lock-then-verify ordering (F1): `acquire_verified_lock` first opens the model with `GENERIC_READ` and `FILE_SHARE_READ`, then inspects file identity (`BY_HANDLE_FILE_INFORMATION`: volume serial number and 64-bit file index) through the locked handle to verify against previously verified identity, eliminating any TOCTOU replacement window before passing the locked guard to the process launcher.
    - **`admission.rs` & `gguf.rs`:** Hardware safety gates (RAM, Commit, VRAM, GPU contention, Disk) and sub-second binary GGUF header validation cached against filesystem metadata.
 
 3. **Inference Engine Tier (`llama-server.exe`):**

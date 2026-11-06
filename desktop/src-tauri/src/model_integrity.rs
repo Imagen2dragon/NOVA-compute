@@ -439,23 +439,36 @@ pub fn evaluate_startup_integrity(
     path_str: &str,
     cache_entry: Option<&crate::storage::ModelCacheEntry>,
 ) -> ModelIntegrityState {
+    evaluate_startup_integrity_against(path_str, cache_entry, EXPECTED_QWEN3_30B_SHA256)
+}
+
+/// Startup cache evaluation against an explicit expected digest (finding F2).
+///
+/// Fails closed: a cache entry is trusted only if it was produced by a full cryptographic
+/// verification, its digest equals `expected_sha256`, and it carries a Win32 file identity
+/// that still matches the file on disk. A legacy cache without identity fields, or a file
+/// whose identity cannot be read, requires full re-verification instead of being accepted
+/// on size and modification time alone.
+pub fn evaluate_startup_integrity_against(
+    path_str: &str,
+    cache_entry: Option<&crate::storage::ModelCacheEntry>,
+    expected_sha256: &str,
+) -> ModelIntegrityState {
+    let failed = |reason: String| ModelIntegrityState::VerificationFailed {
+        reason,
+        computed_sha256: None,
+        expected_sha256: expected_sha256.to_string(),
+    };
+
     let p = Path::new(path_str);
     if !p.exists() || !p.is_file() {
-        return ModelIntegrityState::VerificationFailed {
-            reason: format!("Model file not found or inaccessible: {}", path_str),
-            computed_sha256: None,
-            expected_sha256: EXPECTED_QWEN3_30B_SHA256.to_string(),
-        };
+        return failed(format!("Model file not found or inaccessible: {}", path_str));
     }
 
     let meta = match std::fs::metadata(p) {
         Ok(m) => m,
         Err(e) => {
-            return ModelIntegrityState::VerificationFailed {
-                reason: format!("Failed to read model filesystem metadata: {}", e),
-                computed_sha256: None,
-                expected_sha256: EXPECTED_QWEN3_30B_SHA256.to_string(),
-            };
+            return failed(format!("Failed to read model filesystem metadata: {}", e));
         }
     };
 
@@ -475,43 +488,67 @@ pub fn evaluate_startup_integrity(
             && cached.modified_timestamp_secs == mtime
             && !cached.sha256.trim().is_empty()
         {
-            // If Win32 file identity was cached, verify it matches the current file
-            let current_ident = query_file_identity(p).ok();
-            if let (Some(curr), Some(vol), Some(idx), Some(wtime)) = (
-                current_ident,
+            // F2: the cache must come from a full cryptographic verification...
+            if !cached.is_cryptographically_verified {
+                return failed(
+                    "Startup cache was not produced by full cryptographic verification. Cryptographic verification required.".to_string(),
+                );
+            }
+
+            // ...and its digest must be the pinned expected digest.
+            if !cached.sha256.trim().eq_ignore_ascii_case(expected_sha256) {
+                return failed(format!(
+                    "Startup cache digest {} does not match expected digest {}. Cryptographic verification required.",
+                    cached.sha256.trim(),
+                    expected_sha256
+                ));
+            }
+
+            // ...and it must carry a Win32 identity that still matches the file on disk.
+            let current_ident = match query_file_identity(p) {
+                Ok(ident) => ident,
+                Err(e) => {
+                    return failed(format!(
+                        "Cannot read current file identity ({}). Cryptographic verification required.",
+                        e
+                    ));
+                }
+            };
+            let (vol, idx, wtime) = match (
                 cached.volume_serial_number,
                 cached.file_index,
                 cached.last_write_time_raw,
             ) {
-                let cached_ident = Win32FileIdentity {
-                    volume_serial_number: vol,
-                    file_index: idx,
-                    file_size: cached.file_size_bytes,
-                    last_write_time_raw: wtime,
-                };
-                if let Err(e) = verify_file_identity(&curr, &cached_ident) {
-                    let _ = crate::storage::clear_model_cache();
-                    return ModelIntegrityState::VerificationFailed {
-                        reason: format!("Startup cache invalidated: {}", e),
-                        computed_sha256: None,
-                        expected_sha256: EXPECTED_QWEN3_30B_SHA256.to_string(),
-                    };
+                (Some(vol), Some(idx), Some(wtime)) => (vol, idx, wtime),
+                _ => {
+                    return failed(
+                        "Startup cache lacks Win32 file identity (legacy cache). Cryptographic verification required.".to_string(),
+                    );
                 }
+            };
+            let cached_ident = Win32FileIdentity {
+                volume_serial_number: vol,
+                file_index: idx,
+                file_size: cached.file_size_bytes,
+                last_write_time_raw: wtime,
+            };
+            if let Err(e) = verify_file_identity(&current_ident, &cached_ident) {
+                let _ = crate::storage::clear_model_cache();
+                return failed(format!("Startup cache invalidated: {}", e));
             }
 
             return ModelIntegrityState::PreviouslyVerified {
                 cached_sha256: cached.sha256.clone(),
                 last_verified_utc: cached.last_validated_utc.clone(),
-                file_identity: current_ident,
+                file_identity: Some(current_ident),
             };
         }
     }
 
-    ModelIntegrityState::VerificationFailed {
-        reason: "Model cache missing, outdated, or metadata modified. Cryptographic verification required.".to_string(),
-        computed_sha256: None,
-        expected_sha256: EXPECTED_QWEN3_30B_SHA256.to_string(),
-    }
+    failed(
+        "Model cache missing, outdated, or metadata modified. Cryptographic verification required."
+            .to_string(),
+    )
 }
 
 /// Computes SHA-256 over file bytes in 8 MiB chunks with progress callbacks and cancellation checks.

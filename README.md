@@ -1,12 +1,12 @@
 # NOVA Compute — Antigravity-ready Starter Pack
 
-**Status:** Phase 0 (Hardware Qualification), Phase 1 (Small-Model Runtime Baseline), Phase 2B (Q4_K_M Acquisition), Phase 3 (NOVA Chat Full Desktop Application) & Phase 3B.10 Security Hardening Complete | 105 Rust Unit & Hardening Tests Passing (1 ignored) | Unsigned per-user NSIS installer builds successfully; clean installation, runtime discovery, and uninstall behavior remain to be validated | Live Model Inference Gated Behind Safety Approval
+**Status:** Phase 0 (Hardware Qualification), Phase 1 (Small-Model Runtime Baseline), Phase 2B (Q4_K_M Acquisition), Phase 3 (NOVA Chat Desktop Application) & Phase 3B.10 Audited (F1/F3 fixed in commit `a6509b7`; F2/F4/O1 open; pre-assignment window noted) | 109 Rust Unit & Hardening Tests Passing (1 ignored, 110 total) | Unsigned per-user NSIS installer builds successfully; clean installation, runtime discovery, and uninstall behavior remain to be validated | Live Model Inference Gated Behind Safety Approval
 
 NOVA Compute is a resource-aware local inference platform for MoE LLMs and small domain-specialist models. The first reported target machine is an NVIDIA RTX 4050 Laptop GPU (6 GB VRAM) with 16 GB system RAM.
 
 ### NOVA Chat Desktop Application (`desktop/`)
 NOVA Chat is a complete, polished, lightweight Windows desktop AI application built on Tauri v2, React 19, TypeScript, and an embedded Rust systems core. Key capabilities include:
-- **Fast Startup (< 1s):** Cached GGUF header validation eliminates 18.6 GB whole-file reading at application launch.
+- **Warm Startup (~50–60 ms):** Warm-start window visible in ~50–60 ms (no model loaded); cold start not yet measured. Cached GGUF header validation eliminates 18.6 GB whole-file reading at application launch (note: the 400 ms sleep in `scripts/benchmark_startup.ps1` is a diagnostic pacing delay, not a UI-ready event).
 - **Dynamic Memory Budget Engine:** 5 selectable runtime profiles (`GpuFocused`, `Balanced`, `CpuOffload`, `LowMemory`, `Custom`) adapt GPU layer offloading and context memory dynamically.
 - **Intelligent Resource Recovery Assistant:** Detects background apps (e.g., Ollama, browsers) and provides step-by-step user instructions for graceful exit without invasive process termination.
 - **Live Hardware Telemetry & Containment:** Real-time gauges for host RAM, VRAM, commit charge, and disk storage, backed by Win32 Job Object process containment (`KILL_ON_JOB_CLOSE`).

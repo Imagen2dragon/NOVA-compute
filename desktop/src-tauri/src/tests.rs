@@ -2106,9 +2106,17 @@ mod tests {
         };
         save_model_cache_to(&test_dir, &cache_entry).unwrap();
 
-        // Fast startup check sees matching size & mtime -> returns PreviouslyVerified
-        let startup_state = evaluate_startup_integrity(&model_file.to_string_lossy(), Some(&cache_entry));
-        assert!(matches!(startup_state, ModelIntegrityState::PreviouslyVerified { .. }));
+        // F2: a legacy cache (no Win32 identity) matching only size & mtime must NOT be
+        // trusted; it previously returned PreviouslyVerified (fail-open).
+        let startup_state = crate::model_integrity::evaluate_startup_integrity_against(
+            &model_file.to_string_lossy(),
+            Some(&cache_entry),
+            &hash_a,
+        );
+        assert!(
+            matches!(startup_state, ModelIntegrityState::VerificationFailed { .. }),
+            "Legacy cache without Win32 identity must require re-verification"
+        );
 
         // 2. TAMPER: Replace contents with identical byte length, preserving timestamp seconds
         let mut content_b = vec![0u8; initial_size];
@@ -2148,7 +2156,11 @@ mod tests {
             last_write_time_raw: Some(ident_fresh.last_write_time_raw - 1000), // Previous write time
             ..cache_entry
         };
-        let startup_ident_check = evaluate_startup_integrity(&model_file.to_string_lossy(), Some(&cache_with_ident));
+        let startup_ident_check = crate::model_integrity::evaluate_startup_integrity_against(
+            &model_file.to_string_lossy(),
+            Some(&cache_with_ident),
+            &hash_a,
+        );
         assert!(
             matches!(startup_ident_check, ModelIntegrityState::VerificationFailed { .. }),
             "Startup check with Win32 identity must detect high-res write time modification"
@@ -4836,6 +4848,135 @@ mod tests {
         sm.job_object = Some(job);
         assert!(sm.stop_server_with_timeout(5000), "Cleanup stop must succeed");
         assert!(!sm.is_model_locked());
+        let _ = std::fs::remove_dir_all(test_dir);
+    }
+
+    // =========================================================================
+    // F2: startup integrity cache must fail closed. Disposable fixtures only.
+    // None of these paths call clear_model_cache(), so the real app cache is untouched.
+    // =========================================================================
+
+    #[cfg(windows)]
+    fn f2_fixture_cache(
+        model_file: &std::path::Path,
+        sha256: &str,
+        crypto_verified: bool,
+        with_identity: bool,
+    ) -> crate::storage::ModelCacheEntry {
+        let meta = std::fs::metadata(model_file).unwrap();
+        let mtime = meta
+            .modified()
+            .unwrap()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let ident = crate::model_integrity::query_file_identity(model_file).unwrap();
+        crate::storage::ModelCacheEntry {
+            path: model_file.to_string_lossy().to_string(),
+            file_size_bytes: meta.len(),
+            modified_timestamp_secs: mtime,
+            sha256: sha256.to_string(),
+            magic: "GGUF".to_string(),
+            version: 3,
+            tensor_count: 0,
+            kv_count: 0,
+            last_validated_utc: "2026-11-06T12:00:00Z".to_string(),
+            is_cryptographically_verified: crypto_verified,
+            volume_serial_number: with_identity.then_some(ident.volume_serial_number),
+            file_index: with_identity.then_some(ident.file_index),
+            last_write_time_raw: with_identity.then_some(ident.last_write_time_raw),
+        }
+    }
+
+    #[cfg(windows)]
+    fn f2_fixture(prefix: &str) -> (PathBuf, PathBuf, String) {
+        let test_dir = create_test_dir(prefix);
+        let model_file = test_dir.join("fixture_model.gguf");
+        std::fs::write(&model_file, b"GGUF_F2_FIXTURE_CONTENT").unwrap();
+        let cancel = AtomicBool::new(false);
+        let hash =
+            crate::model_integrity::hash_file_with_progress(&model_file, &cancel, |_, _, _| {})
+                .unwrap();
+        (test_dir, model_file, hash)
+    }
+
+    // F2-a: a complete, verified cache whose digest matches and whose identity matches is trusted.
+    #[test]
+    #[cfg(windows)]
+    fn test_f2_complete_matching_cache_is_previously_verified() {
+        use crate::model_integrity::{evaluate_startup_integrity_against, ModelIntegrityState};
+        let (test_dir, model_file, hash) = f2_fixture("f2_complete");
+        let cache = f2_fixture_cache(&model_file, &hash, true, true);
+
+        let state = evaluate_startup_integrity_against(&model_file.to_string_lossy(), Some(&cache), &hash);
+        match state {
+            ModelIntegrityState::PreviouslyVerified { file_identity, .. } => {
+                assert!(file_identity.is_some(), "Trusted cache must carry the current identity");
+            }
+            other => panic!("Expected PreviouslyVerified, got {:?}", other),
+        }
+        let _ = std::fs::remove_dir_all(test_dir);
+    }
+
+    // F2-b: a cached digest that is not the pinned expected digest is rejected.
+    #[test]
+    #[cfg(windows)]
+    fn test_f2_cached_digest_not_expected_is_rejected() {
+        use crate::model_integrity::{
+            evaluate_startup_integrity, evaluate_startup_integrity_against, ModelIntegrityState,
+        };
+        let (test_dir, model_file, hash) = f2_fixture("f2_digest");
+        let cache = f2_fixture_cache(&model_file, &hash, true, true);
+
+        // Against the pinned Qwen3 digest, the fixture's own digest must not be accepted.
+        let state = evaluate_startup_integrity(&model_file.to_string_lossy(), Some(&cache));
+        match state {
+            ModelIntegrityState::VerificationFailed { reason, .. } => {
+                assert!(reason.contains("does not match expected digest"), "{}", reason);
+            }
+            other => panic!("Expected VerificationFailed, got {:?}", other),
+        }
+
+        // A forged cache claiming a different digest is rejected too.
+        let forged = f2_fixture_cache(&model_file, &"0".repeat(64), true, true);
+        let state = evaluate_startup_integrity_against(&model_file.to_string_lossy(), Some(&forged), &hash);
+        assert!(matches!(state, ModelIntegrityState::VerificationFailed { .. }));
+        let _ = std::fs::remove_dir_all(test_dir);
+    }
+
+    // F2-c: a cache not produced by full cryptographic verification is rejected.
+    #[test]
+    #[cfg(windows)]
+    fn test_f2_cache_without_crypto_flag_is_rejected() {
+        use crate::model_integrity::{evaluate_startup_integrity_against, ModelIntegrityState};
+        let (test_dir, model_file, hash) = f2_fixture("f2_flag");
+        let cache = f2_fixture_cache(&model_file, &hash, false, true);
+
+        let state = evaluate_startup_integrity_against(&model_file.to_string_lossy(), Some(&cache), &hash);
+        match state {
+            ModelIntegrityState::VerificationFailed { reason, .. } => {
+                assert!(reason.contains("not produced by full cryptographic verification"), "{}", reason);
+            }
+            other => panic!("Expected VerificationFailed, got {:?}", other),
+        }
+        let _ = std::fs::remove_dir_all(test_dir);
+    }
+
+    // F2-d: a legacy cache without Win32 identity fields is rejected (was fail-open).
+    #[test]
+    #[cfg(windows)]
+    fn test_f2_legacy_cache_without_identity_is_rejected() {
+        use crate::model_integrity::{evaluate_startup_integrity_against, ModelIntegrityState};
+        let (test_dir, model_file, hash) = f2_fixture("f2_legacy");
+        let cache = f2_fixture_cache(&model_file, &hash, true, false);
+
+        let state = evaluate_startup_integrity_against(&model_file.to_string_lossy(), Some(&cache), &hash);
+        match state {
+            ModelIntegrityState::VerificationFailed { reason, .. } => {
+                assert!(reason.contains("lacks Win32 file identity"), "{}", reason);
+            }
+            other => panic!("Expected VerificationFailed, got {:?}", other),
+        }
         let _ = std::fs::remove_dir_all(test_dir);
     }
 }

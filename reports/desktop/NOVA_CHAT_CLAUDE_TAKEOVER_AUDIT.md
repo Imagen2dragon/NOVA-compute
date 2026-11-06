@@ -320,3 +320,48 @@ Files changed: `desktop/src-tauri/src/model_integrity.rs`, `desktop/src-tauri/sr
 - F2 (cache fallback to size + mtime), F4 (single instance), F5 (`PROC_THREAD_ATTRIBUTE_JOB_LIST`), O1 (directory rename / junction).
 - `load_model` end-to-end is not unit-tested (it needs a Tauri `AppHandle`); the fix is covered through `acquire_verified_lock` and `spawn_process_with_profile`.
 - The release exe and installer were built before these changes; their hashes in Section 5.2 no longer describe the current source.
+
+---
+
+## 15. Update — F2 fixed (Project Owner approved, 2026-11-06)
+
+### 15.1 Change
+
+`model_integrity.rs`: `evaluate_startup_integrity(path, cache)` now delegates to the new `evaluate_startup_integrity_against(path, cache, expected_sha256)` with the pinned `EXPECTED_QWEN3_30B_SHA256`. When path, size and mtime match, the cache is trusted **only if all** of these hold; otherwise the result is `VerificationFailed` and full SHA-256 verification is required:
+
+1. `is_cryptographically_verified` is `true`.
+2. The cached digest equals the expected digest (case-insensitive).
+3. The current Win32 file identity can be read (previously a read failure was silently ignored).
+4. The cache has all identity fields (`volume_serial_number`, `file_index`, `last_write_time_raw`). Legacy caches without them were previously accepted on size + mtime.
+5. The cached identity matches the current file (unchanged behavior; still clears the cache on mismatch).
+
+`PreviouslyVerified.file_identity` is now always `Some`, so `load_model`'s lock-then-verify step (F1) always compares against the identity recorded at verification time rather than whatever existed at app startup.
+
+The new failure paths do **not** call `clear_model_cache()`; a later successful verification overwrites the cache.
+
+### 15.2 Tests
+
+New (temp fixtures only):
+
+| Test | Proves |
+|---|---|
+| `test_f2_complete_matching_cache_is_previously_verified` | A complete, verified, matching cache is trusted and carries an identity |
+| `test_f2_cached_digest_not_expected_is_rejected` | Fixture digest is rejected against the pinned Qwen3 digest; a forged digest is rejected |
+| `test_f2_cache_without_crypto_flag_is_rejected` | Cache not from full verification is rejected |
+| `test_f2_legacy_cache_without_identity_is_rejected` | Legacy cache without identity is rejected (was fail-open) |
+
+Changed: `test_model_cache_same_size_same_mtime_replacement_fails_cryptographic_verification` previously **asserted the fail-open behavior** (legacy cache → `PreviouslyVerified`). It now asserts `VerificationFailed`, and its identity sub-check uses `evaluate_startup_integrity_against` with the fixture digest so it still exercises the identity comparison.
+
+Result (`cargo test --lib -j 4`):
+
+```
+test result: ok. 113 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.07s
+```
+
+No compiler warnings.
+
+### 15.3 Notes
+
+- **No real cache exists today.** `%LOCALAPPDATA%\NOVA Chat\` has no `model_cache.json` (the Phase 3B.11 report said it was "pre-populated"; it is not). With no UI action to start verification, a load through NOVA Chat is currently blocked at the integrity gate. This is fail-closed, but it means a NOVA Chat smoke test needs a "Verify model" UI action first.
+- **Test side effect (pre-existing):** the identity-mismatch path calls `storage::clear_model_cache()`, which targets the real `%LOCALAPPDATA%\NOVA Chat\` directory unless `NOVA_DATA_DIR` is set. The same-size/same-mtime test can reach it. Harmless today (no cache), but running the suite after a real verification could delete the user's cache. Recommend routing tests through an isolated data dir.
+- Remaining open: F4, F5, UI verification action, UI-2 fallback label.
