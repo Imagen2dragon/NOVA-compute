@@ -1,0 +1,5298 @@
+{
+  "model_file": "models/qwen3-30b/Qwen_Qwen3-30B-A3B-Q4_K_M.gguf",
+  "configuration": "Configuration D: -ngl 48 -ncmoe 40 -c 512 -b 64 -ub 16",
+  "summary": {
+    "total_tensors": 579,
+    "file_size_bytes": 18632184480,
+    "header_and_metadata_bytes": 5970589,
+    "alignment_padding_bytes": 3,
+    "tensor_data_start_offset": 5970592,
+    "total_tensor_data_bytes": 18626213888,
+    "reconciliation": {
+      "file_size_bytes": 18632184480,
+      "header_and_metadata_bytes": 5970589,
+      "alignment_padding_bytes": 3,
+      "total_tensor_data_bytes": 18626213888,
+      "checksum_bytes": 18632184480,
+      "delta_bytes": 0,
+      "notes": "Delta is exactly 0 bytes. All 18,632,184,480 bytes are accounted for."
+    },
+    "destination_totals": {
+      "GPU": {
+        "tensor_count": 459,
+        "total_bytes": 4154292224,
+        "total_mib": 3961.84,
+        "total_gib": 3.87
+      },
+      "CPU": {
+        "tensor_count": 120,
+        "total_bytes": 14471921664,
+        "total_mib": 13801.5,
+        "total_gib": 13.48
+      }
+    },
+    "category_totals": {
+      "attention_weights": {
+        "count": 288,
+        "total_bytes": 591642624,
+        "total_mib": 564.23,
+        "total_gib": 0.55,
+        "gpu_bytes": 591642624,
+        "cpu_bytes": 0
+      },
+      "embeddings": {
+        "count": 1,
+        "total_bytes": 175030272,
+        "total_mib": 166.92,
+        "total_gib": 0.16,
+        "gpu_bytes": 175030272,
+        "cpu_bytes": 0
+      },
+      "layernorms": {
+        "count": 97,
+        "total_bytes": 794624,
+        "total_mib": 0.76,
+        "total_gib": 0.0,
+        "gpu_bytes": 794624,
+        "cpu_bytes": 0
+      },
+      "moe_routers": {
+        "count": 48,
+        "total_bytes": 50331648,
+        "total_mib": 48.0,
+        "total_gib": 0.05,
+        "gpu_bytes": 50331648,
+        "cpu_bytes": 0
+      },
+      "output_head": {
+        "count": 1,
+        "total_bytes": 255252480,
+        "total_mib": 243.43,
+        "total_gib": 0.24,
+        "gpu_bytes": 255252480,
+        "cpu_bytes": 0
+      },
+      "moe_expert_weights": {
+        "count": 144,
+        "total_bytes": 17553162240,
+        "total_mib": 16740.0,
+        "total_gib": 16.35,
+        "gpu_bytes": 3081240576,
+        "cpu_bytes": 14471921664
+      }
+    }
+  },
+  "tensors": [
+    {
+      "name": "output.weight",
+      "layer_index": null,
+      "category": "output_head",
+      "quant_type": "Q6_K",
+      "stored_bytes": 255252480,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "output_norm.weight",
+      "layer_index": null,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "token_embd.weight",
+      "layer_index": null,
+      "category": "embeddings",
+      "quant_type": "Q4_K",
+      "stored_bytes": 175030272,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_k.weight",
+      "layer_index": 0,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_k_norm.weight",
+      "layer_index": 0,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_norm.weight",
+      "layer_index": 0,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_output.weight",
+      "layer_index": 0,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_q.weight",
+      "layer_index": 0,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_q_norm.weight",
+      "layer_index": 0,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.attn_v.weight",
+      "layer_index": 0,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.ffn_down_exps.weight",
+      "layer_index": 0,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.0.ffn_gate_exps.weight",
+      "layer_index": 0,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.0.ffn_gate_inp.weight",
+      "layer_index": 0,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.ffn_norm.weight",
+      "layer_index": 0,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.0.ffn_up_exps.weight",
+      "layer_index": 0,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.1.attn_k.weight",
+      "layer_index": 1,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.attn_k_norm.weight",
+      "layer_index": 1,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.attn_norm.weight",
+      "layer_index": 1,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.attn_output.weight",
+      "layer_index": 1,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.attn_q.weight",
+      "layer_index": 1,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.attn_q_norm.weight",
+      "layer_index": 1,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.attn_v.weight",
+      "layer_index": 1,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.ffn_down_exps.weight",
+      "layer_index": 1,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.1.ffn_gate_exps.weight",
+      "layer_index": 1,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.1.ffn_gate_inp.weight",
+      "layer_index": 1,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.ffn_norm.weight",
+      "layer_index": 1,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.1.ffn_up_exps.weight",
+      "layer_index": 1,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.2.attn_k.weight",
+      "layer_index": 2,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.attn_k_norm.weight",
+      "layer_index": 2,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.attn_norm.weight",
+      "layer_index": 2,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.attn_output.weight",
+      "layer_index": 2,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.attn_q.weight",
+      "layer_index": 2,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.attn_q_norm.weight",
+      "layer_index": 2,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.attn_v.weight",
+      "layer_index": 2,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.ffn_down_exps.weight",
+      "layer_index": 2,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.2.ffn_gate_exps.weight",
+      "layer_index": 2,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.2.ffn_gate_inp.weight",
+      "layer_index": 2,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.ffn_norm.weight",
+      "layer_index": 2,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.2.ffn_up_exps.weight",
+      "layer_index": 2,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.3.attn_k.weight",
+      "layer_index": 3,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.attn_k_norm.weight",
+      "layer_index": 3,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.attn_norm.weight",
+      "layer_index": 3,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.attn_output.weight",
+      "layer_index": 3,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.attn_q.weight",
+      "layer_index": 3,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.attn_q_norm.weight",
+      "layer_index": 3,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.attn_v.weight",
+      "layer_index": 3,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.ffn_down_exps.weight",
+      "layer_index": 3,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.3.ffn_gate_exps.weight",
+      "layer_index": 3,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.3.ffn_gate_inp.weight",
+      "layer_index": 3,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.ffn_norm.weight",
+      "layer_index": 3,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.3.ffn_up_exps.weight",
+      "layer_index": 3,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.4.attn_k.weight",
+      "layer_index": 4,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.attn_k_norm.weight",
+      "layer_index": 4,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.attn_norm.weight",
+      "layer_index": 4,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.attn_output.weight",
+      "layer_index": 4,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.attn_q.weight",
+      "layer_index": 4,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.attn_q_norm.weight",
+      "layer_index": 4,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.attn_v.weight",
+      "layer_index": 4,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.ffn_down_exps.weight",
+      "layer_index": 4,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.4.ffn_gate_exps.weight",
+      "layer_index": 4,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.4.ffn_gate_inp.weight",
+      "layer_index": 4,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.ffn_norm.weight",
+      "layer_index": 4,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.4.ffn_up_exps.weight",
+      "layer_index": 4,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.5.attn_k.weight",
+      "layer_index": 5,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.attn_k_norm.weight",
+      "layer_index": 5,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.attn_norm.weight",
+      "layer_index": 5,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.attn_output.weight",
+      "layer_index": 5,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.attn_q.weight",
+      "layer_index": 5,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.attn_q_norm.weight",
+      "layer_index": 5,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.attn_v.weight",
+      "layer_index": 5,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.ffn_down_exps.weight",
+      "layer_index": 5,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.5.ffn_gate_exps.weight",
+      "layer_index": 5,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.5.ffn_gate_inp.weight",
+      "layer_index": 5,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.ffn_norm.weight",
+      "layer_index": 5,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.5.ffn_up_exps.weight",
+      "layer_index": 5,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.6.attn_k.weight",
+      "layer_index": 6,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.attn_k_norm.weight",
+      "layer_index": 6,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.attn_norm.weight",
+      "layer_index": 6,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.attn_output.weight",
+      "layer_index": 6,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.attn_q.weight",
+      "layer_index": 6,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.attn_q_norm.weight",
+      "layer_index": 6,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.attn_v.weight",
+      "layer_index": 6,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.ffn_down_exps.weight",
+      "layer_index": 6,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.6.ffn_gate_exps.weight",
+      "layer_index": 6,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.6.ffn_gate_inp.weight",
+      "layer_index": 6,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.ffn_norm.weight",
+      "layer_index": 6,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.6.ffn_up_exps.weight",
+      "layer_index": 6,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.7.attn_k.weight",
+      "layer_index": 7,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.attn_k_norm.weight",
+      "layer_index": 7,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.attn_norm.weight",
+      "layer_index": 7,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.attn_output.weight",
+      "layer_index": 7,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.attn_q.weight",
+      "layer_index": 7,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.attn_q_norm.weight",
+      "layer_index": 7,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.attn_v.weight",
+      "layer_index": 7,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.ffn_down_exps.weight",
+      "layer_index": 7,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.7.ffn_gate_exps.weight",
+      "layer_index": 7,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.7.ffn_gate_inp.weight",
+      "layer_index": 7,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.ffn_norm.weight",
+      "layer_index": 7,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.7.ffn_up_exps.weight",
+      "layer_index": 7,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.8.attn_k.weight",
+      "layer_index": 8,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.attn_k_norm.weight",
+      "layer_index": 8,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.attn_norm.weight",
+      "layer_index": 8,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.attn_output.weight",
+      "layer_index": 8,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.attn_q.weight",
+      "layer_index": 8,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.attn_q_norm.weight",
+      "layer_index": 8,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.attn_v.weight",
+      "layer_index": 8,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.ffn_down_exps.weight",
+      "layer_index": 8,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.8.ffn_gate_exps.weight",
+      "layer_index": 8,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.8.ffn_gate_inp.weight",
+      "layer_index": 8,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.ffn_norm.weight",
+      "layer_index": 8,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.8.ffn_up_exps.weight",
+      "layer_index": 8,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.9.attn_k.weight",
+      "layer_index": 9,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.attn_k_norm.weight",
+      "layer_index": 9,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.attn_norm.weight",
+      "layer_index": 9,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.attn_output.weight",
+      "layer_index": 9,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.attn_q.weight",
+      "layer_index": 9,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.attn_q_norm.weight",
+      "layer_index": 9,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.attn_v.weight",
+      "layer_index": 9,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.ffn_down_exps.weight",
+      "layer_index": 9,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.9.ffn_gate_exps.weight",
+      "layer_index": 9,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.9.ffn_gate_inp.weight",
+      "layer_index": 9,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.ffn_norm.weight",
+      "layer_index": 9,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.9.ffn_up_exps.weight",
+      "layer_index": 9,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.10.attn_k.weight",
+      "layer_index": 10,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.attn_k_norm.weight",
+      "layer_index": 10,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.attn_norm.weight",
+      "layer_index": 10,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.attn_output.weight",
+      "layer_index": 10,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.attn_q.weight",
+      "layer_index": 10,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.attn_q_norm.weight",
+      "layer_index": 10,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.attn_v.weight",
+      "layer_index": 10,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.ffn_down_exps.weight",
+      "layer_index": 10,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.10.ffn_gate_exps.weight",
+      "layer_index": 10,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.10.ffn_gate_inp.weight",
+      "layer_index": 10,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.ffn_norm.weight",
+      "layer_index": 10,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.10.ffn_up_exps.weight",
+      "layer_index": 10,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.11.attn_k.weight",
+      "layer_index": 11,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.attn_k_norm.weight",
+      "layer_index": 11,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.attn_norm.weight",
+      "layer_index": 11,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.attn_output.weight",
+      "layer_index": 11,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.attn_q.weight",
+      "layer_index": 11,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.attn_q_norm.weight",
+      "layer_index": 11,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.attn_v.weight",
+      "layer_index": 11,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.ffn_down_exps.weight",
+      "layer_index": 11,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.11.ffn_gate_exps.weight",
+      "layer_index": 11,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.11.ffn_gate_inp.weight",
+      "layer_index": 11,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.ffn_norm.weight",
+      "layer_index": 11,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.11.ffn_up_exps.weight",
+      "layer_index": 11,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.12.attn_k.weight",
+      "layer_index": 12,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.attn_k_norm.weight",
+      "layer_index": 12,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.attn_norm.weight",
+      "layer_index": 12,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.attn_output.weight",
+      "layer_index": 12,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.attn_q.weight",
+      "layer_index": 12,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.attn_q_norm.weight",
+      "layer_index": 12,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.attn_v.weight",
+      "layer_index": 12,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.ffn_down_exps.weight",
+      "layer_index": 12,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.12.ffn_gate_exps.weight",
+      "layer_index": 12,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.12.ffn_gate_inp.weight",
+      "layer_index": 12,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.ffn_norm.weight",
+      "layer_index": 12,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.12.ffn_up_exps.weight",
+      "layer_index": 12,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.13.attn_k.weight",
+      "layer_index": 13,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.attn_k_norm.weight",
+      "layer_index": 13,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.attn_norm.weight",
+      "layer_index": 13,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.attn_output.weight",
+      "layer_index": 13,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.attn_q.weight",
+      "layer_index": 13,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.attn_q_norm.weight",
+      "layer_index": 13,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.attn_v.weight",
+      "layer_index": 13,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.ffn_down_exps.weight",
+      "layer_index": 13,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.13.ffn_gate_exps.weight",
+      "layer_index": 13,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.13.ffn_gate_inp.weight",
+      "layer_index": 13,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.ffn_norm.weight",
+      "layer_index": 13,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.13.ffn_up_exps.weight",
+      "layer_index": 13,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.14.attn_k.weight",
+      "layer_index": 14,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.attn_k_norm.weight",
+      "layer_index": 14,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.attn_norm.weight",
+      "layer_index": 14,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.attn_output.weight",
+      "layer_index": 14,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.attn_q.weight",
+      "layer_index": 14,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.attn_q_norm.weight",
+      "layer_index": 14,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.attn_v.weight",
+      "layer_index": 14,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.ffn_down_exps.weight",
+      "layer_index": 14,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.14.ffn_gate_exps.weight",
+      "layer_index": 14,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.14.ffn_gate_inp.weight",
+      "layer_index": 14,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.ffn_norm.weight",
+      "layer_index": 14,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.14.ffn_up_exps.weight",
+      "layer_index": 14,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.15.attn_k.weight",
+      "layer_index": 15,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.attn_k_norm.weight",
+      "layer_index": 15,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.attn_norm.weight",
+      "layer_index": 15,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.attn_output.weight",
+      "layer_index": 15,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.attn_q.weight",
+      "layer_index": 15,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.attn_q_norm.weight",
+      "layer_index": 15,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.attn_v.weight",
+      "layer_index": 15,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.ffn_down_exps.weight",
+      "layer_index": 15,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.15.ffn_gate_exps.weight",
+      "layer_index": 15,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.15.ffn_gate_inp.weight",
+      "layer_index": 15,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.ffn_norm.weight",
+      "layer_index": 15,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.15.ffn_up_exps.weight",
+      "layer_index": 15,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.16.attn_k.weight",
+      "layer_index": 16,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.attn_k_norm.weight",
+      "layer_index": 16,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.attn_norm.weight",
+      "layer_index": 16,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.attn_output.weight",
+      "layer_index": 16,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.attn_q.weight",
+      "layer_index": 16,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.attn_q_norm.weight",
+      "layer_index": 16,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.attn_v.weight",
+      "layer_index": 16,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.ffn_down_exps.weight",
+      "layer_index": 16,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.16.ffn_gate_exps.weight",
+      "layer_index": 16,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.16.ffn_gate_inp.weight",
+      "layer_index": 16,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.ffn_norm.weight",
+      "layer_index": 16,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.16.ffn_up_exps.weight",
+      "layer_index": 16,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.17.attn_k.weight",
+      "layer_index": 17,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.attn_k_norm.weight",
+      "layer_index": 17,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.attn_norm.weight",
+      "layer_index": 17,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.attn_output.weight",
+      "layer_index": 17,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.attn_q.weight",
+      "layer_index": 17,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.attn_q_norm.weight",
+      "layer_index": 17,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.attn_v.weight",
+      "layer_index": 17,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.ffn_down_exps.weight",
+      "layer_index": 17,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.17.ffn_gate_exps.weight",
+      "layer_index": 17,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.17.ffn_gate_inp.weight",
+      "layer_index": 17,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.ffn_norm.weight",
+      "layer_index": 17,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.17.ffn_up_exps.weight",
+      "layer_index": 17,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.18.attn_k.weight",
+      "layer_index": 18,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.attn_k_norm.weight",
+      "layer_index": 18,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.attn_norm.weight",
+      "layer_index": 18,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.attn_output.weight",
+      "layer_index": 18,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.attn_q.weight",
+      "layer_index": 18,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.attn_q_norm.weight",
+      "layer_index": 18,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.attn_v.weight",
+      "layer_index": 18,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.ffn_down_exps.weight",
+      "layer_index": 18,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.18.ffn_gate_exps.weight",
+      "layer_index": 18,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.18.ffn_gate_inp.weight",
+      "layer_index": 18,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.ffn_norm.weight",
+      "layer_index": 18,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.18.ffn_up_exps.weight",
+      "layer_index": 18,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.19.attn_k.weight",
+      "layer_index": 19,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.attn_k_norm.weight",
+      "layer_index": 19,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.attn_norm.weight",
+      "layer_index": 19,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.attn_output.weight",
+      "layer_index": 19,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.attn_q.weight",
+      "layer_index": 19,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.attn_q_norm.weight",
+      "layer_index": 19,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.attn_v.weight",
+      "layer_index": 19,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.ffn_down_exps.weight",
+      "layer_index": 19,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.19.ffn_gate_exps.weight",
+      "layer_index": 19,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.19.ffn_gate_inp.weight",
+      "layer_index": 19,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.ffn_norm.weight",
+      "layer_index": 19,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.19.ffn_up_exps.weight",
+      "layer_index": 19,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.20.attn_k.weight",
+      "layer_index": 20,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.attn_k_norm.weight",
+      "layer_index": 20,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.attn_norm.weight",
+      "layer_index": 20,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.attn_output.weight",
+      "layer_index": 20,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.attn_q.weight",
+      "layer_index": 20,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.attn_q_norm.weight",
+      "layer_index": 20,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.attn_v.weight",
+      "layer_index": 20,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.ffn_down_exps.weight",
+      "layer_index": 20,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.20.ffn_gate_exps.weight",
+      "layer_index": 20,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.20.ffn_gate_inp.weight",
+      "layer_index": 20,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.ffn_norm.weight",
+      "layer_index": 20,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.20.ffn_up_exps.weight",
+      "layer_index": 20,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.21.attn_k.weight",
+      "layer_index": 21,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.attn_k_norm.weight",
+      "layer_index": 21,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.attn_norm.weight",
+      "layer_index": 21,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.attn_output.weight",
+      "layer_index": 21,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.attn_q.weight",
+      "layer_index": 21,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.attn_q_norm.weight",
+      "layer_index": 21,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.attn_v.weight",
+      "layer_index": 21,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.ffn_down_exps.weight",
+      "layer_index": 21,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.21.ffn_gate_exps.weight",
+      "layer_index": 21,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.21.ffn_gate_inp.weight",
+      "layer_index": 21,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.ffn_norm.weight",
+      "layer_index": 21,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.21.ffn_up_exps.weight",
+      "layer_index": 21,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.22.attn_k.weight",
+      "layer_index": 22,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.attn_k_norm.weight",
+      "layer_index": 22,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.attn_norm.weight",
+      "layer_index": 22,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.attn_output.weight",
+      "layer_index": 22,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.attn_q.weight",
+      "layer_index": 22,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.attn_q_norm.weight",
+      "layer_index": 22,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.attn_v.weight",
+      "layer_index": 22,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.ffn_down_exps.weight",
+      "layer_index": 22,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.22.ffn_gate_exps.weight",
+      "layer_index": 22,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.22.ffn_gate_inp.weight",
+      "layer_index": 22,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.ffn_norm.weight",
+      "layer_index": 22,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.22.ffn_up_exps.weight",
+      "layer_index": 22,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.23.attn_k.weight",
+      "layer_index": 23,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.attn_k_norm.weight",
+      "layer_index": 23,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.attn_norm.weight",
+      "layer_index": 23,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.attn_output.weight",
+      "layer_index": 23,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.attn_q.weight",
+      "layer_index": 23,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.attn_q_norm.weight",
+      "layer_index": 23,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.attn_v.weight",
+      "layer_index": 23,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.ffn_down_exps.weight",
+      "layer_index": 23,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.23.ffn_gate_exps.weight",
+      "layer_index": 23,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.23.ffn_gate_inp.weight",
+      "layer_index": 23,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.ffn_norm.weight",
+      "layer_index": 23,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.23.ffn_up_exps.weight",
+      "layer_index": 23,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.24.attn_k.weight",
+      "layer_index": 24,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.attn_k_norm.weight",
+      "layer_index": 24,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.attn_norm.weight",
+      "layer_index": 24,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.attn_output.weight",
+      "layer_index": 24,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.attn_q.weight",
+      "layer_index": 24,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.attn_q_norm.weight",
+      "layer_index": 24,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.attn_v.weight",
+      "layer_index": 24,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.ffn_down_exps.weight",
+      "layer_index": 24,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.24.ffn_gate_exps.weight",
+      "layer_index": 24,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.24.ffn_gate_inp.weight",
+      "layer_index": 24,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.ffn_norm.weight",
+      "layer_index": 24,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.24.ffn_up_exps.weight",
+      "layer_index": 24,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.25.attn_k.weight",
+      "layer_index": 25,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.attn_k_norm.weight",
+      "layer_index": 25,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.attn_norm.weight",
+      "layer_index": 25,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.attn_output.weight",
+      "layer_index": 25,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.attn_q.weight",
+      "layer_index": 25,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.attn_q_norm.weight",
+      "layer_index": 25,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.attn_v.weight",
+      "layer_index": 25,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.ffn_down_exps.weight",
+      "layer_index": 25,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.25.ffn_gate_exps.weight",
+      "layer_index": 25,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.25.ffn_gate_inp.weight",
+      "layer_index": 25,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.ffn_norm.weight",
+      "layer_index": 25,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.25.ffn_up_exps.weight",
+      "layer_index": 25,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.26.attn_k.weight",
+      "layer_index": 26,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.attn_k_norm.weight",
+      "layer_index": 26,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.attn_norm.weight",
+      "layer_index": 26,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.attn_output.weight",
+      "layer_index": 26,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.attn_q.weight",
+      "layer_index": 26,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.attn_q_norm.weight",
+      "layer_index": 26,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.attn_v.weight",
+      "layer_index": 26,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.ffn_down_exps.weight",
+      "layer_index": 26,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.26.ffn_gate_exps.weight",
+      "layer_index": 26,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.26.ffn_gate_inp.weight",
+      "layer_index": 26,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.ffn_norm.weight",
+      "layer_index": 26,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.26.ffn_up_exps.weight",
+      "layer_index": 26,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.27.attn_k.weight",
+      "layer_index": 27,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.attn_k_norm.weight",
+      "layer_index": 27,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.attn_norm.weight",
+      "layer_index": 27,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.attn_output.weight",
+      "layer_index": 27,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.attn_q.weight",
+      "layer_index": 27,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.attn_q_norm.weight",
+      "layer_index": 27,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.attn_v.weight",
+      "layer_index": 27,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.ffn_down_exps.weight",
+      "layer_index": 27,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.27.ffn_gate_exps.weight",
+      "layer_index": 27,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.27.ffn_gate_inp.weight",
+      "layer_index": 27,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.ffn_norm.weight",
+      "layer_index": 27,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.27.ffn_up_exps.weight",
+      "layer_index": 27,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.28.attn_k.weight",
+      "layer_index": 28,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.attn_k_norm.weight",
+      "layer_index": 28,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.attn_norm.weight",
+      "layer_index": 28,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.attn_output.weight",
+      "layer_index": 28,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.attn_q.weight",
+      "layer_index": 28,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.attn_q_norm.weight",
+      "layer_index": 28,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.attn_v.weight",
+      "layer_index": 28,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.ffn_down_exps.weight",
+      "layer_index": 28,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.28.ffn_gate_exps.weight",
+      "layer_index": 28,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.28.ffn_gate_inp.weight",
+      "layer_index": 28,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.ffn_norm.weight",
+      "layer_index": 28,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.28.ffn_up_exps.weight",
+      "layer_index": 28,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.29.attn_k.weight",
+      "layer_index": 29,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.attn_k_norm.weight",
+      "layer_index": 29,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.attn_norm.weight",
+      "layer_index": 29,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.attn_output.weight",
+      "layer_index": 29,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.attn_q.weight",
+      "layer_index": 29,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.attn_q_norm.weight",
+      "layer_index": 29,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.attn_v.weight",
+      "layer_index": 29,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.ffn_down_exps.weight",
+      "layer_index": 29,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.29.ffn_gate_exps.weight",
+      "layer_index": 29,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.29.ffn_gate_inp.weight",
+      "layer_index": 29,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.ffn_norm.weight",
+      "layer_index": 29,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.29.ffn_up_exps.weight",
+      "layer_index": 29,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.30.attn_k.weight",
+      "layer_index": 30,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.attn_k_norm.weight",
+      "layer_index": 30,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.attn_norm.weight",
+      "layer_index": 30,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.attn_output.weight",
+      "layer_index": 30,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.attn_q.weight",
+      "layer_index": 30,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.attn_q_norm.weight",
+      "layer_index": 30,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.attn_v.weight",
+      "layer_index": 30,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.ffn_down_exps.weight",
+      "layer_index": 30,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.30.ffn_gate_exps.weight",
+      "layer_index": 30,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.30.ffn_gate_inp.weight",
+      "layer_index": 30,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.ffn_norm.weight",
+      "layer_index": 30,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.30.ffn_up_exps.weight",
+      "layer_index": 30,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.31.attn_k.weight",
+      "layer_index": 31,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.attn_k_norm.weight",
+      "layer_index": 31,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.attn_norm.weight",
+      "layer_index": 31,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.attn_output.weight",
+      "layer_index": 31,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.attn_q.weight",
+      "layer_index": 31,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.attn_q_norm.weight",
+      "layer_index": 31,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.attn_v.weight",
+      "layer_index": 31,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.ffn_down_exps.weight",
+      "layer_index": 31,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.31.ffn_gate_exps.weight",
+      "layer_index": 31,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.31.ffn_gate_inp.weight",
+      "layer_index": 31,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.ffn_norm.weight",
+      "layer_index": 31,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.31.ffn_up_exps.weight",
+      "layer_index": 31,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.32.attn_k.weight",
+      "layer_index": 32,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.attn_k_norm.weight",
+      "layer_index": 32,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.attn_norm.weight",
+      "layer_index": 32,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.attn_output.weight",
+      "layer_index": 32,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.attn_q.weight",
+      "layer_index": 32,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.attn_q_norm.weight",
+      "layer_index": 32,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.attn_v.weight",
+      "layer_index": 32,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.ffn_down_exps.weight",
+      "layer_index": 32,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.32.ffn_gate_exps.weight",
+      "layer_index": 32,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.32.ffn_gate_inp.weight",
+      "layer_index": 32,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.ffn_norm.weight",
+      "layer_index": 32,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.32.ffn_up_exps.weight",
+      "layer_index": 32,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.33.attn_k.weight",
+      "layer_index": 33,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.attn_k_norm.weight",
+      "layer_index": 33,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.attn_norm.weight",
+      "layer_index": 33,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.attn_output.weight",
+      "layer_index": 33,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.attn_q.weight",
+      "layer_index": 33,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.attn_q_norm.weight",
+      "layer_index": 33,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.attn_v.weight",
+      "layer_index": 33,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.ffn_down_exps.weight",
+      "layer_index": 33,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.33.ffn_gate_exps.weight",
+      "layer_index": 33,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.33.ffn_gate_inp.weight",
+      "layer_index": 33,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.ffn_norm.weight",
+      "layer_index": 33,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.33.ffn_up_exps.weight",
+      "layer_index": 33,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.34.attn_k.weight",
+      "layer_index": 34,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.attn_k_norm.weight",
+      "layer_index": 34,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.attn_norm.weight",
+      "layer_index": 34,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.attn_output.weight",
+      "layer_index": 34,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.attn_q.weight",
+      "layer_index": 34,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.attn_q_norm.weight",
+      "layer_index": 34,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.attn_v.weight",
+      "layer_index": 34,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.ffn_down_exps.weight",
+      "layer_index": 34,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.34.ffn_gate_exps.weight",
+      "layer_index": 34,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.34.ffn_gate_inp.weight",
+      "layer_index": 34,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.ffn_norm.weight",
+      "layer_index": 34,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.34.ffn_up_exps.weight",
+      "layer_index": 34,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.35.attn_k.weight",
+      "layer_index": 35,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.attn_k_norm.weight",
+      "layer_index": 35,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.attn_norm.weight",
+      "layer_index": 35,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.attn_output.weight",
+      "layer_index": 35,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.attn_q.weight",
+      "layer_index": 35,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.attn_q_norm.weight",
+      "layer_index": 35,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.attn_v.weight",
+      "layer_index": 35,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.ffn_down_exps.weight",
+      "layer_index": 35,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.35.ffn_gate_exps.weight",
+      "layer_index": 35,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.35.ffn_gate_inp.weight",
+      "layer_index": 35,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.ffn_norm.weight",
+      "layer_index": 35,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.35.ffn_up_exps.weight",
+      "layer_index": 35,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.36.attn_k.weight",
+      "layer_index": 36,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.attn_k_norm.weight",
+      "layer_index": 36,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.attn_norm.weight",
+      "layer_index": 36,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.attn_output.weight",
+      "layer_index": 36,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.attn_q.weight",
+      "layer_index": 36,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.attn_q_norm.weight",
+      "layer_index": 36,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.attn_v.weight",
+      "layer_index": 36,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.ffn_down_exps.weight",
+      "layer_index": 36,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.36.ffn_gate_exps.weight",
+      "layer_index": 36,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.36.ffn_gate_inp.weight",
+      "layer_index": 36,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.ffn_norm.weight",
+      "layer_index": 36,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.36.ffn_up_exps.weight",
+      "layer_index": 36,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.37.attn_k.weight",
+      "layer_index": 37,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.attn_k_norm.weight",
+      "layer_index": 37,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.attn_norm.weight",
+      "layer_index": 37,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.attn_output.weight",
+      "layer_index": 37,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.attn_q.weight",
+      "layer_index": 37,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.attn_q_norm.weight",
+      "layer_index": 37,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.attn_v.weight",
+      "layer_index": 37,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.ffn_down_exps.weight",
+      "layer_index": 37,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.37.ffn_gate_exps.weight",
+      "layer_index": 37,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.37.ffn_gate_inp.weight",
+      "layer_index": 37,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.ffn_norm.weight",
+      "layer_index": 37,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.37.ffn_up_exps.weight",
+      "layer_index": 37,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.38.attn_k.weight",
+      "layer_index": 38,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.attn_k_norm.weight",
+      "layer_index": 38,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.attn_norm.weight",
+      "layer_index": 38,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.attn_output.weight",
+      "layer_index": 38,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.attn_q.weight",
+      "layer_index": 38,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.attn_q_norm.weight",
+      "layer_index": 38,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.attn_v.weight",
+      "layer_index": 38,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.ffn_down_exps.weight",
+      "layer_index": 38,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.38.ffn_gate_exps.weight",
+      "layer_index": 38,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.38.ffn_gate_inp.weight",
+      "layer_index": 38,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.ffn_norm.weight",
+      "layer_index": 38,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.38.ffn_up_exps.weight",
+      "layer_index": 38,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.39.attn_k.weight",
+      "layer_index": 39,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.attn_k_norm.weight",
+      "layer_index": 39,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.attn_norm.weight",
+      "layer_index": 39,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.attn_output.weight",
+      "layer_index": 39,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.attn_q.weight",
+      "layer_index": 39,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.attn_q_norm.weight",
+      "layer_index": 39,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.attn_v.weight",
+      "layer_index": 39,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.ffn_down_exps.weight",
+      "layer_index": 39,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.39.ffn_gate_exps.weight",
+      "layer_index": 39,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.39.ffn_gate_inp.weight",
+      "layer_index": 39,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.ffn_norm.weight",
+      "layer_index": 39,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.39.ffn_up_exps.weight",
+      "layer_index": 39,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "CPU",
+      "placement_rationale": "-ncmoe 40 keeps MoE layers 0..39 in host CPU RAM"
+    },
+    {
+      "name": "blk.40.attn_k.weight",
+      "layer_index": 40,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.attn_k_norm.weight",
+      "layer_index": 40,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.attn_norm.weight",
+      "layer_index": 40,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.attn_output.weight",
+      "layer_index": 40,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.attn_q.weight",
+      "layer_index": 40,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.attn_q_norm.weight",
+      "layer_index": 40,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.attn_v.weight",
+      "layer_index": 40,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 589824,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.ffn_down_exps.weight",
+      "layer_index": 40,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.40.ffn_gate_exps.weight",
+      "layer_index": 40,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.40.ffn_gate_inp.weight",
+      "layer_index": 40,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.ffn_norm.weight",
+      "layer_index": 40,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.40.ffn_up_exps.weight",
+      "layer_index": 40,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_k.weight",
+      "layer_index": 41,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_k_norm.weight",
+      "layer_index": 41,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_norm.weight",
+      "layer_index": 41,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_output.weight",
+      "layer_index": 41,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_q.weight",
+      "layer_index": 41,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_q_norm.weight",
+      "layer_index": 41,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.attn_v.weight",
+      "layer_index": 41,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.ffn_down_exps.weight",
+      "layer_index": 41,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.41.ffn_gate_exps.weight",
+      "layer_index": 41,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.41.ffn_gate_inp.weight",
+      "layer_index": 41,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.ffn_norm.weight",
+      "layer_index": 41,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.41.ffn_up_exps.weight",
+      "layer_index": 41,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_k.weight",
+      "layer_index": 42,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_k_norm.weight",
+      "layer_index": 42,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_norm.weight",
+      "layer_index": 42,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_output.weight",
+      "layer_index": 42,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_q.weight",
+      "layer_index": 42,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_q_norm.weight",
+      "layer_index": 42,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.attn_v.weight",
+      "layer_index": 42,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.ffn_down_exps.weight",
+      "layer_index": 42,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.42.ffn_gate_exps.weight",
+      "layer_index": 42,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.42.ffn_gate_inp.weight",
+      "layer_index": 42,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.ffn_norm.weight",
+      "layer_index": 42,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.42.ffn_up_exps.weight",
+      "layer_index": 42,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_k.weight",
+      "layer_index": 43,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_k_norm.weight",
+      "layer_index": 43,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_norm.weight",
+      "layer_index": 43,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_output.weight",
+      "layer_index": 43,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_q.weight",
+      "layer_index": 43,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_q_norm.weight",
+      "layer_index": 43,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.attn_v.weight",
+      "layer_index": 43,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.ffn_down_exps.weight",
+      "layer_index": 43,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.43.ffn_gate_exps.weight",
+      "layer_index": 43,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.43.ffn_gate_inp.weight",
+      "layer_index": 43,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.ffn_norm.weight",
+      "layer_index": 43,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.43.ffn_up_exps.weight",
+      "layer_index": 43,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_k.weight",
+      "layer_index": 44,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_k_norm.weight",
+      "layer_index": 44,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_norm.weight",
+      "layer_index": 44,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_output.weight",
+      "layer_index": 44,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_q.weight",
+      "layer_index": 44,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_q_norm.weight",
+      "layer_index": 44,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.attn_v.weight",
+      "layer_index": 44,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.ffn_down_exps.weight",
+      "layer_index": 44,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.44.ffn_gate_exps.weight",
+      "layer_index": 44,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.44.ffn_gate_inp.weight",
+      "layer_index": 44,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.ffn_norm.weight",
+      "layer_index": 44,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.44.ffn_up_exps.weight",
+      "layer_index": 44,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_k.weight",
+      "layer_index": 45,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_k_norm.weight",
+      "layer_index": 45,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_norm.weight",
+      "layer_index": 45,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_output.weight",
+      "layer_index": 45,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_q.weight",
+      "layer_index": 45,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_q_norm.weight",
+      "layer_index": 45,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.attn_v.weight",
+      "layer_index": 45,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.ffn_down_exps.weight",
+      "layer_index": 45,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.45.ffn_gate_exps.weight",
+      "layer_index": 45,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.45.ffn_gate_inp.weight",
+      "layer_index": 45,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.ffn_norm.weight",
+      "layer_index": 45,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.45.ffn_up_exps.weight",
+      "layer_index": 45,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_k.weight",
+      "layer_index": 46,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_k_norm.weight",
+      "layer_index": 46,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_norm.weight",
+      "layer_index": 46,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_output.weight",
+      "layer_index": 46,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_q.weight",
+      "layer_index": 46,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_q_norm.weight",
+      "layer_index": 46,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.attn_v.weight",
+      "layer_index": 46,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.ffn_down_exps.weight",
+      "layer_index": 46,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.46.ffn_gate_exps.weight",
+      "layer_index": 46,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.46.ffn_gate_inp.weight",
+      "layer_index": 46,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.ffn_norm.weight",
+      "layer_index": 46,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.46.ffn_up_exps.weight",
+      "layer_index": 46,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_k.weight",
+      "layer_index": 47,
+      "category": "attention_weights",
+      "quant_type": "Q8_0",
+      "stored_bytes": 1114112,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_k_norm.weight",
+      "layer_index": 47,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_norm.weight",
+      "layer_index": 47,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_output.weight",
+      "layer_index": 47,
+      "category": "attention_weights",
+      "quant_type": "Q5_K",
+      "stored_bytes": 5767168,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_q.weight",
+      "layer_index": 47,
+      "category": "attention_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 4718592,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_q_norm.weight",
+      "layer_index": 47,
+      "category": "attention_weights",
+      "quant_type": "F32",
+      "stored_bytes": 512,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.attn_v.weight",
+      "layer_index": 47,
+      "category": "attention_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 860160,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.ffn_down_exps.weight",
+      "layer_index": 47,
+      "category": "moe_expert_weights",
+      "quant_type": "Q6_K",
+      "stored_bytes": 165150720,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.47.ffn_gate_exps.weight",
+      "layer_index": 47,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    },
+    {
+      "name": "blk.47.ffn_gate_inp.weight",
+      "layer_index": 47,
+      "category": "moe_routers",
+      "quant_type": "F32",
+      "stored_bytes": 1048576,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.ffn_norm.weight",
+      "layer_index": 47,
+      "category": "layernorms",
+      "quant_type": "F32",
+      "stored_bytes": 8192,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads all non-MoE transformer layers and heads to GPU VRAM"
+    },
+    {
+      "name": "blk.47.ffn_up_exps.weight",
+      "layer_index": 47,
+      "category": "moe_expert_weights",
+      "quant_type": "Q4_K",
+      "stored_bytes": 113246208,
+      "destination": "GPU",
+      "placement_rationale": "-ngl 48 offloads remaining MoE layers 40..47 to GPU VRAM"
+    }
+  ]
+}

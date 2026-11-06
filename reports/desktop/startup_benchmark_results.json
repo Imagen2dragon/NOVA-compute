@@ -1,0 +1,161 @@
+﻿{
+    "Timestamp":  "2026-11-06T15:52:12.3563242+03:00",
+    "Hardware":  {
+                     "Cpu":  "13th Gen Intel(R) Core(TM) i7-13700H",
+                     "RamGb":  16,
+                     "Gpu":  "NVIDIA GeForce RTX 4050 Laptop GPU, Intel(R) Iris(R) Xe Graphics",
+                     "Os":  "Microsoft Windows 11 Home"
+                 },
+    "ColdRuns":  [
+                     {
+                         "RunType":  "Cold",
+                         "RunIndex":  1,
+                         "BackendInitMs":  15,
+                         "WindowVisibleMs":  60,
+                         "FirstInteractionMs":  68,
+                         "AppReadyMs":  488,
+                         "MainProcWorkingSetMb":  34.41,
+                         "IsolatedWebView2WorkingSetMb":  324.37,
+                         "AppTreeWorkingSetMb":  358.78,
+                         "MachineWideWebView2Mb":  1144.09
+                     },
+                     {
+                         "RunType":  "Cold",
+                         "RunIndex":  2,
+                         "BackendInitMs":  11,
+                         "WindowVisibleMs":  47,
+                         "FirstInteractionMs":  60,
+                         "AppReadyMs":  468,
+                         "MainProcWorkingSetMb":  34.76,
+                         "IsolatedWebView2WorkingSetMb":  324.94,
+                         "AppTreeWorkingSetMb":  359.7,
+                         "MachineWideWebView2Mb":  1141.14
+                     },
+                     {
+                         "RunType":  "Cold",
+                         "RunIndex":  3,
+                         "BackendInitMs":  13,
+                         "WindowVisibleMs":  61,
+                         "FirstInteractionMs":  61,
+                         "AppReadyMs":  466,
+                         "MainProcWorkingSetMb":  37.36,
+                         "IsolatedWebView2WorkingSetMb":  324.29,
+                         "AppTreeWorkingSetMb":  361.64,
+                         "MachineWideWebView2Mb":  1269.47
+                     },
+                     {
+                         "RunType":  "Cold",
+                         "RunIndex":  4,
+                         "BackendInitMs":  7,
+                         "WindowVisibleMs":  47,
+                         "FirstInteractionMs":  47,
+                         "AppReadyMs":  448,
+                         "MainProcWorkingSetMb":  35.17,
+                         "IsolatedWebView2WorkingSetMb":  324.31,
+                         "AppTreeWorkingSetMb":  359.48,
+                         "MachineWideWebView2Mb":  1268.25
+                     },
+                     {
+                         "RunType":  "Cold",
+                         "RunIndex":  5,
+                         "BackendInitMs":  14,
+                         "WindowVisibleMs":  61,
+                         "FirstInteractionMs":  64,
+                         "AppReadyMs":  468,
+                         "MainProcWorkingSetMb":  34.81,
+                         "IsolatedWebView2WorkingSetMb":  323.05,
+                         "AppTreeWorkingSetMb":  357.86,
+                         "MachineWideWebView2Mb":  1272.36
+                     }
+                 ],
+    "WarmRuns":  [
+                     {
+                         "RunType":  "Warm",
+                         "RunIndex":  1,
+                         "BackendInitMs":  10,
+                         "WindowVisibleMs":  46,
+                         "FirstInteractionMs":  59,
+                         "AppReadyMs":  464,
+                         "MainProcWorkingSetMb":  34.91,
+                         "IsolatedWebView2WorkingSetMb":  325.63,
+                         "AppTreeWorkingSetMb":  360.54,
+                         "MachineWideWebView2Mb":  1272.42
+                     },
+                     {
+                         "RunType":  "Warm",
+                         "RunIndex":  2,
+                         "BackendInitMs":  11,
+                         "WindowVisibleMs":  60,
+                         "FirstInteractionMs":  60,
+                         "AppReadyMs":  465,
+                         "MainProcWorkingSetMb":  37.51,
+                         "IsolatedWebView2WorkingSetMb":  323.95,
+                         "AppTreeWorkingSetMb":  361.46,
+                         "MachineWideWebView2Mb":  1140.11
+                     },
+                     {
+                         "RunType":  "Warm",
+                         "RunIndex":  3,
+                         "BackendInitMs":  7,
+                         "WindowVisibleMs":  46,
+                         "FirstInteractionMs":  46,
+                         "AppReadyMs":  464,
+                         "MainProcWorkingSetMb":  37.38,
+                         "IsolatedWebView2WorkingSetMb":  323.16,
+                         "AppTreeWorkingSetMb":  360.54,
+                         "MachineWideWebView2Mb":  1142.86
+                     },
+                     {
+                         "RunType":  "Warm",
+                         "RunIndex":  4,
+                         "BackendInitMs":  14,
+                         "WindowVisibleMs":  45,
+                         "FirstInteractionMs":  75,
+                         "AppReadyMs":  478,
+                         "MainProcWorkingSetMb":  34.4,
+                         "IsolatedWebView2WorkingSetMb":  323.1,
+                         "AppTreeWorkingSetMb":  357.5,
+                         "MachineWideWebView2Mb":  1141.11
+                     },
+                     {
+                         "RunType":  "Warm",
+                         "RunIndex":  5,
+                         "BackendInitMs":  7,
+                         "WindowVisibleMs":  46,
+                         "FirstInteractionMs":  51,
+                         "AppReadyMs":  462,
+                         "MainProcWorkingSetMb":  35.1,
+                         "IsolatedWebView2WorkingSetMb":  323.42,
+                         "AppTreeWorkingSetMb":  358.52,
+                         "MachineWideWebView2Mb":  1144.11
+                     }
+                 ],
+    "ColdWindowVisibleStats":  {
+                                   "Mean":  55.2,
+                                   "Median":  60,
+                                   "Min":  47,
+                                   "Max":  61
+                               },
+    "ColdAppReadyStats":  {
+                              "Mean":  467.6,
+                              "Median":  468,
+                              "Min":  448,
+                              "Max":  488
+                          },
+    "WarmWindowVisibleStats":  {
+                                   "Mean":  48.6,
+                                   "Median":  46,
+                                   "Min":  45,
+                                   "Max":  60
+                               },
+    "WarmAppReadyStats":  {
+                              "Mean":  466.6,
+                              "Median":  464,
+                              "Min":  462,
+                              "Max":  478
+                          },
+    "AverageMainProcessWorkingSetMb":  35.86,
+    "AverageIsolatedWebView2WorkingSetMb":  323.85,
+    "AverageAppTreeWorkingSetMb":  359.71,
+    "AverageMachineWideWebView2Mb":  1168.12
+}
