@@ -22,6 +22,7 @@ from .models import (
     is_safe_positive_policy_threshold
 )
 from .policy import ResourcePolicy, DEFAULT_POLICY, enforce_mandatory_admission_floors
+from . import system_processes
 
 class MemoryBudgetManager:
     """Evaluates resource availability and enforces preflight safety gates."""
@@ -195,10 +196,21 @@ class MemoryBudgetManager:
             gpu_comp_measured = "UNKNOWN (Query Failed)"
             gpu_comp_failure = "GPU compute process query failed or unavailable. Fail-closed: competing workloads cannot be ruled out."
         else:
-            comp_count = len(gpu.compute_processes)
+            # Project Owner decision (2026-11-06): only the verified system dwm.exe is exempt.
+            # Every other listed process, including unresolvable ones, counts as competing.
+            exempt = [p for p in gpu.compute_processes
+                      if system_processes.is_exempt_system_gpu_process(p.pid)]
+            competing = [p for p in gpu.compute_processes if p not in exempt]
+            comp_count = len(competing)
             gpu_comp_passed = (comp_count == 0)
             gpu_comp_measured = f"{comp_count} active apps"
-            gpu_comp_failure = f"Found {comp_count} competing GPU compute process(es)" if not gpu_comp_passed else None
+            if exempt:
+                gpu_comp_measured += f" ({len(exempt)} exempt: dwm.exe)"
+            if gpu_comp_passed:
+                gpu_comp_failure = None
+            else:
+                names = ", ".join(f"{p.process_name} (PID {p.pid})" for p in competing)
+                gpu_comp_failure = f"Found {comp_count} competing GPU compute process(es): {names}"
 
         gates["no_competing_gpu"] = GateResult(
             gate_name="no_competing_gpu",

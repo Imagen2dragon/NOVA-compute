@@ -191,7 +191,8 @@ class TestResourceSteward(unittest.TestCase):
 
     def _make_sample(self, sample_id: int, mono_time: float, avail_ram_gib: float = 12.0,
                      commit_pct: float = 40.0, vram_free_mib: float = 5900.0,
-                     ram_status: str = "SUCCESS", gpu_status: str = "SUCCESS") -> dict:
+                     ram_status: str = "SUCCESS", gpu_status: str = "SUCCESS",
+                     temperature_c: Optional[float] = 50.0) -> dict:
         return {
             "sample_id": sample_id,
             "timestamp_monotonic": mono_time,
@@ -204,6 +205,7 @@ class TestResourceSteward(unittest.TestCase):
             "gpu": {
                 "vram_free_mib": vram_free_mib,
                 "vram_used_mib": 6141.0 - vram_free_mib,
+                "temperature_c": temperature_c,
                 "status": gpu_status,
                 "error": "GPU failure" if gpu_status != "SUCCESS" else None
             }

@@ -417,6 +417,118 @@ where
     }
 }
 
+/// Pure check for the GPU contention gate exemption (Project Owner decision 2026-11-06):
+/// true only if `nt_image_path` is exactly
+/// `<system drive device>\<SystemRoot without drive>\System32\dwm.exe`, case-insensitive.
+/// Under Windows WDDM, dwm.exe (the desktop compositor) is always listed by NVML, so a
+/// strict zero-process gate could never pass. No other process is exempt.
+pub fn is_dwm_image_path(
+    nt_image_path: Option<&str>,
+    system_drive_device: Option<&str>,
+    system_root: Option<&str>,
+) -> bool {
+    let (Some(path), Some(device), Some(root)) = (nt_image_path, system_drive_device, system_root)
+    else {
+        return false;
+    };
+    if path.is_empty() || device.is_empty() || root.len() < 3 || root.as_bytes()[1] != b':' {
+        return false;
+    }
+    let expected = format!(
+        "{}{}\\System32\\dwm.exe",
+        device.trim_end_matches('\\'),
+        root[2..].trim_end_matches('\\')
+    );
+    path.eq_ignore_ascii_case(&expected)
+}
+
+/// Reads a process's NT image path without opening the process (dwm.exe denies
+/// OpenProcess to ordinary users), via NtQuerySystemInformation(SystemProcessIdInformation).
+#[cfg(windows)]
+fn query_nt_image_path(pid: u32) -> Option<String> {
+    use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+
+    #[repr(C)]
+    struct UnicodeString {
+        length: u16,
+        maximum_length: u16,
+        buffer: *mut u16,
+    }
+    #[repr(C)]
+    struct SystemProcessIdInformation {
+        process_id: *mut c_void,
+        image_name: UnicodeString,
+    }
+    const SYSTEM_PROCESS_ID_INFORMATION: u32 = 88;
+
+    if pid == 0 {
+        return None;
+    }
+    unsafe {
+        let ntdll = GetModuleHandleW(windows_sys::core::w!("ntdll.dll"));
+        if ntdll.is_null() {
+            return None;
+        }
+        let sym = GetProcAddress(ntdll, b"NtQuerySystemInformation\0".as_ptr())?;
+        let nt_query: unsafe extern "system" fn(u32, *mut c_void, u32, *mut u32) -> i32 =
+            std::mem::transmute(sym);
+
+        let mut buf = vec![0u16; 1024];
+        let mut info = SystemProcessIdInformation {
+            process_id: pid as usize as *mut c_void,
+            image_name: UnicodeString {
+                length: 0,
+                maximum_length: (buf.len() * 2) as u16,
+                buffer: buf.as_mut_ptr(),
+            },
+        };
+        let status = nt_query(
+            SYSTEM_PROCESS_ID_INFORMATION,
+            &mut info as *mut _ as *mut c_void,
+            std::mem::size_of::<SystemProcessIdInformation>() as u32,
+            std::ptr::null_mut(),
+        );
+        if status != 0 || info.image_name.length == 0 {
+            return None;
+        }
+        let chars = (info.image_name.length / 2) as usize;
+        Some(String::from_utf16_lossy(&buf[..chars.min(buf.len())]))
+    }
+}
+
+#[cfg(windows)]
+fn query_system_drive_device() -> Option<String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::QueryDosDeviceW;
+
+    let drive = std::env::var("SystemDrive").ok()?;
+    let wide: Vec<u16> = std::ffi::OsStr::new(&drive)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut buf = vec![0u16; 1024];
+    let n = unsafe { QueryDosDeviceW(wide.as_ptr(), buf.as_mut_ptr(), buf.len() as u32) };
+    if n == 0 {
+        return None;
+    }
+    let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+    let s = String::from_utf16_lossy(&buf[..end]);
+    if s.is_empty() {
+        None
+    } else {
+        Some(s)
+    }
+}
+
+/// True only for the verified system dwm.exe; false on any failure (fail closed).
+#[cfg(windows)]
+pub fn is_exempt_system_gpu_process(pid: u32) -> bool {
+    let path = query_nt_image_path(pid);
+    let device = query_system_drive_device();
+    let root = std::env::var("SystemRoot").ok();
+    is_dwm_image_path(path.as_deref(), device.as_deref(), root.as_deref())
+}
+
 #[cfg(windows)]
 pub fn query_nvml_gpu() -> Result<(f64, f64, u32), String> {
     use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
@@ -492,7 +604,13 @@ pub fn query_nvml_gpu() -> Result<(f64, f64, u32), String> {
             let mut buf = vec![NvmlProcessInfo::default(); needed_count as usize];
             let mut actual_count = needed_count;
             let ret2 = get_procs_fn(device, &mut actual_count, buf.as_mut_ptr());
-            (ret2, actual_count)
+            // Count only non-exempt processes; only the verified system dwm.exe is exempt.
+            let listed = (actual_count as usize).min(buf.len());
+            let competing = buf[..listed]
+                .iter()
+                .filter(|p| !is_exempt_system_gpu_process(p.pid))
+                .count() as u32;
+            (ret2, competing)
         })?;
 
         let free_vram_mib = mem.free as f64 / (1024.0 * 1024.0);

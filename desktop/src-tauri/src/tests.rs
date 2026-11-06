@@ -4979,4 +4979,102 @@ mod tests {
         }
         let _ = std::fs::remove_dir_all(test_dir);
     }
+
+    // =========================================================================
+    // GPU contention gate: only the verified system dwm.exe is exempt
+    // (Project Owner decision 2026-11-06).
+    // =========================================================================
+
+    #[test]
+    fn test_dwm_exemption_path_rule() {
+        use crate::admission::is_dwm_image_path;
+        let dev = Some("\\Device\\HarddiskVolume3");
+        let root = Some("C:\\WINDOWS");
+
+        assert!(is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume3\\Windows\\System32\\dwm.exe"),
+            dev,
+            root
+        ));
+        assert!(is_dwm_image_path(
+            Some("\\DEVICE\\HARDDISKVOLUME3\\WINDOWS\\SYSTEM32\\DWM.EXE"),
+            dev,
+            root
+        ));
+        // A dwm.exe anywhere else, on another volume, or a different system binary: not exempt.
+        assert!(!is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume3\\Users\\x\\dwm.exe"),
+            dev,
+            root
+        ));
+        assert!(!is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume4\\Windows\\System32\\dwm.exe"),
+            dev,
+            root
+        ));
+        assert!(!is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume3\\Windows\\System32\\dwm.exe.bak"),
+            dev,
+            root
+        ));
+        assert!(!is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume3\\Windows\\System32\\explorer.exe"),
+            dev,
+            root
+        ));
+        // Missing data fails closed.
+        assert!(!is_dwm_image_path(None, dev, root));
+        assert!(!is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume3\\Windows\\System32\\dwm.exe"),
+            None,
+            root
+        ));
+        assert!(!is_dwm_image_path(
+            Some("\\Device\\HarddiskVolume3\\Windows\\System32\\dwm.exe"),
+            dev,
+            Some("bad")
+        ));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_dwm_exemption_live_process_checks() {
+        use crate::admission::is_exempt_system_gpu_process;
+        use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+        use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+            CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+            TH32CS_SNAPPROCESS,
+        };
+
+        // The test process itself, PID 0 and a nonexistent PID are never exempt.
+        assert!(!is_exempt_system_gpu_process(std::process::id()));
+        assert!(!is_exempt_system_gpu_process(0));
+        assert!(!is_exempt_system_gpu_process(0xFFFF_FFF0));
+
+        // Every running dwm.exe on this machine is the verified system copy.
+        let mut dwm_pids = Vec::new();
+        unsafe {
+            let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+            assert!(snap != INVALID_HANDLE_VALUE);
+            let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+            entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+            if Process32FirstW(snap, &mut entry) != 0 {
+                loop {
+                    let end = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(0);
+                    let name = String::from_utf16_lossy(&entry.szExeFile[..end]);
+                    if name.eq_ignore_ascii_case("dwm.exe") {
+                        dwm_pids.push(entry.th32ProcessID);
+                    }
+                    if Process32NextW(snap, &mut entry) == 0 {
+                        break;
+                    }
+                }
+            }
+            CloseHandle(snap);
+        }
+        assert!(!dwm_pids.is_empty(), "Expected dwm.exe on an interactive Windows session");
+        for pid in dwm_pids {
+            assert!(is_exempt_system_gpu_process(pid), "dwm.exe PID {} should be exempt", pid);
+        }
+    }
 }

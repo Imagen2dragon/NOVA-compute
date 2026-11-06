@@ -315,7 +315,12 @@ class ResourceMonitor:
                     try:
                         pid = int(p_parts[0])
                         p_name = p_parts[1]
-                        used_mem = float(p_parts[2])
+                        # Under Windows WDDM the NVIDIA driver reports per-process memory as
+                        # "[N/A]" for every process. That is a documented "not reported" value,
+                        # not malformed output: record it as unknown (None). Any other
+                        # non-numeric value still fails closed below.
+                        mem_field = p_parts[2]
+                        used_mem = None if mem_field in ("[N/A]", "N/A") else float(mem_field)
                         compute_apps.append(GPUProcessInfo(
                             pid=pid,
                             process_name=p_name,

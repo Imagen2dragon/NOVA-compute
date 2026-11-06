@@ -122,7 +122,8 @@ class ProcessResourceSnapshot:
 class GPUProcessInfo:
     pid: int
     process_name: str
-    used_memory_mib: float
+    # None when the driver reports "[N/A]" (always the case under Windows WDDM).
+    used_memory_mib: Optional[float]
 
 @dataclass
 class GPUSnapshot:

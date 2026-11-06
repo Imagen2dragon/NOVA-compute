@@ -29,6 +29,10 @@ class ResourcePolicy:
     reclamation_cooldown_seconds: float = 30.0
     min_reclamation_delta_mib: float = 1.0  # Demonstrable process-local memory release threshold (MiB)
     auto_reclaim_enabled: bool = True
+    # Supervised-run hard limits (Phase 3C.0): abort if the child runs longer than this...
+    max_run_duration_seconds: float = 600.0
+    # ...or if GPU temperature reaches this value.
+    critical_gpu_temp_c: float = 87.0
 
     def __init__(
         self,
@@ -48,6 +52,8 @@ class ResourcePolicy:
         reclamation_cooldown_seconds: float = 30.0,
         min_reclamation_delta_mib: Optional[float] = None,
         auto_reclaim_enabled: bool = True,
+        max_run_duration_seconds: float = 600.0,
+        critical_gpu_temp_c: float = 87.0,
         # Backward-compatibility alias parameters:
         minimum_disk_free_gb: Optional[float] = None,
         min_reclamation_delta_mb: Optional[float] = None,
@@ -92,6 +98,8 @@ class ResourcePolicy:
             self.min_reclamation_delta_mib = 1.0
 
         self.auto_reclaim_enabled = auto_reclaim_enabled
+        self.max_run_duration_seconds = max_run_duration_seconds
+        self.critical_gpu_temp_c = critical_gpu_temp_c
 
     @property
     def min_reclamation_delta_mb(self) -> float:

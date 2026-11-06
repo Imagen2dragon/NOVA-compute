@@ -477,6 +477,20 @@ def execute_inference(
     peak_ram_gib = pre_ram.avail_phys_gib
     peak_vram_mib = pre_gpu.vram_used_mib
 
+    # Containment (Phase 3C.0): put this harness in a kill-on-close Job Object BEFORE the
+    # child exists, so llama-cli.exe is born inside the job and is terminated by the kernel
+    # if the harness dies for any reason. Fail closed if containment cannot be established.
+    try:
+        from nova.resource_steward.job_containment import contain_current_process
+        contain_current_process()
+    except OSError as e:
+        controller.state_machine.transition_to(
+            StartupState.ABORTED,
+            reason=f"Job Object containment failed: {e}"
+        )
+        print(f"\nCRITICAL: Job Object containment failed; refusing to start llama-cli: {e}")
+        return InferenceOutcome.FAILED, f"Job Object containment failed: {e}"
+
     # Launch process with CREATE_NEW_PROCESS_GROUP and BELOW_NORMAL_PRIORITY_CLASS on Windows
     creation_flags = CREATE_NEW_PROCESS_GROUP | BELOW_NORMAL_PRIORITY_CLASS
     t_start = time.time()

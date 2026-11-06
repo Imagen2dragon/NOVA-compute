@@ -1,6 +1,6 @@
 # NOVA Compute — Antigravity-ready Starter Pack
 
-**Status:** Phase 0 (Hardware Qualification), Phase 1 (Small-Model Runtime Baseline), Phase 2B (Q4_K_M Acquisition), Phase 3 (NOVA Chat Desktop Application) & Phase 3B.10 Audited (F1/F3 fixed in commit `a6509b7`; F2/F4/O1 open; pre-assignment window noted) | 109 Rust Unit & Hardening Tests Passing (1 ignored, 110 total) | Unsigned per-user NSIS installer builds successfully; clean installation, runtime discovery, and uninstall behavior remain to be validated | Live Model Inference Gated Behind Safety Approval
+**Status:** Phase 0 (Hardware Qualification), Phase 1 (Small-Model Runtime Baseline), Phase 2B (Q4_K_M Acquisition), Phase 3 (NOVA Chat Desktop Application) & Phase 3B.10 Audited (F1/F3 fixed in `a6509b7`; F2 fixed in `da5003c`; O1 closed; F4 open; pre-assignment window noted) | 113 Rust Unit & Hardening Tests Passing (1 ignored, 114 total) | Unsigned per-user NSIS installer builds successfully; clean installation, runtime discovery, and uninstall behavior remain to be validated | Live Model Inference Gated Behind Safety Approval
 
 NOVA Compute is a resource-aware local inference platform for MoE LLMs and small domain-specialist models. The first reported target machine is an NVIDIA RTX 4050 Laptop GPU (6 GB VRAM) with 16 GB system RAM.
 

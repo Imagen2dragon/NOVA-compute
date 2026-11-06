@@ -48,9 +48,22 @@ def supervise_child_process(
     abort_reason = ""
     output_lines: List[str] = []
     workspace_reserve_warned = False
+    max_run_sec = getattr(pol, "max_run_duration_seconds", 600.0)
+    critical_temp_c = getattr(pol, "critical_gpu_temp_c", 87.0)
 
     while proc.poll() is None and not abort_triggered:
         now = clock()
+
+        # 0. Hard wall-clock limit: a hung child must not be supervised forever.
+        if now - t_start > max_run_sec:
+            abort_triggered = True
+            abort_reason = (
+                f"CRITICAL ABORT: Child exceeded maximum run duration "
+                f"({now - t_start:.1f}s > {max_run_sec:.0f}s)."
+            )
+            if abort_callback:
+                abort_callback(abort_reason)
+            break
 
         # 1. Drain output queue (non-blocking)
         while True:
@@ -211,6 +224,22 @@ def supervise_child_process(
             if cur_vram_free < pol.critical_vram_free_mib:
                 abort_triggered = True
                 abort_reason = f"CRITICAL ABORT: Free VRAM dropped to {cur_vram_free:.1f} MiB (< {pol.critical_vram_free_mib} MiB)."
+                if abort_callback:
+                    abort_callback(abort_reason)
+                break
+
+            # GPU temperature check (fail-closed: a missing or invalid reading aborts)
+            cur_temp = s_gpu.get("temperature_c")
+            if (cur_temp is None or isinstance(cur_temp, bool) or not isinstance(cur_temp, (int, float))
+                    or not math.isfinite(cur_temp)):
+                abort_triggered = True
+                abort_reason = f"CRITICAL ABORT: GPU temperature reading invalid or missing ({cur_temp!r}). Fail-closed."
+                if abort_callback:
+                    abort_callback(abort_reason)
+                break
+            if cur_temp >= critical_temp_c:
+                abort_triggered = True
+                abort_reason = f"CRITICAL ABORT: GPU temperature reached {cur_temp:.0f} C (>= {critical_temp_c:.0f} C)."
                 if abort_callback:
                     abort_callback(abort_reason)
                 break

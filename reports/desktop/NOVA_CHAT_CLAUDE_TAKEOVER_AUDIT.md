@@ -365,3 +365,90 @@ No compiler warnings.
 - **No real cache exists today.** `%LOCALAPPDATA%\NOVA Chat\` has no `model_cache.json` (the Phase 3B.11 report said it was "pre-populated"; it is not). With no UI action to start verification, a load through NOVA Chat is currently blocked at the integrity gate. This is fail-closed, but it means a NOVA Chat smoke test needs a "Verify model" UI action first.
 - **Test side effect (pre-existing):** the identity-mismatch path calls `storage::clear_model_cache()`, which targets the real `%LOCALAPPDATA%\NOVA Chat\` directory unless `NOVA_DATA_DIR` is set. The same-size/same-mtime test can reach it. Harmless today (no cache), but running the suite after a real verification could delete the user's cache. Recommend routing tests through an isolated data dir.
 - Remaining open: F4, F5, UI verification action, UI-2 fallback label.
+
+---
+
+## 16. Update — Option A harness hardening (Project Owner approved, 2026-11-06)
+
+Review of Antigravity's Phase 3C.0 report found that the Python preflight's telemetry gate could **never** pass on this laptop. Three fixes were applied to the Option A harness (Python only; the Rust app is unchanged).
+
+### 16.1 GPU telemetry `[N/A]` (blocker)
+
+- **Cause:** under Windows WDDM, `nvidia-smi --query-compute-apps` reports `used_memory` as `[N/A]` for **every** process. `monitor.py` did `float(p_parts[2])`, which raised on the first row (`dwm`, PID 1128, always present) and failed the whole telemetry gate. It was not a permissions problem as reported.
+- **Fix:** `monitor.py` records `[N/A]` / `N/A` memory as `None`; `GPUProcessInfo.used_memory_mib` is now `Optional[float]`. Non-numeric PIDs and any other non-numeric memory value still fail closed.
+- **The live sampler used the same parser**, so without this fix a run would also have aborted on its first telemetry sample.
+
+### 16.2 Supervisor hard limits
+
+`ResourcePolicy` gains `max_run_duration_seconds = 600.0` and `critical_gpu_temp_c = 87.0`. `supervise_child_process` now aborts when:
+- the child runs longer than the limit (previously a hung child was supervised forever), or
+- a sample's GPU temperature is ≥ the limit, or
+- a sample's temperature is missing or non-finite (fail closed).
+
+### 16.3 Job Object containment
+
+New `nova/resource_steward/job_containment.py`: `contain_current_process()` puts the harness process in a `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` job **before** `llama-cli.exe` is spawned, so the child is born inside the job (no window). The handle is never closed; the kernel closes it when the harness exits for any reason and kills the child. `execute_inference` fails closed (state `ABORTED`, no spawn) if containment cannot be established.
+
+### 16.4 Tests
+
+New `tests/test_phase3c0_hardening.py` (10 tests): WDDM `[N/A]` rows parse as SUCCESS with unknown memory; numeric memory still parsed; garbage memory and non-numeric PID still fail; policy defaults; wall-clock abort; temperature abort; missing temperature aborts; containment kills a grandchild when its contained parent is killed. A manual negative control confirmed the grandchild **survives** parent death without the job. The shared sample builder in `test_resource_steward.py` now includes `temperature_c`.
+
+```
+python -m unittest discover -s tests -p "test_*.py"  ->  Ran 127 tests ... OK
+cargo test --lib -j 4                                  ->  113 passed; 0 failed; 1 ignored
+```
+
+### 16.5 Live read-only preflight after the fix
+
+```
+[PASS] telemetry_integrity   : Healthy
+[FAIL] avail_ram             : 7.932 GiB (Req: >= 10.0 GiB)
+[PASS] system_commit         : 66.2%
+[PASS] avail_vram            : 5591.0 MiB
+[FAIL] no_competing_gpu      : 5 active apps (Req: 0 competing compute apps)
+[PASS] disk_free             : 98.96 GiB
+```
+
+### 16.6 Still blocking (Project Owner decision)
+
+- **GPU contention gate policy.** WDDM lists graphics users as "compute apps": `dwm` (always present), OMEN LightStudio, OMEN Command Center (two processes) and Telegram. The gate requires exactly 0, so it can never pass while `dwm` runs. A rule is needed, for example: exempt `dwm.exe` (system compositor) and treat other listed apps as blocking unless the owner closes them; or require 0 apps after the owner closes OMEN/Telegram and exempt only `dwm`. This is a safety-gate change and needs explicit approval.
+- The Rust app counts processes via NVML (`nvmlDeviceGetComputeRunningProcesses_v2`), so it has no `[N/A]` parsing issue, but it likely counts the same processes. Not verified.
+- RAM: 7.9 GiB available vs 10 GiB required; the owner must close applications.
+
+---
+
+## 17. Update — GPU contention gate: exempt verified dwm.exe only (Project Owner decision, 2026-11-06)
+
+### 17.1 Rule
+
+A GPU process is exempt from the "no competing GPU apps" gate **only** if its image path is exactly `<system drive device>\<SystemRoot without drive>\System32\dwm.exe` (case-insensitive), e.g. `\Device\HarddiskVolume3\WINDOWS\System32\dwm.exe`. Every other listed process, including any whose path cannot be resolved and any `dwm.exe` elsewhere, still counts as competing (fail closed). The threshold remains 0.
+
+dwm.exe denies `OpenProcess` to ordinary users (error 5), and `nvidia-smi` shows it as `[Insufficient Permissions]`, so the path is read with `NtQuerySystemInformation(SystemProcessIdInformation)`, which needs no process handle, and compared against `QueryDosDeviceW(%SystemDrive%)` + `%SystemRoot%`.
+
+### 17.2 Implementation (both stacks, kept in parity)
+
+- **Python:** new `nova/resource_steward/system_processes.py` (`is_dwm_image_path`, `is_exempt_system_gpu_process`). `memory_budget.py` gate 5 excludes exempt processes, reports `N active apps (K exempt: dwm.exe)`, and names each competing process and PID in the failure reason.
+- **Rust:** `admission.rs` gains `is_dwm_image_path`, `query_nt_image_path` (ntdll via `GetModuleHandleW`/`GetProcAddress`), `query_system_drive_device`, `is_exempt_system_gpu_process`. `query_nvml_gpu` now counts only non-exempt PIDs from `nvmlDeviceGetComputeRunningProcesses_v2`.
+
+### 17.3 Tests
+
+- Python (`tests/test_phase3c0_hardening.py`, +5): path rule; gate passes with only verified dwm; gate blocks Telegram alongside dwm and names it; unverified `dwm.exe` name still blocks; live check that every running `dwm.exe` is exempt and the test process / PID 0 are not.
+- Rust (`tests.rs`, +2): `test_dwm_exemption_path_rule`; `test_dwm_exemption_live_process_checks` (Toolhelp enumeration of `dwm.exe`, plus self / PID 0 / nonexistent PID not exempt).
+
+```
+python -m unittest discover -s tests -p "test_*.py"  ->  Ran 132 tests ... OK
+cargo test --lib -j 4                                  ->  115 passed; 0 failed; 1 ignored
+```
+
+### 17.4 Live read-only preflight
+
+```
+[PASS] telemetry_integrity   : Healthy
+[FAIL] avail_ram             : 5.453 GiB (Req: >= 10.0 GiB)
+[PASS] system_commit         : 67.4%
+[PASS] avail_vram            : 5591.0 MiB
+[FAIL] no_competing_gpu      : 4 active apps (1 exempt: dwm.exe)
+[PASS] disk_free             : 98.73 GiB
+```
+
+Remaining blockers are operational, for the owner before an authorized run: close OMEN LightStudio, OMEN Command Center (two processes) and Telegram, and free RAM to ≥ 10 GiB available. The release exe and installer predate this change and need a rebuild before any NOVA Chat use.
