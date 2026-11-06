@@ -452,3 +452,47 @@ cargo test --lib -j 4                                  ->  115 passed; 0 failed;
 ```
 
 Remaining blockers are operational, for the owner before an authorized run: close OMEN LightStudio, OMEN Command Center (two processes) and Telegram, and free RAM to ≥ 10 GiB available. The release exe and installer predate this change and need a rebuild before any NOVA Chat use.
+
+---
+
+## 18. Update — shortest path: NOVA Chat with 4 GiB free RAM (Project Owner decision, 2026-11-07)
+
+The owner cannot free 10 GiB while running required work, and asked to go straight to NOVA Chat with the app guiding memory freeing. Decision: a new profile needing **4 GiB** free RAM, protected by a live watchdog. The separate Option A CLI test is skipped.
+
+### 18.1 Low-Memory Streaming profile
+
+`memory_budget.rs`: new `RuntimeProfileId::LowMemoryStreaming` (`"low_memory_streaming"`), "Low-Memory Streaming (4 GiB, slower)". It produces **exactly the Configuration D llama-server arguments** (48 GPU layers, `-ncmoe 40`, ctx 512, b 64, ub 16, q8_0 KV, `-lm mmap`); only the RAM gate differs (4.0 GiB). VRAM ≥ 5,500 MiB, commit < 90%, disk, GPU contention and telemetry gates are unchanged. Rationale: CPU-side experts are memory-mapped, so with little free RAM Windows streams them from NVMe (slower, not by itself unsafe). Readiness wait for this profile is 300 s instead of 60 s.
+
+### 18.2 Live memory watchdog (new; NOVA Chat previously had no runtime memory monitoring)
+
+`memory_watchdog.rs` + `lib.rs::start_memory_watchdog`. Runs from server start through loading, idle and generation, for **every** profile. Every 500 ms it reads free RAM and commit (`GlobalMemoryStatusEx`) and stops llama-server (never any other process) when:
+- free RAM < 1.5 GiB for 5 s, or
+- commit ≥ 90%, or
+- memory telemetry fails 4 times in a row (fail closed).
+
+On a stop it ends any generation, calls `stop_server()` (lock retained if termination is unconfirmed), sets `ERROR`, and emits `nova://watchdog-abort` with the reason; `load_model` returns that reason. It retires on unload or a new start (epoch counter).
+
+### 18.3 Model verification in the UI
+
+- The load dialog shows the integrity state, a **Verify model** button with progress and Cancel, and disables loading until the model is verified (`ResourceRecoveryModal.tsx`, `App.tsx`).
+- **Bug fixed:** `ModelIntegrityState` serialized as `CryptographicallyVerified`/`PreviouslyVerified`…, but the frontend compares `CRYPTOGRAPHICALLY_VERIFIED`…, so the UI could never recognize a verified model. Now `rename_all = "SCREAMING_SNAKE_CASE"`.
+- Misleading fallbacks fixed: unknown integrity now shows "Unknown" / "UNKNOWN (not verified)" instead of `PREVIOUSLY_VERIFIED`.
+
+### 18.4 Guided memory step
+
+The RAM tab now says how much more RAM to free for the selected profile, lists apps to close manually (existing list), and offers **Use 4 GiB profile**. NOVA still never closes applications. A watchdog stop opens this tab with the reason.
+
+### 18.5 Test isolation
+
+`storage::get_app_data_dir()` returns `%TEMP%\nova_chat_test_appdata` in test builds (unless `NOVA_DATA_DIR` is set), so tests can no longer delete the real model cache.
+
+### 18.6 Tests
+
+New Rust tests: streaming profile = Config D arguments and 4 GiB gate (4.4 passes, 3.9 fails); watchdog sustained-low-RAM timing and reset, immediate commit stop, fail-closed telemetry (errors and NaN); integrity JSON status names; storage isolation. `cargo test --lib`: **122 passed, 0 failed, 1 ignored**. `tsc --noEmit`: clean.
+
+### 18.7 Known limits
+
+- Speed with 4 GiB free is unmeasured; heavy SSD streaming is expected, so replies may be slow (estimate 1–3 tokens/s initially).
+- The watchdog thresholds (1.5 GiB / 5 s) are estimates; if Windows keeps free RAM below 1.5 GiB during streaming, the watchdog will stop every run. Adjust only by owner decision.
+- Observation (not changed): the `Balanced` profile maps to `-ngl 24 -ncmoe 0`, which puts all experts of 24 layers on the GPU and likely exceeds 6 GB VRAM. It should not be used until reviewed.
+- Live model loading has not been run; it needs the owner's explicit action in the app.

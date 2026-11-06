@@ -144,6 +144,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       minute: '2-digit',
                     })}
                   </span>
+                  {!isUser && m.timings && m.timings.predicted_n !== undefined && m.timings.predicted_n > 0 && (
+                    <span
+                      className="message-timings-badge"
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--text-tertiary, #888)',
+                        marginLeft: '8px',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                      }}
+                      title={`Prompt: ${m.timings.prompt_n || 0} tok (${m.timings.prompt_per_second?.toFixed(1) || 0} tok/s) · Decode: ${m.timings.predicted_n} tok (${m.timings.predicted_per_second?.toFixed(1) || 0} tok/s)`}
+                    >
+                      {m.timings.predicted_n} tokens · {m.timings.predicted_per_second?.toFixed(1)} tok/s
+                    </span>
+                  )}
                   {!isUser && m.content && (
                     <div className="message-actions-cluster">
                       <button

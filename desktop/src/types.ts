@@ -20,6 +20,7 @@ export type RuntimeProfileId =
   | 'balanced'
   | 'cpu_offload'
   | 'low_memory'
+  | 'low_memory_streaming'
   | 'custom';
 
 export type ProfileTierStatus =
@@ -158,12 +159,22 @@ export interface PreflightReport {
   integrity_state?: ModelIntegrityState | null;
 }
 
+export interface LlamaTimings {
+  prompt_n?: number;
+  prompt_ms?: number;
+  prompt_per_second?: number;
+  predicted_n?: number;
+  predicted_ms?: number;
+  predicted_per_second?: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
   status?: string | null;
+  timings?: LlamaTimings | null;
 }
 
 export interface Conversation {
@@ -202,5 +213,7 @@ export interface StreamTokenPayload {
   message_id: string;
   token: string;
   done: boolean;
+  status?: string;
   error?: string | null;
+  timings?: LlamaTimings | null;
 }

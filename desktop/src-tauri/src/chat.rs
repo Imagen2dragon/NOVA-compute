@@ -9,7 +9,23 @@ use tokio::sync::watch;
 
 use crate::storage::log_diagnostic;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LlamaTimings {
+    #[serde(default)]
+    pub prompt_n: u32,
+    #[serde(default)]
+    pub prompt_ms: f64,
+    #[serde(default)]
+    pub prompt_per_second: f64,
+    #[serde(default)]
+    pub predicted_n: u32,
+    #[serde(default)]
+    pub predicted_ms: f64,
+    #[serde(default)]
+    pub predicted_per_second: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StreamTokenPayload {
     pub conversation_id: String,
     pub message_id: String,
@@ -17,6 +33,8 @@ pub struct StreamTokenPayload {
     pub done: bool,
     pub status: String, // "streaming", "complete", "cancelled", "error"
     pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timings: Option<LlamaTimings>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,12 +44,19 @@ pub struct ChatRequestMessage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamOptions {
+    pub include_usage: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAiChatRequest {
     pub model: String,
     pub messages: Vec<ChatRequestMessage>,
     pub stream: bool,
     pub max_tokens: u32,
     pub temperature: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_options: Option<StreamOptions>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +74,7 @@ struct Choice {
 #[derive(Debug, Deserialize)]
 struct Chunk {
     choices: Option<Vec<Choice>>,
+    timings: Option<LlamaTimings>,
 }
 
 pub trait ChatEventSink: Send + Sync {
@@ -251,6 +277,7 @@ impl ChatService {
             stream: true,
             max_tokens: 512,
             temperature: 0.7,
+            stream_options: Some(StreamOptions { include_usage: true }),
         };
 
         // If cancellation was already requested before sending request
@@ -263,6 +290,7 @@ impl ChatService {
                 done: true,
                 status: "cancelled".to_string(),
                 error: None,
+                timings: None,
             });
             return Err("Generation cancelled by user".to_string());
         }
@@ -280,6 +308,7 @@ impl ChatService {
                         done: true,
                         status: "cancelled".to_string(),
                         error: None,
+                        timings: None,
                     });
                     return Err("Generation cancelled by user".to_string());
                 }
@@ -304,6 +333,7 @@ impl ChatService {
                                     done: true,
                                     status: "error".to_string(),
                                     error: Some(msg.clone()),
+                                    timings: None,
                                 });
                                 return Err(msg);
                             }
@@ -318,6 +348,7 @@ impl ChatService {
                                 done: true,
                                 status: "error".to_string(),
                                 error: Some(msg.clone()),
+                                timings: None,
                             });
                             return Err(msg);
                         }
@@ -328,6 +359,7 @@ impl ChatService {
         let mut stream = response.bytes_stream();
         let mut raw_buffer: Vec<u8> = Vec::new();
         let mut accumulated_full_text = String::new();
+        let mut last_timings: Option<LlamaTimings> = None;
 
         loop {
             // Check cancellation flag between chunk reads
@@ -340,6 +372,7 @@ impl ChatService {
                     done: true,
                     status: "cancelled".to_string(),
                     error: None,
+                    timings: None,
                 });
                 return Err("Generation cancelled by user".to_string());
             }
@@ -356,6 +389,7 @@ impl ChatService {
                             done: true,
                             status: "cancelled".to_string(),
                             error: None,
+                            timings: None,
                         });
                         return Err("Generation cancelled by user".to_string());
                     }
@@ -378,6 +412,13 @@ impl ChatService {
                                 if let Some(data) = line_str.strip_prefix("data: ") {
                                     let data = data.trim();
                                     if data == "[DONE]" {
+                                        if let Some(ref t) = last_timings {
+                                            log_diagnostic(&format!(
+                                                "[INFERENCE_TIMINGS] prompt: {} tokens in {:.2} ms ({:.2} tok/s), predicted: {} tokens in {:.2} ms ({:.2} tok/s)",
+                                                t.prompt_n, t.prompt_ms, t.prompt_per_second,
+                                                t.predicted_n, t.predicted_ms, t.predicted_per_second
+                                            ));
+                                        }
                                         sink.emit_stream_token(StreamTokenPayload {
                                             conversation_id: conversation_id.clone(),
                                             message_id: assistant_message_id.clone(),
@@ -385,12 +426,16 @@ impl ChatService {
                                             done: true,
                                             status: "complete".to_string(),
                                             error: None,
+                                            timings: last_timings,
                                         });
                                         return Ok(accumulated_full_text);
                                     }
 
                                     match serde_json::from_str::<Chunk>(data) {
                                         Ok(chunk) => {
+                                            if let Some(t) = chunk.timings {
+                                                last_timings = Some(t);
+                                            }
                                             if let Some(choices) = chunk.choices {
                                                 for choice in choices {
                                                     if let Some(delta) = choice.delta {
@@ -404,6 +449,7 @@ impl ChatService {
                                                                     done: false,
                                                                     status: "streaming".to_string(),
                                                                     error: None,
+                                                                    timings: None,
                                                                 });
                                                             }
                                                         }
@@ -421,6 +467,7 @@ impl ChatService {
                                                 done: true,
                                                 status: "error".to_string(),
                                                 error: Some(err_msg.clone()),
+                                                timings: None,
                                             });
                                             return Err(err_msg);
                                         }
@@ -437,6 +484,7 @@ impl ChatService {
                                 done: true,
                                 status: "error".to_string(),
                                 error: Some(err_msg.clone()),
+                                timings: None,
                             });
                             return Err(err_msg);
                         }
@@ -449,6 +497,7 @@ impl ChatService {
                                 done: true,
                                 status: "error".to_string(),
                                 error: Some(err_msg.clone()),
+                                timings: None,
                             });
                             return Err(err_msg);
                         }

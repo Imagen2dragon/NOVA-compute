@@ -2,6 +2,7 @@ pub mod admission;
 pub mod chat;
 pub mod job_object;
 pub mod memory_budget;
+pub mod memory_watchdog;
 pub mod model_integrity;
 pub mod resource_advisor;
 pub mod server_manager;
@@ -12,10 +13,10 @@ pub mod storage;
 mod tests;
 
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use admission::{
     query_candidate_processes, run_preflight_audit, validate_gguf_file, GgufHeaderInfo,
@@ -48,6 +49,64 @@ pub struct AppContext {
     pub integrity_state: Arc<RwLock<model_integrity::ModelIntegrityState>>,
     pub integrity_cancel: Arc<AtomicBool>,
     pub active_model_lock: Arc<Mutex<Option<crate::model_integrity::ModelFileLockGuard>>>,
+    /// Incremented on every model start and unload; a watchdog task exits when it changes.
+    pub watchdog_epoch: Arc<AtomicU64>,
+    /// Reason the memory watchdog last stopped the model, if any.
+    pub watchdog_reason: Arc<Mutex<Option<String>>>,
+    /// Minimum free RAM and maximum system commit observed by watchdog during model load.
+    pub watchdog_load_metrics: Arc<Mutex<(Option<f64>, Option<f64>)>>,
+}
+
+/// Starts the live memory watchdog for the server started in `epoch`. It samples free RAM
+/// and commit every `interval_ms` and stops the server (never any other process) when
+/// `MemoryWatchdog` says so. It exits when the epoch changes or no server is tracked.
+fn start_memory_watchdog(app_handle: AppHandle, epoch: u64) {
+    tauri::async_runtime::spawn(async move {
+        let policy = memory_watchdog::WatchdogPolicy::default();
+        let mut watchdog = memory_watchdog::MemoryWatchdog::new();
+        let t0 = Instant::now();
+        loop {
+            tokio::time::sleep(Duration::from_millis(policy.interval_ms)).await;
+            let ctx = app_handle.state::<AppContext>();
+            if ctx.watchdog_epoch.load(Ordering::SeqCst) != epoch {
+                break;
+            }
+            if !ctx.server_manager.lock().unwrap().has_child() {
+                break;
+            }
+            let sample = admission::query_system_memory().map(|(avail, _total, commit)| (avail, commit));
+            let maybe_reason = watchdog.observe(&policy, sample, t0.elapsed().as_secs_f64());
+            *ctx.watchdog_load_metrics.lock().unwrap() = (watchdog.min_avail_gib_seen(), watchdog.max_commit_pct_seen());
+            let Some(reason) = maybe_reason else {
+                continue;
+            };
+
+            log_diagnostic(&format!("[WATCHDOG] {}", reason));
+            *ctx.watchdog_reason.lock().unwrap() = Some(reason.clone());
+            ctx.chat_service.stop_generation();
+
+            // Stopping waits for process exit; keep it off the async worker threads.
+            let handle = app_handle.clone();
+            let reason_for_stop = reason.clone();
+            let stopped_cleanly = tauri::async_runtime::spawn_blocking(move || {
+                let ctx = handle.state::<AppContext>();
+                let mut sm = ctx.server_manager.lock().unwrap();
+                let ok = sm.stop_server();
+                sm.mark_ready(false, Some(reason_for_stop));
+                ok
+            })
+            .await
+            .unwrap_or(false);
+
+            *ctx.current_state.lock().unwrap() = AppState::Error;
+            let _ = app_handle.emit("nova://state-change", "ERROR");
+            let _ = app_handle.emit(
+                "nova://watchdog-abort",
+                serde_json::json!({ "reason": reason, "stopped_cleanly": stopped_cleanly }),
+            );
+            break;
+        }
+    });
 }
 
 #[tauri::command]
@@ -344,7 +403,21 @@ async fn load_model(
         }
     };
 
-    // 7. Poll readiness endpoint (/health) asynchronously with verified status semantics
+    // 6b. Live memory watchdog covers loading, idle and generation for this server.
+    *context.watchdog_reason.lock().unwrap() = None;
+    *context.watchdog_load_metrics.lock().unwrap() = (None, None);
+    let epoch = context.watchdog_epoch.fetch_add(1, Ordering::SeqCst) + 1;
+    start_memory_watchdog(app_handle.clone(), epoch);
+
+    // 7. Poll readiness endpoint (/health) asynchronously with verified status semantics.
+    // Streaming experts from the SSD makes the first load much slower, so the low-memory
+    // profile waits longer; the watchdog, not this timeout, is what keeps the machine safe.
+    let readiness_timeout_secs: u64 =
+        if active_profile.id == memory_budget::RuntimeProfileId::LowMemoryStreaming {
+            300
+        } else {
+            60
+        };
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()
@@ -352,7 +425,7 @@ async fn load_model(
     let probe_start = Instant::now();
     let mut is_ready = false;
 
-    while probe_start.elapsed() < Duration::from_secs(60) {
+    while probe_start.elapsed() < Duration::from_secs(readiness_timeout_secs) {
         {
             let mut sm = context.server_manager.lock().unwrap();
             if let Err(e) = sm.check_child_alive() {
@@ -360,8 +433,15 @@ async fn load_model(
                 let mut st = context.current_state.lock().unwrap();
                 *st = AppState::Error;
                 let _ = app_handle.emit("nova://state-change", "ERROR");
-                return Err(format!("llama-server failed during startup: {}", e));
+                let watchdog = context.watchdog_reason.lock().unwrap().clone();
+                return Err(match watchdog {
+                    Some(reason) => format!("Memory watchdog stopped the model: {}", reason),
+                    None => format!("llama-server failed during startup: {}", e),
+                });
             }
+        }
+        if let Some(reason) = context.watchdog_reason.lock().unwrap().clone() {
+            return Err(format!("Memory watchdog stopped the model: {}", reason));
         }
 
         match server_manager::check_endpoint_readiness(&client, server_port, &api_key).await {
@@ -403,9 +483,23 @@ async fn load_model(
             "Model successfully initialized and ready on 127.0.0.1:{}",
             server_port
         ));
+        let load_duration_secs = probe_start.elapsed().as_secs_f64();
+        let (min_ram, max_commit) = *context.watchdog_load_metrics.lock().unwrap();
+        let ram_str = min_ram.map(|r| format!("{:.2} GiB", r)).unwrap_or_else(|| "N/A".to_string());
+        let commit_str = max_commit.map(|c| format!("{:.1}%", c)).unwrap_or_else(|| "N/A".to_string());
+        log_diagnostic(&format!(
+            "[LOAD_MEASUREMENT] Profile: '{}', Time from spawn to /health ready: {:.2}s, Lowest free RAM: {}, Highest commit: {}",
+            active_profile.name,
+            load_duration_secs,
+            ram_str,
+            commit_str
+        ));
         Ok(sm.get_status())
     } else {
-        let err = "llama-server API readiness probe timed out after 60 seconds.".to_string();
+        let err = format!(
+            "llama-server API readiness probe timed out after {} seconds.",
+            readiness_timeout_secs
+        );
         sm.stop_server();
         sm.mark_ready(false, Some(err.clone()));
         let mut st = context.current_state.lock().unwrap();
@@ -424,6 +518,9 @@ async fn unload_model(
 
     // Set unloading flag so any new send_chat_message is rejected
     context.is_unloading.store(true, Ordering::SeqCst);
+
+    // Retire the memory watchdog for the server being unloaded.
+    context.watchdog_epoch.fetch_add(1, Ordering::SeqCst);
 
     // Invalidate any active authorization
     *context.model_load_authorization.lock().unwrap() = None;
@@ -817,6 +914,9 @@ pub fn run() {
         integrity_state: Arc::new(RwLock::new(initial_integrity)),
         integrity_cancel: Arc::new(AtomicBool::new(false)),
         active_model_lock: Arc::new(Mutex::new(None)),
+        watchdog_epoch: Arc::new(AtomicU64::new(0)),
+        watchdog_reason: Arc::new(Mutex::new(None)),
+        watchdog_load_metrics: Arc::new(Mutex::new((None, None))),
     };
 
     log_diagnostic("NOVA Chat Desktop initializing...");

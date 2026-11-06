@@ -7,6 +7,7 @@ pub enum RuntimeProfileId {
     Balanced,
     CpuOffload,
     LowMemory,
+    LowMemoryStreaming,
     Custom,
 }
 
@@ -17,6 +18,7 @@ impl RuntimeProfileId {
             RuntimeProfileId::Balanced => "balanced",
             RuntimeProfileId::CpuOffload => "cpu_offload",
             RuntimeProfileId::LowMemory => "low_memory",
+            RuntimeProfileId::LowMemoryStreaming => "low_memory_streaming",
             RuntimeProfileId::Custom => "custom",
         }
     }
@@ -27,6 +29,7 @@ impl RuntimeProfileId {
             "balanced" => RuntimeProfileId::Balanced,
             "cpu_offload" => RuntimeProfileId::CpuOffload,
             "low_memory" => RuntimeProfileId::LowMemory,
+            "low_memory_streaming" => RuntimeProfileId::LowMemoryStreaming,
             "custom" => RuntimeProfileId::Custom,
             _ => RuntimeProfileId::GpuFocused,
         }
@@ -125,6 +128,27 @@ impl RuntimeProfile {
                 split_mode: "layer".to_string(),
                 required_ram_gib: 10.5,
                 required_vram_mib: 1500.0,
+                is_approved_config_d: false,
+            },
+            // Project Owner decision (2026-11-07): run Configuration D's exact placement with
+            // only 4 GiB of free RAM. The CPU-side experts are memory-mapped, so Windows streams
+            // them from NVMe when RAM is short: slower, not unsafe on its own. Safety while
+            // running comes from the live memory watchdog (free RAM and commit), not from a
+            // large up-front RAM requirement. All other admission gates are unchanged.
+            RuntimeProfile {
+                id: RuntimeProfileId::LowMemoryStreaming,
+                name: "Low-Memory Streaming (4 GiB, slower)".to_string(),
+                description: "Same placement as Configuration D (48 layers on GPU, 40 MoE layers' experts on CPU, 512 context, memory-mapped). Needs only 4 GiB free RAM: experts stream from the SSD when RAM is short, so replies are slower. A live watchdog stops the model if free RAM or commit becomes critical.".to_string(),
+                status: ProfileTierStatus::ExperimentalOffload,
+                gpu_layers: 48,
+                context_size: 512,
+                batch_size: 64,
+                ubatch_size: 16,
+                kv_cache_type_k: "q8_0".to_string(),
+                kv_cache_type_v: "q8_0".to_string(),
+                split_mode: "direct".to_string(),
+                required_ram_gib: 4.0,
+                required_vram_mib: 5500.0,
                 is_approved_config_d: false,
             },
         ]

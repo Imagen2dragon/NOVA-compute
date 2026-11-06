@@ -190,7 +190,7 @@ export const ResourceDashboard: React.FC<ResourceDashboardProps> = ({
                 <div className="spec-line">
                   <span>Cryptographic Gate:</span>
                   <strong className={report?.integrity_state?.status === 'CRYPTOGRAPHICALLY_VERIFIED' ? 'text-success' : 'text-warn'}>
-                    {report?.integrity_state?.status || 'PREVIOUSLY_VERIFIED'}
+                    {report?.integrity_state?.status || 'UNKNOWN (not verified)'}
                   </strong>
                 </div>
               </div>

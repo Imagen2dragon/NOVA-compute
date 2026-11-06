@@ -97,17 +97,29 @@ pub fn get_app_data_dir() -> PathBuf {
         return p;
     }
 
-    #[cfg(windows)]
+    // Test builds never touch the user's real %LOCALAPPDATA%\NOVA Chat\ (which holds the
+    // model integrity cache): they use a dedicated temp directory instead.
+    #[cfg(test)]
     {
-        if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
-            let path = PathBuf::from(local_appdata).join("NOVA Chat");
-            let _ = fs::create_dir_all(&path);
-            return path;
-        }
+        let p = std::env::temp_dir().join("nova_chat_test_appdata");
+        let _ = fs::create_dir_all(&p);
+        p
     }
-    let fallback = PathBuf::from(".").join(".nova_chat_data");
-    let _ = fs::create_dir_all(&fallback);
-    fallback
+
+    #[cfg(not(test))]
+    {
+        #[cfg(windows)]
+        {
+            if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+                let path = PathBuf::from(local_appdata).join("NOVA Chat");
+                let _ = fs::create_dir_all(&path);
+                return path;
+            }
+        }
+        let fallback = PathBuf::from(".").join(".nova_chat_data");
+        let _ = fs::create_dir_all(&fallback);
+        fallback
+    }
 }
 
 /// Performs an atomic write by writing to a unique temporary file on the same directory,

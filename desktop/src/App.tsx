@@ -10,6 +10,7 @@ import {
   AppSettings,
   StreamTokenPayload,
   RuntimeProfile,
+  ModelIntegrityState,
 } from './types';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -46,6 +47,63 @@ export function App() {
   const [recoveryTab, setRecoveryTab] = useState<'ram' | 'vram' | 'disk' | 'profiles'>('ram');
   const [recoveryExpandedProc, setRecoveryExpandedProc] = useState<string | null>(null);
   const [recoveryShowConfirmation, setRecoveryShowConfirmation] = useState<boolean>(false);
+  const [integrity, setIntegrity] = useState<ModelIntegrityState | null>(null);
+
+  const refreshIntegrity = useCallback(async () => {
+    try {
+      setIntegrity(await invoke<ModelIntegrityState>('get_model_integrity_status'));
+    } catch (e) {
+      console.warn('Could not read model integrity status:', e);
+    }
+  }, []);
+
+  const handleVerifyModel = async () => {
+    setErrorMessage(null);
+    try {
+      setIntegrity(await invoke<ModelIntegrityState>('start_model_integrity_verification', {
+        modelPath: settings.model_path,
+      }));
+    } catch (e: any) {
+      setErrorMessage(String(e));
+    }
+  };
+
+  const handleCancelVerify = async () => {
+    try {
+      await invoke('cancel_model_integrity_verification');
+    } finally {
+      refreshIntegrity();
+    }
+  };
+
+  // Integrity progress/result and memory-watchdog events from the backend
+  useEffect(() => {
+    refreshIntegrity();
+    const unlistenProgress = listen<{ bytes_hashed: number; total_bytes: number; percent: number }>(
+      'nova://integrity-progress',
+      (event) => setIntegrity({ status: 'VERIFICATION_IN_PROGRESS', details: event.payload })
+    );
+    const unlistenStatus = listen<ModelIntegrityState>('nova://integrity-status', (event) =>
+      setIntegrity(event.payload)
+    );
+    const unlistenWatchdog = listen<{ reason: string; stopped_cleanly: boolean }>(
+      'nova://watchdog-abort',
+      (event) => {
+        setServerStatus(null);
+        setErrorMessage(
+          `Memory watchdog stopped the model: ${event.payload.reason}` +
+            (event.payload.stopped_cleanly ? '' : ' Shutdown is not yet confirmed; the model file stays protected.')
+        );
+        setRecoveryTab('ram');
+        setIsRecoveryOpen(true);
+      }
+    );
+    return () => {
+      unlistenProgress.then((f) => f());
+      unlistenStatus.then((f) => f());
+      unlistenWatchdog.then((f) => f());
+    };
+  }, [refreshIntegrity]);
 
   // Keyboard navigation for deterministic view inspection and UI verification
   useEffect(() => {
@@ -248,6 +306,22 @@ export function App() {
             required_vram_mib: 1500.0,
             is_approved_config_d: false,
           },
+          {
+            id: 'low_memory_streaming',
+            name: 'Low-Memory Streaming (4 GiB, slower)',
+            description: 'Same placement as Configuration D (48 layers on GPU, 40 MoE layers on CPU, 512 context, mmap). Needs only 4 GiB free RAM: experts stream from SSD.',
+            status: 'EXPERIMENTAL_OFFLOAD',
+            gpu_layers: 48,
+            context_size: 512,
+            batch_size: 64,
+            ubatch_size: 16,
+            kv_cache_type_k: 'q8_0',
+            kv_cache_type_v: 'q8_0',
+            split_mode: 'direct',
+            required_ram_gib: 4.0,
+            required_vram_mib: 5500.0,
+            is_approved_config_d: false,
+          },
         ];
         setProfiles(standardProfiles);
 
@@ -318,11 +392,17 @@ export function App() {
               ],
             },
           ],
-          integrity_state: {
+          integrity_state: urlView === 'confirmation' ? {
             status: 'CRYPTOGRAPHICALLY_VERIFIED',
             details: {
               sha256: 'a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32',
               verified_at_utc: '2026-11-06T15:14:19Z',
+            },
+          } : {
+            status: 'VERIFICATION_FAILED',
+            details: {
+              reason: 'Model not yet verified. Cryptographic verification required.',
+              expected_sha256: 'a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32',
             },
           },
           budget: {
@@ -431,7 +511,7 @@ export function App() {
     });
 
     const unlistenStream = listen<StreamTokenPayload>('nova://stream-token', (event) => {
-      const { conversation_id, message_id, token, done, error } = event.payload;
+      const { conversation_id, message_id, token, done, error, timings } = event.payload;
 
       setConversations((prev) =>
         prev.map((c) => {
@@ -444,6 +524,7 @@ export function App() {
                 ...m,
                 content: m.content + (token || ''),
                 status: done ? (error ? 'error' : 'complete') : 'streaming',
+                timings: timings || m.timings,
               };
             }),
           };
@@ -777,6 +858,9 @@ export function App() {
         initialTab={recoveryTab}
         initialExpandedProc={recoveryExpandedProc}
         initialShowConfirmation={recoveryShowConfirmation}
+        integrity={integrity}
+        onVerifyModel={handleVerifyModel}
+        onCancelVerify={handleCancelVerify}
       />
 
       {/* Resource Telemetry Dashboard */}

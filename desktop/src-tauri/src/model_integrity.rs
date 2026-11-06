@@ -385,7 +385,9 @@ pub fn acquire_verified_lock(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "status", content = "details")]
+// Status names are SCREAMING_SNAKE_CASE to match the frontend's ModelIntegrityState type
+// ('CRYPTOGRAPHICALLY_VERIFIED', ...). Without this the UI could never recognise a verified model.
+#[serde(tag = "status", content = "details", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ModelIntegrityState {
     PreviouslyVerified {
         cached_sha256: String,

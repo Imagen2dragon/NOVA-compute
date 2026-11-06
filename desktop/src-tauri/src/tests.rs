@@ -1882,7 +1882,7 @@ mod tests {
         use crate::memory_budget::{RuntimeProfile, RuntimeProfileId};
 
         let profiles = RuntimeProfile::get_standard_profiles();
-        assert_eq!(profiles.len(), 4);
+        assert_eq!(profiles.len(), 5);
 
         let config_d = RuntimeProfile::find_by_id(RuntimeProfileId::GpuFocused);
         assert!(config_d.is_approved_config_d);
@@ -5076,5 +5076,195 @@ mod tests {
         for pid in dwm_pids {
             assert!(is_exempt_system_gpu_process(pid), "dwm.exe PID {} should be exempt", pid);
         }
+    }
+
+    // =========================================================================
+    // Low-Memory Streaming profile and live memory watchdog
+    // (Project Owner decision 2026-11-07: 4 GiB minimum free RAM).
+    // =========================================================================
+
+    #[test]
+    fn test_low_memory_streaming_profile_matches_config_d_placement() {
+        use crate::memory_budget::{RuntimeProfile, RuntimeProfileId};
+        let p = RuntimeProfile::find_by_id(RuntimeProfileId::LowMemoryStreaming);
+        assert_eq!(p.id, RuntimeProfileId::LowMemoryStreaming);
+        assert_eq!(p.required_ram_gib, 4.0);
+        assert_eq!(p.required_vram_mib, 5500.0, "VRAM gate unchanged");
+        assert!(!p.is_approved_config_d);
+        assert_eq!(RuntimeProfileId::from_str_id("low_memory_streaming"), RuntimeProfileId::LowMemoryStreaming);
+        assert_eq!(RuntimeProfileId::LowMemoryStreaming.as_str(), "low_memory_streaming");
+
+        // Same llama-server arguments as Configuration D (only the admission RAM gate differs).
+        let d = RuntimeProfile::find_by_id(RuntimeProfileId::GpuFocused);
+        assert_eq!(
+            p.build_cli_args("C:\\m.gguf", 18080, "k"),
+            d.build_cli_args("C:\\m.gguf", 18080, "k")
+        );
+    }
+
+    #[test]
+    fn test_low_memory_streaming_ram_gate_at_4_gib() {
+        use crate::admission::evaluate_admission_from_metrics_with_profile;
+        use crate::memory_budget::{RuntimeProfile, RuntimeProfileId};
+        let p = RuntimeProfile::find_by_id(RuntimeProfileId::LowMemoryStreaming);
+        let run = |avail_gib: f64| {
+            evaluate_admission_from_metrics_with_profile(
+                avail_gib, 16.0, 70.0, 5600.0, 6141.0, 0, 90.0, true, true, None, None, Some(&p),
+            )
+        };
+        let ok = run(4.4);
+        assert!(ok.gates.iter().find(|g| g.gate_name == "avail_ram").unwrap().passed);
+        let low = run(3.9);
+        assert!(!low.gates.iter().find(|g| g.gate_name == "avail_ram").unwrap().passed);
+        assert!(!low.all_passed);
+    }
+
+    #[test]
+    fn test_watchdog_stops_on_sustained_low_ram_only() {
+        use crate::memory_watchdog::{MemoryWatchdog, WatchdogPolicy};
+        let pol = WatchdogPolicy::default();
+        let mut wd = MemoryWatchdog::new();
+        assert!(wd.observe(&pol, Ok((1.2, 60.0)), 0.0).is_none());
+        assert!(wd.observe(&pol, Ok((1.2, 60.0)), 4.9).is_none(), "below sustain time");
+        // Recovery resets the timer.
+        assert!(wd.observe(&pol, Ok((2.0, 60.0)), 5.0).is_none());
+        assert!(wd.observe(&pol, Ok((1.0, 60.0)), 6.0).is_none());
+        assert!(wd.observe(&pol, Ok((1.0, 60.0)), 10.9).is_none());
+        let reason = wd.observe(&pol, Ok((1.0, 60.0)), 11.0).expect("sustained low RAM must stop");
+        assert!(reason.contains("Free RAM stayed below 1.5 GiB"));
+    }
+
+    #[test]
+    fn test_watchdog_stops_immediately_on_commit_limit() {
+        use crate::memory_watchdog::{MemoryWatchdog, WatchdogPolicy};
+        let pol = WatchdogPolicy::default();
+        let mut wd = MemoryWatchdog::new();
+        assert!(wd.observe(&pol, Ok((6.0, 89.9)), 0.0).is_none());
+        let reason = wd.observe(&pol, Ok((6.0, 90.0)), 0.5).expect("commit limit must stop");
+        assert!(reason.contains("System commit reached 90.0%"));
+    }
+
+    #[test]
+    fn test_watchdog_fails_closed_on_repeated_telemetry_errors() {
+        use crate::memory_watchdog::{MemoryWatchdog, WatchdogPolicy};
+        let pol = WatchdogPolicy::default();
+        let mut wd = MemoryWatchdog::new();
+        for i in 0..3 {
+            assert!(wd.observe(&pol, Err("GlobalMemoryStatusEx failed".into()), i as f64).is_none());
+        }
+        // A good sample resets the failure counter.
+        assert!(wd.observe(&pol, Ok((6.0, 50.0)), 3.0).is_none());
+        for i in 0..3 {
+            assert!(wd.observe(&pol, Err("x".into()), 4.0 + i as f64).is_none());
+        }
+        assert!(wd.observe(&pol, Err("x".into()), 8.0).is_some(), "4th consecutive failure stops");
+        // Non-finite readings count as failures too.
+        let mut wd2 = MemoryWatchdog::new();
+        for i in 0..3 {
+            assert!(wd2.observe(&pol, Ok((f64::NAN, 50.0)), i as f64).is_none());
+        }
+        assert!(wd2.observe(&pol, Ok((f64::NAN, 50.0)), 3.0).is_some());
+    }
+
+    #[test]
+    fn test_integrity_state_json_uses_frontend_status_names() {
+        use crate::model_integrity::ModelIntegrityState;
+        let s = ModelIntegrityState::CryptographicallyVerified {
+            sha256: "a".into(),
+            verified_at_utc: "t".into(),
+            file_identity: None,
+        };
+        let v = serde_json::to_value(&s).unwrap();
+        assert_eq!(v["status"], "CRYPTOGRAPHICALLY_VERIFIED");
+        let p = ModelIntegrityState::VerificationInProgress { bytes_hashed: 1, total_bytes: 2, percent: 50 };
+        let v = serde_json::to_value(&p).unwrap();
+        assert_eq!(v["status"], "VERIFICATION_IN_PROGRESS");
+        assert_eq!(v["details"]["percent"], 50);
+    }
+
+    #[test]
+    fn test_storage_dir_is_isolated_in_tests() {
+        let dir = crate::storage::get_app_data_dir();
+        if std::env::var("NOVA_DATA_DIR").is_err() {
+            assert!(
+                dir.starts_with(std::env::temp_dir()),
+                "Test builds must not use the real app data dir: {:?}",
+                dir
+            );
+        }
+    }
+
+    #[test]
+    fn test_watchdog_min_max_tracking() {
+        use crate::memory_watchdog::{MemoryWatchdog, WatchdogPolicy};
+        let pol = WatchdogPolicy::default();
+        let mut wd = MemoryWatchdog::new();
+        assert_eq!(wd.min_avail_gib_seen(), None);
+        assert_eq!(wd.max_commit_pct_seen(), None);
+
+        wd.observe(&pol, Ok((4.0, 60.0)), 0.0);
+        assert_eq!(wd.min_avail_gib_seen(), Some(4.0));
+        assert_eq!(wd.max_commit_pct_seen(), Some(60.0));
+
+        wd.observe(&pol, Ok((2.5, 75.0)), 0.5);
+        assert_eq!(wd.min_avail_gib_seen(), Some(2.5));
+        assert_eq!(wd.max_commit_pct_seen(), Some(75.0));
+
+        wd.observe(&pol, Ok((3.8, 50.0)), 1.0);
+        assert_eq!(wd.min_avail_gib_seen(), Some(2.5));
+        assert_eq!(wd.max_commit_pct_seen(), Some(75.0));
+    }
+
+    #[tokio::test]
+    async fn test_chat_service_mock_sse_with_timings_payload() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        tokio::spawn(async move {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut buf = [0u8; 1024];
+                let _ = socket.read(&mut buf).await;
+                let sse_body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hello \"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"world!\"}}],\"timings\":{\"prompt_n\":10,\"prompt_ms\":50.0,\"prompt_per_second\":200.0,\"predicted_n\":2,\"predicted_ms\":40.0,\"predicted_per_second\":50.0}}\n\ndata: [DONE]\n\n";
+                let http_response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{}",
+                    sse_body
+                );
+                let _ = socket.write_all(http_response.as_bytes()).await;
+                let _ = socket.flush().await;
+            }
+        });
+
+        let service = ChatService::new();
+        let sink = MockEventSink::default();
+
+        let result = service
+            .stream_completion(
+                &sink,
+                port,
+                "test-api-key",
+                "conv-timings".to_string(),
+                "msg-timings".to_string(),
+                vec![ChatRequestMessage {
+                    role: "user".to_string(),
+                    content: "Hi".to_string(),
+                }],
+            )
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "Hello world!");
+
+        let payloads = sink.payloads.lock().unwrap().clone();
+        assert!(!payloads.is_empty());
+        let final_payload = payloads.last().unwrap();
+        assert!(final_payload.done);
+        assert_eq!(final_payload.status, "complete");
+        let timings = final_payload.timings.as_ref().expect("timings must be attached to final payload");
+        assert_eq!(timings.prompt_n, 10);
+        assert_eq!(timings.prompt_ms, 50.0);
+        assert_eq!(timings.prompt_per_second, 200.0);
+        assert_eq!(timings.predicted_n, 2);
+        assert_eq!(timings.predicted_ms, 40.0);
+        assert_eq!(timings.predicted_per_second, 50.0);
     }
 }

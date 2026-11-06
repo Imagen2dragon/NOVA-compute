@@ -569,6 +569,11 @@ impl ServerManager {
         self.last_error = error;
     }
 
+    /// True while a llama-server child is tracked (running, or termination unconfirmed).
+    pub fn has_child(&self) -> bool {
+        self.child.is_some()
+    }
+
     pub fn is_model_locked(&self) -> bool {
         self.model_lock.is_some()
     }

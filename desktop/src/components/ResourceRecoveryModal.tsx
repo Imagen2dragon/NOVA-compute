@@ -3,6 +3,7 @@ import {
   PreflightReport,
   AppState,
   RuntimeProfile,
+  ModelIntegrityState,
 } from '../types';
 import {
   ShieldCheck,
@@ -40,6 +41,31 @@ interface ResourceRecoveryModalProps {
   initialTab?: 'ram' | 'vram' | 'disk' | 'profiles';
   initialExpandedProc?: string | null;
   initialShowConfirmation?: boolean;
+  integrity?: ModelIntegrityState | null;
+  onVerifyModel?: () => void;
+  onCancelVerify?: () => void;
+}
+
+/** A model may be loaded only after its SHA-256 has been verified (now or in a trusted cache). */
+export function isIntegrityVerified(integrity?: ModelIntegrityState | null): boolean {
+  return (
+    integrity?.status === 'CRYPTOGRAPHICALLY_VERIFIED' || integrity?.status === 'PREVIOUSLY_VERIFIED'
+  );
+}
+
+export function integrityLabel(integrity?: ModelIntegrityState | null): string {
+  switch (integrity?.status) {
+    case 'CRYPTOGRAPHICALLY_VERIFIED':
+      return 'Verified (SHA-256 checked now)';
+    case 'PREVIOUSLY_VERIFIED':
+      return 'Verified (trusted cache)';
+    case 'VERIFICATION_IN_PROGRESS':
+      return `Verifying… ${integrity.details.percent}%`;
+    case 'VERIFICATION_FAILED':
+      return 'Not verified';
+    default:
+      return 'Unknown';
+  }
 }
 
 export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
@@ -58,6 +84,9 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
   initialTab = 'ram',
   initialExpandedProc = null,
   initialShowConfirmation = false,
+  integrity = null,
+  onVerifyModel,
+  onCancelVerify,
 }) => {
   if (!isOpen) return null;
 
@@ -85,6 +114,9 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
     profiles[0];
 
   const allPassed = report ? report.all_passed : false;
+  const integrityOk = isIntegrityVerified(integrity);
+  const streamingProfile = profiles.find((p) => p.id === 'low_memory_streaming');
+  const isVerifying = integrity?.status === 'VERIFICATION_IN_PROGRESS';
   const ramDeficit = report ? report.ram_deficit_gib : 0;
   const vramDeficit = budget ? budget.vram_deficit_mib : 0;
   const isTransitioning = appState === 'MODEL_STARTING' || appState === 'PREFLIGHT_RUNNING';
@@ -194,6 +226,45 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
             </div>
           </div>
 
+          {/* Model integrity: a one-time SHA-256 check is required before the first load */}
+          <div className={`admission-alert ${integrityOk ? 'success' : isVerifying ? 'info' : 'warning'}`}>
+            {integrityOk ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />}
+            <div style={{ flex: 1 }}>
+              <h4 className="alert-title">Model integrity: {integrityLabel(integrity)}</h4>
+              {integrityOk ? (
+                <p className="alert-text">The model file matches the pinned SHA-256 and is protected while it is in use.</p>
+              ) : isVerifying ? (
+                <>
+                  <p className="alert-text">
+                    Checking the 18.6 GB model file. This reads the whole file once and can take a few minutes.
+                  </p>
+                  <progress
+                    max={100}
+                    value={integrity?.status === 'VERIFICATION_IN_PROGRESS' ? integrity.details.percent : 0}
+                    style={{ width: '100%' }}
+                  />
+                </>
+              ) : (
+                <p className="alert-text">
+                  {integrity?.status === 'VERIFICATION_FAILED' ? `${integrity.details.reason} ` : ''}
+                  Verify the model once before loading it. The result is remembered until the file changes.
+                </p>
+              )}
+            </div>
+            {!integrityOk && (
+              isVerifying ? (
+                <button className="btn-secondary" onClick={onCancelVerify} disabled={!onCancelVerify}>
+                  Cancel
+                </button>
+              ) : (
+                <button className="btn-primary" onClick={onVerifyModel} disabled={!onVerifyModel || !modelPath}>
+                  <ShieldCheck size={16} />
+                  <span>Verify model</span>
+                </button>
+              )
+            )}
+          </div>
+
           {/* Resource Navigation Tabs */}
           <div className="resource-tabs">
             <button
@@ -251,6 +322,33 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                   <span className="metric-digit">{report?.commit_pct.toFixed(1)}%</span>
                 </div>
               </div>
+
+              {/* Guided step: what to free, or switch to the 4 GiB streaming profile */}
+              {ramDeficit > 0 && (
+                <div className="admission-alert warning">
+                  <AlertTriangle size={20} />
+                  <div style={{ flex: 1 }}>
+                    <h4 className="alert-title">
+                      Free about {ramDeficit.toFixed(1)} GiB more RAM to load {currentProfile?.name}
+                    </h4>
+                    <p className="alert-text">
+                      Close one or more of the applications below yourself, then press <strong>Check Again</strong>.
+                      {streamingProfile && selectedProfileId !== streamingProfile.id && (
+                        <>
+                          {' '}Or use <strong>{streamingProfile.name}</strong>: it needs only{' '}
+                          {streamingProfile.required_ram_gib.toFixed(0)} GiB free and streams experts from the SSD
+                          (slower replies).
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  {streamingProfile && selectedProfileId !== streamingProfile.id && (
+                    <button className="btn-secondary" onClick={() => onSelectProfile(streamingProfile.id)}>
+                      Use 4 GiB profile
+                    </button>
+                  )}
+                </div>
+              )}
 
               {candidates.length > 0 ? (
                 <div className="process-recommendations-list">
@@ -447,8 +545,8 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                 <div>Process Containment: <strong>Win32 Job Object (KILL_ON_JOB_CLOSE)</strong></div>
                 <div>
                   Integrity Decision:{' '}
-                  <strong className={report?.integrity_state?.status === 'CRYPTOGRAPHICALLY_VERIFIED' ? 'text-success' : 'text-warn'}>
-                    {report?.integrity_state?.status || 'PREVIOUSLY_VERIFIED (Startup Cache)'}
+                  <strong className={integrityOk ? 'text-success' : 'text-warn'}>
+                    {integrityLabel(integrity)}
                   </strong>
                 </div>
               </div>
@@ -465,7 +563,7 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                     setShowConfirmation(false);
                     onLoadModel();
                   }}
-                  disabled={isTransitioning || isLoading}
+                  disabled={isTransitioning || isLoading || !integrityOk}
                 >
                   <Play size={16} />
                   <span>Authorize & Launch Runtime</span>
@@ -494,7 +592,8 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
             <button
               className="btn-primary load-confirm-btn"
               onClick={() => setShowConfirmation(true)}
-              disabled={!allPassed || isTransitioning || isLoading}
+              disabled={!allPassed || !integrityOk || isTransitioning || isLoading}
+              title={!integrityOk ? 'Verify the model first' : undefined}
             >
               {isTransitioning ? (
                 <>
