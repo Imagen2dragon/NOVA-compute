@@ -33,6 +33,35 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": {
+      "../../runtime/windows/llama-cpp/llama-server.exe": "runtime/windows/llama-cpp/llama-server.exe",
+      "../../runtime/windows/llama-cpp/llama-server-impl.dll": "runtime/windows/llama-cpp/llama-server-impl.dll",
+      "../../runtime/windows/llama-cpp/llama.dll": "runtime/windows/llama-cpp/llama.dll",
+      "../../runtime/windows/llama-cpp/llama-common.dll": "runtime/windows/llama-cpp/llama-common.dll",
+      "../../runtime/windows/llama-cpp/mtmd.dll": "runtime/windows/llama-cpp/mtmd.dll",
+      "../../runtime/windows/llama-cpp/ggml.dll": "runtime/windows/llama-cpp/ggml.dll",
+      "../../runtime/windows/llama-cpp/ggml-base.dll": "runtime/windows/llama-cpp/ggml-base.dll",
+      "../../runtime/windows/llama-cpp/ggml-cuda.dll": "runtime/windows/llama-cpp/ggml-cuda.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-alderlake.dll": "runtime/windows/llama-cpp/ggml-cpu-alderlake.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-cannonlake.dll": "runtime/windows/llama-cpp/ggml-cpu-cannonlake.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-cascadelake.dll": "runtime/windows/llama-cpp/ggml-cpu-cascadelake.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-cooperlake.dll": "runtime/windows/llama-cpp/ggml-cpu-cooperlake.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-haswell.dll": "runtime/windows/llama-cpp/ggml-cpu-haswell.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-icelake.dll": "runtime/windows/llama-cpp/ggml-cpu-icelake.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-ivybridge.dll": "runtime/windows/llama-cpp/ggml-cpu-ivybridge.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-piledriver.dll": "runtime/windows/llama-cpp/ggml-cpu-piledriver.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-sandybridge.dll": "runtime/windows/llama-cpp/ggml-cpu-sandybridge.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-sapphirerapids.dll": "runtime/windows/llama-cpp/ggml-cpu-sapphirerapids.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-skylakex.dll": "runtime/windows/llama-cpp/ggml-cpu-skylakex.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-sse42.dll": "runtime/windows/llama-cpp/ggml-cpu-sse42.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-x64.dll": "runtime/windows/llama-cpp/ggml-cpu-x64.dll",
+      "../../runtime/windows/llama-cpp/ggml-cpu-zen4.dll": "runtime/windows/llama-cpp/ggml-cpu-zen4.dll",
+      "../../runtime/windows/llama-cpp/libomp.dll": "runtime/windows/llama-cpp/libomp.dll",
+      "../../runtime/windows/llama-cpp/cudart64_12.dll": "runtime/windows/llama-cpp/cudart64_12.dll",
+      "../../runtime/windows/llama-cpp/cublas64_12.dll": "runtime/windows/llama-cpp/cublas64_12.dll",
+      "../../runtime/windows/llama-cpp/cublasLt64_12.dll": "runtime/windows/llama-cpp/cublasLt64_12.dll",
+      "../../runtime/windows/llama-cpp/LICENSE-LLVM-OpenMP": "runtime/windows/llama-cpp/LICENSE-LLVM-OpenMP"
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"
