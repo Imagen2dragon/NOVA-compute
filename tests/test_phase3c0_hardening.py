@@ -221,6 +221,21 @@ class TestDwmExemption(unittest.TestCase):
         self.assertFalse(ok(self.DEV + r"\Windows\System32\dwm.exe", None, self.ROOT))
         self.assertFalse(ok(self.DEV + r"\Windows\System32\dwm.exe", self.DEV, "bad"))
 
+    def test_explorer_path_rule(self):
+        from nova.resource_steward.system_processes import (
+            is_explorer_image_path as ex, is_exempt_system_image_path as exempt)
+        self.assertTrue(ex(self.DEV + r"\Windows\explorer.exe", self.DEV, self.ROOT))
+        self.assertTrue(ex(self.DEV + r"\WINDOWS\EXPLORER.EXE", self.DEV, self.ROOT))
+        # Only the copy directly in %SystemRoot% is exempt.
+        self.assertFalse(ex(self.DEV + r"\Windows\System32\explorer.exe", self.DEV, self.ROOT))
+        self.assertFalse(ex(self.DEV + r"\Users\x\explorer.exe", self.DEV, self.ROOT))
+        self.assertFalse(ex(r"\Device\HarddiskVolume4\Windows\explorer.exe", self.DEV, self.ROOT))
+        self.assertFalse(ex(None, self.DEV, self.ROOT))
+        # Combined rule: dwm and explorer only.
+        self.assertTrue(exempt(self.DEV + r"\Windows\System32\dwm.exe", self.DEV, self.ROOT))
+        self.assertTrue(exempt(self.DEV + r"\Windows\explorer.exe", self.DEV, self.ROOT))
+        self.assertFalse(exempt(self.DEV + r"\Windows\System32\svchost.exe", self.DEV, self.ROOT))
+
     def _gpu(self, procs):
         from nova.resource_steward.models import GPUSnapshot
         return GPUSnapshot(
@@ -249,7 +264,7 @@ class TestDwmExemption(unittest.TestCase):
         from nova.resource_steward.models import GPUProcessInfo
         gate = self._gate([GPUProcessInfo(1128, "[Insufficient Permissions]", None)], {1128})
         self.assertTrue(gate.passed, gate.failure_reason)
-        self.assertIn("1 exempt: dwm.exe", gate.measured_str)
+        self.assertIn("1 exempt: Windows dwm.exe/explorer.exe", gate.measured_str)
 
     def test_gate_blocks_other_apps_alongside_dwm(self):
         from nova.resource_steward.models import GPUProcessInfo
@@ -277,6 +292,18 @@ class TestDwmExemption(unittest.TestCase):
             self.assertTrue(is_exempt_system_gpu_process(pid), f"dwm.exe PID {pid} should be exempt")
         self.assertFalse(is_exempt_system_gpu_process(os.getpid()))
         self.assertFalse(is_exempt_system_gpu_process(0))
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows-only live check")
+    def test_live_explorer_is_exempt(self):
+        from nova.resource_steward.system_processes import is_exempt_system_gpu_process
+        out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq explorer.exe", "/FO", "CSV", "/NH"],
+                             capture_output=True, text=True, timeout=10).stdout
+        pids = [int(line.split('","')[1]) for line in out.splitlines()
+                if line.lower().startswith('"explorer.exe"')]
+        if not pids:
+            self.skipTest("explorer.exe is not running in this session")
+        for pid in pids:
+            self.assertTrue(is_exempt_system_gpu_process(pid), f"explorer.exe PID {pid} should be exempt")
 
 if __name__ == "__main__":
     unittest.main()

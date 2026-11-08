@@ -442,6 +442,40 @@ pub fn is_dwm_image_path(
     path.eq_ignore_ascii_case(&expected)
 }
 
+/// True only if `nt_image_path` is exactly `<system drive device>\<SystemRoot without drive>\explorer.exe`.
+/// Project Owner decision (2026-11-08): the Windows shell (desktop, taskbar) is listed as a
+/// GPU user under WDDM and cannot reasonably be closed, so it is exempt like dwm.exe.
+pub fn is_explorer_image_path(
+    nt_image_path: Option<&str>,
+    system_drive_device: Option<&str>,
+    system_root: Option<&str>,
+) -> bool {
+    let (Some(path), Some(device), Some(root)) = (nt_image_path, system_drive_device, system_root)
+    else {
+        return false;
+    };
+    if path.is_empty() || device.is_empty() || root.len() < 3 || root.as_bytes()[1] != b':' {
+        return false;
+    }
+    let expected = format!(
+        "{}{}\\explorer.exe",
+        device.trim_end_matches('\\'),
+        root[2..].trim_end_matches('\\')
+    );
+    path.eq_ignore_ascii_case(&expected)
+}
+
+/// The only GPU users exempt from the contention gate: the verified system dwm.exe and
+/// explorer.exe. Everything else, including copies elsewhere, still counts as competing.
+pub fn is_exempt_system_image_path(
+    nt_image_path: Option<&str>,
+    system_drive_device: Option<&str>,
+    system_root: Option<&str>,
+) -> bool {
+    is_dwm_image_path(nt_image_path, system_drive_device, system_root)
+        || is_explorer_image_path(nt_image_path, system_drive_device, system_root)
+}
+
 /// Reads a process's NT image path without opening the process (dwm.exe denies
 /// OpenProcess to ordinary users), via NtQuerySystemInformation(SystemProcessIdInformation).
 #[cfg(windows)]
@@ -520,13 +554,33 @@ fn query_system_drive_device() -> Option<String> {
     }
 }
 
-/// True only for the verified system dwm.exe; false on any failure (fail closed).
+/// Names of the GPU processes that counted as competing in the most recent NVML query,
+/// e.g. "Telegram.exe (PID 26500)". Used to tell the user exactly what to close.
+static LAST_COMPETING_GPU_PROCESSES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+pub fn last_competing_gpu_processes() -> Vec<String> {
+    LAST_COMPETING_GPU_PROCESSES.lock().unwrap().clone()
+}
+
+/// "Telegram.exe (PID 26500)"; falls back to "PID 26500" when the image path is unreadable.
+#[cfg(windows)]
+fn describe_gpu_process(pid: u32) -> String {
+    match query_nt_image_path(pid) {
+        Some(path) => {
+            let name = path.rsplit('\\').next().unwrap_or(&path).to_string();
+            format!("{} (PID {})", name, pid)
+        }
+        None => format!("PID {}", pid),
+    }
+}
+
+/// True only for the verified system dwm.exe or explorer.exe; false on any failure (fail closed).
 #[cfg(windows)]
 pub fn is_exempt_system_gpu_process(pid: u32) -> bool {
     let path = query_nt_image_path(pid);
     let device = query_system_drive_device();
     let root = std::env::var("SystemRoot").ok();
-    is_dwm_image_path(path.as_deref(), device.as_deref(), root.as_deref())
+    is_exempt_system_image_path(path.as_deref(), device.as_deref(), root.as_deref())
 }
 
 #[cfg(windows)]
@@ -604,14 +658,20 @@ pub fn query_nvml_gpu() -> Result<(f64, f64, u32), String> {
             let mut buf = vec![NvmlProcessInfo::default(); needed_count as usize];
             let mut actual_count = needed_count;
             let ret2 = get_procs_fn(device, &mut actual_count, buf.as_mut_ptr());
-            // Count only non-exempt processes; only the verified system dwm.exe is exempt.
+            // Count only non-exempt processes; only the verified system dwm.exe and explorer.exe are exempt.
             let listed = (actual_count as usize).min(buf.len());
-            let competing = buf[..listed]
+            let competing: Vec<String> = buf[..listed]
                 .iter()
                 .filter(|p| !is_exempt_system_gpu_process(p.pid))
-                .count() as u32;
-            (ret2, competing)
+                .map(|p| describe_gpu_process(p.pid))
+                .collect();
+            let n = competing.len() as u32;
+            *LAST_COMPETING_GPU_PROCESSES.lock().unwrap() = competing;
+            (ret2, n)
         })?;
+        if final_count == 0 {
+            LAST_COMPETING_GPU_PROCESSES.lock().unwrap().clear();
+        }
 
         let free_vram_mib = mem.free as f64 / (1024.0 * 1024.0);
         let total_vram_mib = mem.total as f64 / (1024.0 * 1024.0);
@@ -801,7 +861,7 @@ pub fn run_preflight_audit_with_profile(
         (false, None)
     };
 
-    evaluate_admission_from_metrics_with_profile(
+    let mut report = evaluate_admission_from_metrics_with_profile(
         avail_ram_gib,
         total_ram_gib,
         commit_pct,
@@ -814,7 +874,22 @@ pub fn run_preflight_audit_with_profile(
         model_info,
         err_msg,
         profile,
-    )
+    );
+
+    // Name the competing GPU apps so the user knows exactly what to close.
+    if telemetry_ok && competing_gpu_apps > 0 {
+        let names = last_competing_gpu_processes();
+        if !names.is_empty() {
+            if let Some(gate) = report.gates.iter_mut().find(|g| g.gate_name == "no_competing_gpu") {
+                gate.failure_reason = Some(format!(
+                    "{} app(s) are using the GPU: {}. Close them and press Check Again.",
+                    competing_gpu_apps,
+                    names.join(", ")
+                ));
+            }
+        }
+    }
+    report
 }
 
 pub fn evaluate_admission_from_metrics(

@@ -15,6 +15,16 @@ export type AppState =
   | 'MODEL_UNLOADED'
   | 'ERROR';
 
+export interface MemoryCleanReport {
+  avail_before_gib: number;
+  avail_after_gib: number;
+  freed_gib: number;
+  trimmed_processes: number;
+  skipped_processes: number;
+  /** "done", "declined", "skipped", or "failed: <reason>" */
+  admin_step: string;
+}
+
 export type RuntimeProfileId =
   | 'gpu_focused'
   | 'balanced'
@@ -196,6 +206,8 @@ export interface AppSettings {
   custom_batch_size?: number | null;
   custom_ubatch_size?: number | null;
   telemetry_interval_secs: number;
+  /** Automatically trim other apps' memory when NOVA needs RAM (ADR-004). */
+  auto_memory_assist?: boolean;
 }
 
 export interface ServerStatus {

@@ -11,6 +11,7 @@ import {
   StreamTokenPayload,
   RuntimeProfile,
   ModelIntegrityState,
+  MemoryCleanReport,
 } from './types';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
@@ -37,6 +38,7 @@ export function App() {
     context_size: 512,
     runtime_profile: 'gpu_focused',
     telemetry_interval_secs: 3,
+    auto_memory_assist: true,
   });
   const [appVersion, setAppVersion] = useState<string>('0.1.0');
   const [isRecoveryOpen, setIsRecoveryOpen] = useState<boolean>(false);
@@ -48,6 +50,8 @@ export function App() {
   const [recoveryExpandedProc, setRecoveryExpandedProc] = useState<string | null>(null);
   const [recoveryShowConfirmation, setRecoveryShowConfirmation] = useState<boolean>(false);
   const [integrity, setIntegrity] = useState<ModelIntegrityState | null>(null);
+  const [isCleaningMemory, setIsCleaningMemory] = useState<boolean>(false);
+  const [lastCleanReport, setLastCleanReport] = useState<MemoryCleanReport | null>(null);
 
   const refreshIntegrity = useCallback(async () => {
     try {
@@ -98,10 +102,24 @@ export function App() {
         setIsRecoveryOpen(true);
       }
     );
+    // Automatic memory assist ran while the model was running: show the result in the RAM tab.
+    const unlistenAssist = listen<{ before_gib: number; after_gib: number; trimmed: number }>(
+      'nova://auto-assist',
+      (event) =>
+        setLastCleanReport({
+          avail_before_gib: event.payload.before_gib,
+          avail_after_gib: event.payload.after_gib,
+          freed_gib: Math.max(0, event.payload.after_gib - event.payload.before_gib),
+          trimmed_processes: event.payload.trimmed,
+          skipped_processes: 0,
+          admin_step: 'auto',
+        })
+    );
     return () => {
       unlistenProgress.then((f) => f());
       unlistenStatus.then((f) => f());
       unlistenWatchdog.then((f) => f());
+      unlistenAssist.then((f) => f());
     };
   }, [refreshIntegrity]);
 
@@ -586,6 +604,29 @@ export function App() {
     await runPreflight(profileId);
   };
 
+  const handleToggleAutoMemoryAssist = async (enabled: boolean) => {
+    const updated = { ...settings, auto_memory_assist: enabled };
+    setSettings(updated);
+    try {
+      await invoke('save_settings_cmd', { settings: updated });
+    } catch (e: any) {
+      setErrorMessage(String(e));
+    }
+  };
+
+  const handleCleanMemory = async () => {
+    setIsCleaningMemory(true);
+    setErrorMessage(null);
+    try {
+      setLastCleanReport(await invoke<MemoryCleanReport>('clean_memory'));
+    } catch (e: any) {
+      setErrorMessage(String(e));
+    } finally {
+      setIsCleaningMemory(false);
+      await runPreflight();
+    }
+  };
+
   const handleLoadModel = async () => {
     setIsLoadingPreflight(true);
     setErrorMessage(null);
@@ -861,6 +902,11 @@ export function App() {
         integrity={integrity}
         onVerifyModel={handleVerifyModel}
         onCancelVerify={handleCancelVerify}
+        onCleanMemory={handleCleanMemory}
+        isCleaningMemory={isCleaningMemory}
+        lastCleanReport={lastCleanReport}
+        autoMemoryAssist={settings.auto_memory_assist !== false}
+        onToggleAutoMemoryAssist={handleToggleAutoMemoryAssist}
       />
 
       {/* Resource Telemetry Dashboard */}

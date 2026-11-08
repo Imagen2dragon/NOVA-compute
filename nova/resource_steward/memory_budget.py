@@ -196,7 +196,8 @@ class MemoryBudgetManager:
             gpu_comp_measured = "UNKNOWN (Query Failed)"
             gpu_comp_failure = "GPU compute process query failed or unavailable. Fail-closed: competing workloads cannot be ruled out."
         else:
-            # Project Owner decision (2026-11-06): only the verified system dwm.exe is exempt.
+            # Project Owner decisions (2026-11-06, 2026-11-08): only the verified system dwm.exe
+            # and explorer.exe are exempt.
             # Every other listed process, including unresolvable ones, counts as competing.
             exempt = [p for p in gpu.compute_processes
                       if system_processes.is_exempt_system_gpu_process(p.pid)]
@@ -205,7 +206,7 @@ class MemoryBudgetManager:
             gpu_comp_passed = (comp_count == 0)
             gpu_comp_measured = f"{comp_count} active apps"
             if exempt:
-                gpu_comp_measured += f" ({len(exempt)} exempt: dwm.exe)"
+                gpu_comp_measured += f" ({len(exempt)} exempt: Windows dwm.exe/explorer.exe)"
             if gpu_comp_passed:
                 gpu_comp_failure = None
             else:

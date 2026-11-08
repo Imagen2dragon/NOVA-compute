@@ -5053,6 +5053,7 @@ mod tests {
 
         // Every running dwm.exe on this machine is the verified system copy.
         let mut dwm_pids = Vec::new();
+        let mut explorer_pids: Vec<u32> = Vec::new();
         unsafe {
             let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
             assert!(snap != INVALID_HANDLE_VALUE);
@@ -5065,6 +5066,9 @@ mod tests {
                     if name.eq_ignore_ascii_case("dwm.exe") {
                         dwm_pids.push(entry.th32ProcessID);
                     }
+                    if name.eq_ignore_ascii_case("explorer.exe") {
+                        explorer_pids.push(entry.th32ProcessID);
+                    }
                     if Process32NextW(snap, &mut entry) == 0 {
                         break;
                     }
@@ -5076,6 +5080,28 @@ mod tests {
         for pid in dwm_pids {
             assert!(is_exempt_system_gpu_process(pid), "dwm.exe PID {} should be exempt", pid);
         }
+        // The Windows shell (Project Owner decision 2026-11-08), if running in this session.
+        for pid in explorer_pids {
+            assert!(is_exempt_system_gpu_process(pid), "explorer.exe PID {} should be exempt", pid);
+        }
+    }
+
+    #[test]
+    fn test_explorer_exemption_path_rule() {
+        use crate::admission::{is_exempt_system_image_path, is_explorer_image_path};
+        let dev = Some("\\Device\\HarddiskVolume3");
+        let root = Some("C:\\WINDOWS");
+        assert!(is_explorer_image_path(Some("\\Device\\HarddiskVolume3\\Windows\\explorer.exe"), dev, root));
+        assert!(is_explorer_image_path(Some("\\DEVICE\\HARDDISKVOLUME3\\WINDOWS\\EXPLORER.EXE"), dev, root));
+        // Only the copy directly in %SystemRoot% is exempt.
+        assert!(!is_explorer_image_path(Some("\\Device\\HarddiskVolume3\\Windows\\System32\\explorer.exe"), dev, root));
+        assert!(!is_explorer_image_path(Some("\\Device\\HarddiskVolume3\\Users\\x\\explorer.exe"), dev, root));
+        assert!(!is_explorer_image_path(Some("\\Device\\HarddiskVolume4\\Windows\\explorer.exe"), dev, root));
+        assert!(!is_explorer_image_path(None, dev, root));
+        // Combined rule: dwm and explorer only.
+        assert!(is_exempt_system_image_path(Some("\\Device\\HarddiskVolume3\\Windows\\System32\\dwm.exe"), dev, root));
+        assert!(is_exempt_system_image_path(Some("\\Device\\HarddiskVolume3\\Windows\\explorer.exe"), dev, root));
+        assert!(!is_exempt_system_image_path(Some("\\Device\\HarddiskVolume3\\Windows\\System32\\svchost.exe"), dev, root));
     }
 
     // =========================================================================
@@ -5124,14 +5150,50 @@ mod tests {
         use crate::memory_watchdog::{MemoryWatchdog, WatchdogPolicy};
         let pol = WatchdogPolicy::default();
         let mut wd = MemoryWatchdog::new();
-        assert!(wd.observe(&pol, Ok((1.2, 60.0)), 0.0).is_none());
-        assert!(wd.observe(&pol, Ok((1.2, 60.0)), 4.9).is_none(), "below sustain time");
+        // ADR-004 rule: stop only when free RAM < 0.5 GiB for 15 s.
+        assert_eq!(pol.critical_avail_gib, 0.5);
+        assert_eq!(pol.sustain_secs, 15.0);
+        // 1.0 GiB free (common while experts stream from the SSD) never stops the model.
+        assert!(wd.observe(&pol, Ok((1.0, 60.0)), 0.0).is_none());
+        assert!(wd.observe(&pol, Ok((1.0, 60.0)), 60.0).is_none());
+        assert!(wd.observe(&pol, Ok((0.4, 60.0)), 61.0).is_none());
+        assert!(wd.observe(&pol, Ok((0.4, 60.0)), 75.9).is_none(), "below sustain time");
         // Recovery resets the timer.
-        assert!(wd.observe(&pol, Ok((2.0, 60.0)), 5.0).is_none());
-        assert!(wd.observe(&pol, Ok((1.0, 60.0)), 6.0).is_none());
-        assert!(wd.observe(&pol, Ok((1.0, 60.0)), 10.9).is_none());
-        let reason = wd.observe(&pol, Ok((1.0, 60.0)), 11.0).expect("sustained low RAM must stop");
-        assert!(reason.contains("Free RAM stayed below 1.5 GiB"));
+        assert!(wd.observe(&pol, Ok((0.8, 60.0)), 76.0).is_none());
+        assert!(wd.observe(&pol, Ok((0.3, 60.0)), 77.0).is_none());
+        assert!(wd.observe(&pol, Ok((0.3, 60.0)), 91.9).is_none());
+        let reason = wd.observe(&pol, Ok((0.3, 60.0)), 92.0).expect("sustained low RAM must stop");
+        assert!(reason.contains("Free RAM stayed below 0.5 GiB"));
+    }
+
+    #[test]
+    fn test_watchdog_assist_threshold_and_cooldown() {
+        use crate::memory_watchdog::{MemoryWatchdog, WatchdogPolicy};
+        let pol = WatchdogPolicy::default();
+        let mut wd = MemoryWatchdog::new();
+        assert!(!wd.should_assist(&pol, 2.5, 0.0), "enough RAM: no assist");
+        assert!(wd.should_assist(&pol, 1.8, 1.0), "below 2.0 GiB: assist");
+        assert!(!wd.should_assist(&pol, 1.0, 20.0), "inside 30 s cooldown");
+        assert!(wd.should_assist(&pol, 1.0, 31.0), "after cooldown");
+        assert!(!wd.should_assist(&pol, f64::NAN, 100.0), "invalid reading never assists");
+    }
+
+    #[test]
+    fn test_cleaner_protects_nova_tree_and_desktop() {
+        use crate::memory_cleaner::{process_tree, should_trim};
+        // nova(100) -> webview(200) -> renderer(300); llama-server(400) child of nova; other app 500.
+        let pairs = [(100, 1), (200, 100), (300, 200), (400, 100), (500, 50), (50, 1)];
+        let tree = process_tree(100, &pairs);
+        assert!(tree.contains(&100) && tree.contains(&200) && tree.contains(&300) && tree.contains(&400));
+        assert!(!tree.contains(&500) && !tree.contains(&50));
+
+        assert!(!should_trim(200, "msedgewebview2.exe", &tree, &[]), "NOVA's own window process");
+        assert!(should_trim(500, "Telegram.exe", &tree, &[]));
+        assert!(!should_trim(600, "dwm.exe", &tree, &[]));
+        assert!(!should_trim(601, "EXPLORER.EXE", &tree, &[]));
+        assert!(!should_trim(602, "llama-server.exe", &tree, &[]));
+        assert!(!should_trim(4, "System", &tree, &[]));
+        assert!(!should_trim(700, "app.exe", &tree, &[700]), "explicitly excluded");
     }
 
     #[test]
@@ -5266,5 +5328,28 @@ mod tests {
         assert_eq!(timings.predicted_n, 2);
         assert_eq!(timings.predicted_ms, 40.0);
         assert_eq!(timings.predicted_per_second, 50.0);
+    }
+
+    // =========================================================================
+    // Clean memory button (ADR-003). Pure helpers only: these tests never trim or purge
+    // the real system's memory.
+    // =========================================================================
+
+    #[test]
+    fn test_memory_clean_report_and_helper_exit_codes() {
+        use crate::memory_cleaner::{build_report, describe_helper_exit, exit_code, PURGE_FLAG};
+        let r = build_report(4.123, 6.987, 42, 7, "done".into());
+        assert_eq!(r.avail_before_gib, 4.12);
+        assert_eq!(r.avail_after_gib, 6.99);
+        assert_eq!(r.freed_gib, 2.86);
+        assert_eq!(r.trimmed_processes, 42);
+        // Free RAM going down (other apps allocating) never reports a negative gain.
+        assert_eq!(build_report(5.0, 4.5, 0, 0, "declined".into()).freed_gib, 0.0);
+
+        assert_eq!(describe_helper_exit(exit_code::OK), "done");
+        assert!(describe_helper_exit(exit_code::PRIVILEGE_FAILED).starts_with("failed:"));
+        assert!(describe_helper_exit(exit_code::PURGE_FAILED).starts_with("failed:"));
+        assert!(describe_helper_exit(99).contains("99"));
+        assert_eq!(PURGE_FLAG, "--nova-memory-purge");
     }
 }

@@ -4,6 +4,7 @@ import {
   AppState,
   RuntimeProfile,
   ModelIntegrityState,
+  MemoryCleanReport,
 } from '../types';
 import {
   ShieldCheck,
@@ -44,7 +45,29 @@ interface ResourceRecoveryModalProps {
   integrity?: ModelIntegrityState | null;
   onVerifyModel?: () => void;
   onCancelVerify?: () => void;
+  onCleanMemory?: () => void;
+  isCleaningMemory?: boolean;
+  lastCleanReport?: MemoryCleanReport | null;
+  autoMemoryAssist?: boolean;
+  onToggleAutoMemoryAssist?: (enabled: boolean) => void;
 }
+
+function adminStepText(step: string): string {
+  if (step === 'done') return 'Windows cache cleared (admin).';
+  if (step === 'declined') return 'Admin step skipped (you declined the Windows prompt).';
+  if (step === 'skipped') return 'Admin step skipped.';
+  if (step === 'auto') return 'Automatic assist while the model was running (no admin).';
+  return `Admin step ${step}.`;
+}
+
+const GATE_LABELS: Record<string, string> = {
+  telemetry_integrity: 'Hardware readings',
+  avail_ram: 'Free RAM',
+  system_commit: 'System commit',
+  avail_vram: 'Free GPU memory',
+  no_competing_gpu: 'Other apps using the GPU',
+  disk_free: 'Free disk space',
+};
 
 /** A model may be loaded only after its SHA-256 has been verified (now or in a trusted cache). */
 export function isIntegrityVerified(integrity?: ModelIntegrityState | null): boolean {
@@ -87,9 +110,13 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
   integrity = null,
   onVerifyModel,
   onCancelVerify,
+  onCleanMemory,
+  isCleaningMemory = false,
+  lastCleanReport = null,
+  autoMemoryAssist = true,
+  onToggleAutoMemoryAssist,
 }) => {
-  if (!isOpen) return null;
-
+  // All hooks run on every render (React rules); the early return is further down.
   const [activeTab, setActiveTab] = useState<'ram' | 'vram' | 'disk' | 'profiles'>(initialTab);
   const [expandedProc, setExpandedProc] = useState<string | null>(initialExpandedProc);
   const [skippedProcs, setSkippedProcs] = useState<string[]>([]);
@@ -125,6 +152,20 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
     (p) => !skippedProcs.includes(p.process_name)
   );
 
+  // The checks that actually block loading, in plain words.
+  const failedGates = (report?.gates || []).filter((g) => !g.passed);
+  const gpuGate = report?.gates?.find((g) => g.gate_name === 'no_competing_gpu');
+  const gpuAppsBlocking = gpuGate ? !gpuGate.passed : false;
+
+  // Open the tab for the first failing check, so the fix is on screen.
+  const firstFailedGate = failedGates[0]?.gate_name;
+  React.useEffect(() => {
+    if (!firstFailedGate) return;
+    if (firstFailedGate === 'avail_ram' || firstFailedGate === 'system_commit') setActiveTab('ram');
+    else if (firstFailedGate === 'avail_vram' || firstFailedGate === 'no_competing_gpu') setActiveTab('vram');
+    else if (firstFailedGate === 'disk_free') setActiveTab('disk');
+  }, [firstFailedGate, report?.timestamp_utc]);
+
   const toggleInstructions = (name: string) => {
     setExpandedProc(expandedProc === name ? null : name);
   };
@@ -132,6 +173,8 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
   const handleSkip = (name: string) => {
     setSkippedProcs((prev) => [...prev, name]);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -168,38 +211,33 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                 </p>
               </div>
             </div>
-          ) : budget?.admission_level === 'RECOVERABLE' ? (
-            <div className="admission-alert warning">
-              <ShieldAlert size={24} className="alert-icon-warn" />
-              <div>
-                <h4 className="alert-title">Resources Needed — Reclaimable Memory Detected</h4>
-                <p className="alert-text">
-                  Your laptop is currently using available memory. However, we identified background
-                  applications holding ~{report?.recovery_summary?.potential_ram_recovery_gib.toFixed(2)} GiB RAM
-                  and ~{report?.recovery_summary?.potential_vram_recovery_mib.toFixed(0)} MiB VRAM.
-                  Closing them will satisfy admission.
-                </p>
-              </div>
-            </div>
-          ) : budget?.admission_level === 'LOW_RESOURCE_AVAILABLE' ? (
+          ) : !report ? (
             <div className="admission-alert info">
               <Info size={24} className="alert-icon-info" />
               <div>
-                <h4 className="alert-title">Alternative Low-Resource Configuration Available</h4>
-                <p className="alert-text">
-                  The selected profile requires more RAM/VRAM than currently free. However, a lower-resource
-                  profile can safely run on your hardware right now!
-                </p>
+                <h4 className="alert-title">Checking your hardware…</h4>
+                <p className="alert-text">Press Check Again if this does not update.</p>
               </div>
             </div>
           ) : (
             <div className="admission-alert error">
               <AlertTriangle size={24} className="alert-icon-err" />
-              <div>
-                <h4 className="alert-title">Hardware Admission Gate Blocked</h4>
-                <p className="alert-text">
-                  {report?.error_message || report?.budget?.summary_reason || 'System resources do not meet safety requirements.'}
-                </p>
+              <div style={{ flex: 1 }}>
+                <h4 className="alert-title">
+                  Not ready to load: {failedGates.length || 1} check{failedGates.length === 1 ? '' : 's'} failed
+                </h4>
+                {failedGates.length > 0 ? (
+                  <ul className="failed-gate-list">
+                    {failedGates.map((g) => (
+                      <li key={g.gate_name}>
+                        <strong>{GATE_LABELS[g.gate_name] || g.gate_name}:</strong>{' '}
+                        {g.failure_reason || `${g.measured_str} (needs ${g.required_str})`}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="alert-text">{report.error_message || 'A safety check did not pass.'}</p>
+                )}
               </div>
             </div>
           )}
@@ -315,12 +353,53 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                 </div>
                 <div className="metric-box">
                   <span className="metric-name">RAM Deficit</span>
-                  <span className="metric-digit deficit">{ramDeficit.toFixed(2)} GiB</span>
+                  <span className={`metric-digit ${ramDeficit > 0 ? 'deficit' : 'good'}`}>{ramDeficit.toFixed(2)} GiB</span>
                 </div>
                 <div className="metric-box">
                   <span className="metric-name">System Commit</span>
                   <span className="metric-digit">{report?.commit_pct.toFixed(1)}%</span>
                 </div>
+              </div>
+
+              {/* Clean memory (like Mem Reduct). ADR-003: user-initiated only; never closes apps. */}
+              <div className="admission-alert info">
+                <RefreshCw size={20} className={isCleaningMemory ? 'spin-icon' : ''} />
+                <div style={{ flex: 1 }}>
+                  <h4 className="alert-title">Clean memory</h4>
+                  <p className="alert-text">
+                    Frees RAM by trimming other apps' memory and clearing the Windows memory cache. No app is
+                    closed; apps may feel slow for a moment afterwards. Windows will ask for admin permission
+                    for the cache step. GPU memory cannot be freed this way; close the GPU apps listed in the
+                    GPU tab instead.
+                  </p>
+                  <label className="alert-text" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={autoMemoryAssist}
+                      onChange={(e) => onToggleAutoMemoryAssist?.(e.target.checked)}
+                      disabled={!onToggleAutoMemoryAssist}
+                    />
+                    <span>
+                      <strong>Automatic memory assist:</strong> when NOVA is short of RAM (before loading, or while the
+                      model runs below 2 GiB free), trim other apps automatically, at most every 30 s. No admin prompt;
+                      no app is closed.
+                    </span>
+                  </label>
+                  {lastCleanReport && (
+                    <p className="alert-text">
+                      <strong>Last clean:</strong> free RAM {lastCleanReport.avail_before_gib.toFixed(2)} →{' '}
+                      {lastCleanReport.avail_after_gib.toFixed(2)} GiB (+{lastCleanReport.freed_gib.toFixed(2)} GiB),{' '}
+                      {lastCleanReport.trimmed_processes} apps trimmed. {adminStepText(lastCleanReport.admin_step)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  className="btn-primary"
+                  onClick={onCleanMemory}
+                  disabled={!onCleanMemory || isCleaningMemory || isTransitioning}
+                >
+                  <span>{isCleaningMemory ? 'Cleaning…' : 'Clean memory'}</span>
+                </button>
               </div>
 
               {/* Guided step: what to free, or switch to the 4 GiB streaming profile */}
@@ -350,7 +429,13 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                 </div>
               )}
 
-              {candidates.length > 0 ? (
+              {ramDeficit <= 0 ? (
+                <div className="no-candidates-box">
+                  <span>
+                    RAM is enough for {currentProfile?.name}. Nothing needs to be closed for memory.
+                  </span>
+                </div>
+              ) : candidates.length > 0 ? (
                 <div className="process-recommendations-list">
                   <div className="section-title-row">
                     <Info size={16} />
@@ -440,16 +525,31 @@ export const ResourceRecoveryModal: React.FC<ResourceRecoveryModalProps> = ({
                 </div>
               </div>
 
+              {gpuAppsBlocking && (
+                <div className="admission-alert warning">
+                  <AlertTriangle size={20} />
+                  <div style={{ flex: 1 }}>
+                    <h4 className="alert-title">Close these apps that are using the GPU</h4>
+                    <p className="alert-text">
+                      {gpuGate?.failure_reason || `${report?.competing_gpu_apps} app(s) are using the GPU.`}
+                    </p>
+                    <p className="alert-text">
+                      Close them yourself (also from the system tray if they keep running there), then press{' '}
+                      <strong>Check Again</strong>. NOVA never closes them for you. The Windows desktop
+                      compositor (dwm.exe) is always allowed.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="vram-guidance-card">
-                <h4 className="guidance-card-title">GPU VRAM Sharing Guidance</h4>
+                <h4 className="guidance-card-title">GPU memory guidance</h4>
                 <p className="guidance-card-text">
-                  Laptops with 6 GB dedicated VRAM share memory with the Windows Desktop Window Manager
-                  and background graphics processes. To achieve maximum throughput:
+                  This laptop has 6 GB of dedicated GPU memory, shared with Windows and other graphics apps.
                 </p>
                 <ul className="guidance-bullet-list">
-                  <li>If Ollama is running in the background, quit it from the Windows system tray to release ~4.2 GB of GPU memory.</li>
-                  <li>Close hardware-accelerated video streaming or 3D applications.</li>
-                  <li>Or switch to <strong>Balanced (24 layers)</strong> or <strong>CPU-Dominant (12 layers)</strong> runtime profiles below to reduce VRAM requirements.</li>
+                  <li>If Ollama or another AI app is running, quit it from the system tray; it can hold several GB of GPU memory.</li>
+                  <li>Close video players, games and other 3D or GPU-accelerated apps.</li>
                 </ul>
               </div>
             </div>

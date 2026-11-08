@@ -2,6 +2,7 @@ pub mod admission;
 pub mod chat;
 pub mod job_object;
 pub mod memory_budget;
+pub mod memory_cleaner;
 pub mod memory_watchdog;
 pub mod model_integrity;
 pub mod resource_advisor;
@@ -53,6 +54,8 @@ pub struct AppContext {
     pub watchdog_epoch: Arc<AtomicU64>,
     /// Reason the memory watchdog last stopped the model, if any.
     pub watchdog_reason: Arc<Mutex<Option<String>>>,
+    /// Last automatic memory assist (pre-load), for its 30 s cooldown.
+    pub last_auto_assist: Mutex<Option<Instant>>,
     /// Minimum free RAM and maximum system commit observed by watchdog during model load.
     pub watchdog_load_metrics: Arc<Mutex<(Option<f64>, Option<f64>)>>,
 }
@@ -64,6 +67,7 @@ fn start_memory_watchdog(app_handle: AppHandle, epoch: u64) {
     tauri::async_runtime::spawn(async move {
         let policy = memory_watchdog::WatchdogPolicy::default();
         let mut watchdog = memory_watchdog::MemoryWatchdog::new();
+        let auto_assist = load_settings().map(|s| s.auto_memory_assist).unwrap_or(true);
         let t0 = Instant::now();
         loop {
             tokio::time::sleep(Duration::from_millis(policy.interval_ms)).await;
@@ -75,7 +79,30 @@ fn start_memory_watchdog(app_handle: AppHandle, epoch: u64) {
                 break;
             }
             let sample = admission::query_system_memory().map(|(avail, _total, commit)| (avail, commit));
-            let maybe_reason = watchdog.observe(&policy, sample, t0.elapsed().as_secs_f64());
+            let t = t0.elapsed().as_secs_f64();
+
+            // Automatic memory assist (ADR-004): give the model room by trimming other apps
+            // (never NOVA, llama-server or the desktop), at most once per cooldown.
+            if let Ok((avail, _)) = sample {
+                if auto_assist && watchdog.should_assist(&policy, avail, t) {
+                    let trimmed = tauri::async_runtime::spawn_blocking(|| {
+                        memory_cleaner::trim_user_working_sets(&[]).0
+                    })
+                    .await
+                    .unwrap_or(0);
+                    let after = admission::query_system_memory().map(|(a, _, _)| a).unwrap_or(avail);
+                    log_diagnostic(&format!(
+                        "[AUTO_ASSIST] Runtime: free RAM {:.2} -> {:.2} GiB; trimmed {} apps",
+                        avail, after, trimmed
+                    ));
+                    let _ = app_handle.emit(
+                        "nova://auto-assist",
+                        serde_json::json!({ "before_gib": avail, "after_gib": after, "trimmed": trimmed }),
+                    );
+                }
+            }
+
+            let maybe_reason = watchdog.observe(&policy, sample, t);
             *ctx.watchdog_load_metrics.lock().unwrap() = (watchdog.min_avail_gib_seen(), watchdog.max_commit_pct_seen());
             let Some(reason) = maybe_reason else {
                 continue;
@@ -130,13 +157,19 @@ fn get_server_status(context: State<'_, AppContext>) -> ServerStatus {
 }
 
 #[tauri::command]
-fn check_admission(model_path: Option<String>, context: State<'_, AppContext>) -> PreflightReport {
+async fn check_admission(
+    model_path: Option<String>,
+    context: State<'_, AppContext>,
+) -> Result<PreflightReport, String> {
     let settings = load_settings().unwrap_or_default();
     let path = model_path
         .filter(|p| !p.trim().is_empty())
         .unwrap_or(settings.model_path);
 
-    let audit = run_preflight_audit(&path);
+    // Off the UI thread: the audit is slow enough to freeze the window.
+    let audit = tauri::async_runtime::spawn_blocking(move || run_preflight_audit(&path))
+        .await
+        .map_err(|e| format!("Hardware check failed: {}", e))?;
 
     let mut current_state = context.current_state.lock().unwrap();
     if *current_state != AppState::ModelReady && *current_state != AppState::Generating {
@@ -153,7 +186,7 @@ fn check_admission(model_path: Option<String>, context: State<'_, AppContext>) -
         }
     }
 
-    audit
+    Ok(audit)
 }
 
 /// Dedicated backend command to explicitly confirm model loading.
@@ -209,6 +242,54 @@ fn cancel_model_confirmation(context: State<'_, AppContext>) -> Result<(), Strin
     }
     log_diagnostic("Model load confirmation was cancelled; authorization invalidated.");
     Ok(())
+}
+
+/// "Clean memory" button (ADR-003): trims other apps' working sets, then asks Windows for
+/// admin rights (UAC) to purge the standby and modified lists. Never closes any app.
+/// Refused while a model is loading or loaded, because it would evict the model's pages.
+#[tauri::command]
+async fn clean_memory(
+    context: State<'_, AppContext>,
+) -> Result<memory_cleaner::MemoryCleanReport, String> {
+    {
+        let st = *context.current_state.lock().unwrap();
+        let model_active = matches!(
+            st,
+            AppState::ModelStarting
+                | AppState::ModelReady
+                | AppState::Generating
+                | AppState::GenerationStopping
+                | AppState::ModelStopping
+        );
+        if model_active || context.server_manager.lock().unwrap().has_child() {
+            return Err(
+                "Unload the model before cleaning memory; cleaning now would push the model out of RAM and slow it down."
+                    .to_string(),
+            );
+        }
+    }
+
+    let report = tauri::async_runtime::spawn_blocking(|| {
+        let before = admission::query_system_memory().map(|(a, _, _)| a).unwrap_or(0.0);
+        let (trimmed, skipped) = memory_cleaner::trim_user_working_sets(&[]);
+        let admin_step = memory_cleaner::run_elevated_purge();
+        std::thread::sleep(Duration::from_millis(700));
+        let after = admission::query_system_memory().map(|(a, _, _)| a).unwrap_or(before);
+        memory_cleaner::build_report(before, after, trimmed, skipped, admin_step)
+    })
+    .await
+    .map_err(|e| format!("Memory cleaning failed: {}", e))?;
+
+    log_diagnostic(&format!(
+        "[MEMORY_CLEAN] free RAM {:.2} -> {:.2} GiB (+{:.2}); trimmed {} processes, skipped {}; admin step: {}",
+        report.avail_before_gib,
+        report.avail_after_gib,
+        report.freed_gib,
+        report.trimmed_processes,
+        report.skipped_processes,
+        report.admin_step
+    ));
+    Ok(report)
 }
 
 #[tauri::command]
@@ -709,16 +790,64 @@ fn get_resource_budget(
     })
 }
 
+/// Model-related states during which other apps must not be trimmed by the pre-load assist.
+fn model_is_active(context: &AppContext) -> bool {
+    let st = *context.current_state.lock().unwrap();
+    matches!(
+        st,
+        AppState::ModelStarting
+            | AppState::ModelReady
+            | AppState::Generating
+            | AppState::GenerationStopping
+            | AppState::ModelStopping
+    ) || context.server_manager.lock().unwrap().has_child()
+}
+
+/// Automatic memory assist before a load (ADR-004): if RAM is short for `profile` and the
+/// owner has auto assist enabled, trim other apps' memory once (cooldown 30 s), no admin.
+/// Returns how much free RAM was gained (GiB), if it ran.
+fn auto_assist_before_load(
+    context: &AppContext,
+    settings: &storage::AppSettings,
+    avail_ram_gib: f64,
+    required_ram_gib: f64,
+) -> Option<f64> {
+    if !settings.auto_memory_assist || avail_ram_gib >= required_ram_gib || model_is_active(context) {
+        return None;
+    }
+    {
+        let mut last = context.last_auto_assist.lock().unwrap();
+        if let Some(t) = *last {
+            if t.elapsed() < Duration::from_secs(30) {
+                return None;
+            }
+        }
+        *last = Some(Instant::now());
+    }
+    let (trimmed, _skipped) = memory_cleaner::trim_user_working_sets(&[]);
+    std::thread::sleep(Duration::from_millis(500));
+    let after = admission::query_system_memory().map(|(a, _, _)| a).unwrap_or(avail_ram_gib);
+    let gained = (after - avail_ram_gib).max(0.0);
+    log_diagnostic(&format!(
+        "[AUTO_ASSIST] Pre-load: free RAM {:.2} -> {:.2} GiB (+{:.2}) for {:.1} GiB requirement; trimmed {} apps",
+        avail_ram_gib, after, gained, required_ram_gib, trimmed
+    ));
+    Some(gained)
+}
+
+/// Runs off the UI thread (async + spawn_blocking): the audit scans processes, initialises
+/// NVML and reads the model header, which used to freeze the window on every check.
 #[tauri::command]
-fn check_admission_v2(
+async fn check_admission_v2(
     model_path: Option<String>,
     profile_id: Option<String>,
+    app_handle: AppHandle,
     context: State<'_, AppContext>,
-) -> PreflightReport {
+) -> Result<PreflightReport, String> {
     let settings = load_settings().unwrap_or_default();
     let path = model_path
         .filter(|p| !p.trim().is_empty())
-        .unwrap_or(settings.model_path);
+        .unwrap_or(settings.model_path.clone());
     let pid = profile_id
         .as_deref()
         .map(memory_budget::RuntimeProfileId::from_str_id)
@@ -727,7 +856,18 @@ fn check_admission_v2(
         });
     let profile = memory_budget::RuntimeProfile::find_by_id(pid);
 
-    let audit = admission::run_preflight_audit_with_profile(&path, Some(&profile));
+    let handle = app_handle.clone();
+    let (path_c, profile_c, settings_c) = (path.clone(), profile.clone(), settings.clone());
+    let audit = tauri::async_runtime::spawn_blocking(move || {
+        let first = admission::run_preflight_audit_with_profile(&path_c, Some(&profile_c));
+        let ctx = handle.state::<AppContext>();
+        match auto_assist_before_load(&ctx, &settings_c, first.avail_ram_gib, profile_c.required_ram_gib) {
+            Some(_) => admission::run_preflight_audit_with_profile(&path_c, Some(&profile_c)),
+            None => first,
+        }
+    })
+    .await
+    .map_err(|e| format!("Hardware check failed: {}", e))?;
 
     let mut current_state = context.current_state.lock().unwrap();
     if *current_state != AppState::ModelReady && *current_state != AppState::Generating {
@@ -743,7 +883,7 @@ fn check_admission_v2(
         }
     }
 
-    audit
+    Ok(audit)
 }
 
 #[tauri::command]
@@ -917,6 +1057,7 @@ pub fn run() {
         watchdog_epoch: Arc::new(AtomicU64::new(0)),
         watchdog_reason: Arc::new(Mutex::new(None)),
         watchdog_load_metrics: Arc::new(Mutex::new((None, None))),
+        last_auto_assist: Mutex::new(None),
     };
 
     log_diagnostic("NOVA Chat Desktop initializing...");
@@ -943,6 +1084,7 @@ pub fn run() {
             confirm_model_load,
             cancel_model_confirmation,
             get_top_processes,
+            clean_memory,
             load_model,
             unload_model,
             get_conversations,

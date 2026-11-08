@@ -50,6 +50,29 @@ def is_dwm_image_path(nt_image_path: Optional[str], system_drive_device: Optiona
     return nt_image_path.lower() == expected.lower()
 
 
+def is_explorer_image_path(nt_image_path: Optional[str], system_drive_device: Optional[str],
+                           system_root: Optional[str]) -> bool:
+    """
+    Pure check: True only if `nt_image_path` is exactly
+    <system drive device>\\<SystemRoot without drive>\\explorer.exe (case-insensitive).
+    Project Owner decision (2026-11-08): the Windows shell is listed as a GPU user under WDDM
+    and cannot reasonably be closed, so it is exempt like dwm.exe.
+    """
+    if not nt_image_path or not system_drive_device or not system_root:
+        return False
+    if len(system_root) < 3 or system_root[1] != ":":
+        return False
+    expected = system_drive_device.rstrip("\\") + system_root[2:].rstrip("\\") + "\\explorer.exe"
+    return nt_image_path.lower() == expected.lower()
+
+
+def is_exempt_system_image_path(nt_image_path: Optional[str], system_drive_device: Optional[str],
+                                system_root: Optional[str]) -> bool:
+    """Only the verified system dwm.exe and explorer.exe are exempt."""
+    return (is_dwm_image_path(nt_image_path, system_drive_device, system_root)
+            or is_explorer_image_path(nt_image_path, system_drive_device, system_root))
+
+
 def query_nt_image_path(pid: int) -> Optional[str]:
     """NT image path of `pid` (e.g. \\Device\\HarddiskVolume3\\...), or None on any failure."""
     if sys.platform != "win32" or pid <= 0:
@@ -96,8 +119,8 @@ def query_system_drive_device() -> Optional[str]:
 
 
 def is_exempt_system_gpu_process(pid: int) -> bool:
-    """True only for the verified system dwm.exe. Fails closed (False) on any doubt."""
-    return is_dwm_image_path(
+    """True only for the verified system dwm.exe or explorer.exe. Fails closed (False) on any doubt."""
+    return is_exempt_system_image_path(
         query_nt_image_path(pid),
         query_system_drive_device(),
         os.environ.get("SystemRoot"),

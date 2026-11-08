@@ -864,6 +864,28 @@ body, html, #root {
   flex-direction: column;
   gap: 18px;
 }
+/* Children keep their natural height; the body scrolls instead. Without this, the
+   tab bar (overflow-x: auto => min-height 0) was squashed and cut in half. */
+.modal-body-scrollable > * {
+  flex-shrink: 0;
+}
+
+.admission-alert.info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.failed-gate-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.failed-gate-list li + li {
+  margin-top: 4px;
+}
 
 .modal-footer {
   padding: 14px 22px;

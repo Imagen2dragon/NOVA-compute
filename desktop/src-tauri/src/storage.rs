@@ -47,6 +47,13 @@ pub struct AppSettings {
     pub custom_ubatch_size: Option<u32>,
     #[serde(default = "default_telemetry_interval")]
     pub telemetry_interval_secs: u32,
+    /// Automatic memory assist (ADR-004): trim other apps' memory when NOVA needs RAM.
+    #[serde(default = "default_auto_memory_assist")]
+    pub auto_memory_assist: bool,
+}
+
+fn default_auto_memory_assist() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -62,6 +69,7 @@ impl Default for AppSettings {
             custom_batch_size: None,
             custom_ubatch_size: None,
             telemetry_interval_secs: 3,
+            auto_memory_assist: true,
         }
     }
 }
